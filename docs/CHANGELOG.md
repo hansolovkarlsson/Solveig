@@ -5,6 +5,48 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### The two conversions `readUpTo` was built for, and the sweep that ran one route — `e54d5c4`, 2026-09-04
+
+`sort` and `gzip -d` were the two programs the entry named, and neither had been
+converted when it closed. Both are now, for about twenty lines between them.
+
+**`sort`: the pipe costs what the name costs.** The byte-at-a-time `readKey`
+loop became `readUpTo` into the buffer the file branch already fills, so the two
+branches differ by which call they make and by nothing else. 584,997 bytes in
+11,350 lines, `--steps` binary-searched: **28,846,431 → 15,402,663**, against
+15,398,455 for the same file named on the command line. Two ways in, one
+performance story, to within 0.03%. 4.7 MB through a pipe went from 1.49 s to
+0.80 s.
+
+**`gzip -d`: the input is gone rather than discounted.** Standard input arrives
+in 4,096-byte pieces, each replacing the last — nothing in the program looks
+backwards, since the window a back-reference reads from is the output. Smallest
+`--memory=N` that finishes: **6,615,294 → 4,528,936** for 187,655 bytes out, and
+**13,121,439 → 8,942,620** for 397,342. That is 35.3× → 24.1× and 33.0× → 22.5×
+held per byte produced, and what is left no longer grows with the stream: a
+gigabyte through the pipe holds the same 4,096 bytes of it a kilobyte does. The
+entry predicted *a bounded read retires two copies of four* and was right about
+which two.
+
+**It cost 1,206 instructions, after costing 725,751.** `nextByte` runs once per
+input byte, so calling the refill test unconditionally is a block send in that
+loop — 1.8%, paid by the named-file route too, where nothing ever refills. The
+guard is written twice now, with a comment saying why it is not tidied away.
+
+**And `programs/gzip/sweep.sh` was naming its input file in all 66 of its
+cases**, so the pipe — the route 6.45 exists for — was checked by nothing.
+`programs/oracle.sh` has run both routes since `sed`; `sweep.sh` is a separate
+script for a program the shared harness does not fit, and the rule did not come
+with it. **A check that was right where it was written and absent from the file
+written next to it** is a different failure from one got wrong. Both sweeps run
+both ways now — gzip at 131 cases, `sort` with a piped section over the eight
+repository files longer than one read — and both were proved to fail rather than
+assumed to: a reader that stops at the first short answer is caught by 64 of
+gzip's 131 and 184 of sort's 1,127, and by none of the file cases in either.
+
+**No language change**, so no GC proof is owed and none is claimed: this is two
+programs and two shell scripts.
+
 ## 0.43.0 — 2026-09-04
 
 **A decompressor, and the read it turned out to want.**

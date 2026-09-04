@@ -11,6 +11,107 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-09-04 (after the close, again) — the two conversions, and a check that ran everything down one route
+
+**The standup listed them as ordinary work and they were.** `readUpTo` shipped
+in 0.43.0 with two named customers and neither converted; both are converted
+now, and between them they cost about twenty lines of program. What was not
+ordinary is what the second one turned up about the check that was supposed to
+be watching it.
+
+### `sort`: four lines, and the pipe now costs what the name costs
+
+The byte-at-a-time loop became `readUpTo` into the same buffer the file branch
+fills, so the two branches differ by which call they make and by nothing else.
+584,997 bytes in 11,350 lines, `--steps` binary-searched:
+
+| | instructions |
+| --- | ---: |
+| through a pipe, `readKey` | 28,846,431 |
+| through a pipe, `readUpTo` | **15,402,663** |
+| the same file named on the command line | 15,398,455 |
+
+**The result worth having is the third row, not the second.** A program with two
+ways in had two performance stories; it has one now, to within 0.03%. 4.7 MB
+went from 1.49 s to 0.80 s, and what came off was 23 instructions for every byte
+of input.
+
+### And a thing about `readChunk` that has nothing to do with pipes
+
+The new pipe route was *faster than the named file*, by 20% in wall clock, while
+costing the same instructions — which does not happen for the reason one would
+first reach for. `reader:next` drains the buffer with `copyFrom(at + 1, size)`,
+so **every line copies whatever is behind it**, and a larger read is therefore
+not a cheaper one:
+
+| `readChunk` | 4.7 MB, named file |
+| ---: | ---: |
+| 4,096 | 0.88 s |
+| 8,192 | **0.85 s** |
+| 16,384 | 0.86 s |
+| 65,536 | 1.01 s ← what it uses |
+
+Both ends of that table are explained: the drain punishes the large reads and
+the per-call cost punishes the small ones. The pipe gets 4,096 whatever it asks
+for, because `readUpTo` answers out of the window, so the conversion changed the
+effective chunk size as a side effect and that is the whole of the 20%.
+
+**It is left at 65,536.** Changing it is a different piece of work and wants its
+own run of the sweep; what this day owed was the measurement, not the change.
+
+### `gzip -d`: the input is gone rather than discounted
+
+Standard input arrives in 4,096-byte pieces, each replacing the last. Nothing in
+the program ever looks backwards — the window a back-reference reads out of is
+the *output* — so a piece that has been read is not kept:
+
+| bytes out | before | after | |
+| ---: | ---: | ---: | --- |
+| 187,655 | 6,615,294 | **4,528,936** | 35.3× → 24.1× held per byte out |
+| 397,342 | 13,121,439 | **8,942,620** | 33.0× → 22.5× |
+
+[6.45](COMPLETED.md#645-a-pipe-cannot-be-taken-in-bounded-pieces--done)
+predicted *a bounded read retires two copies of four*, and that scores as right
+about which two and quiet about what they were worth: thirty-odd bytes for every
+byte of **input**, and the part that is left no longer grows with the stream at
+all. A gigabyte through the pipe holds the same 4,096 bytes of it a kilobyte
+does.
+
+**The first version cost 1.8% and the second costs 0.003%.** `nextByte` is
+called once per input byte, and calling the refill test unconditionally is a
+block send in that loop — 725,751 instructions, paid by the named-file route too,
+where nothing ever refills. Writing the guard twice, so the call happens only
+when the piece in hand has run out, brings it to 1,206. The duplicated line has
+a comment above it saying why, because it looks like something to tidy up.
+
+### The finding: a rule that was right in one file and absent from the next
+
+`programs/gzip/sweep.sh` named its input file on the command line in **all 66 of
+its cases.** The pipe — the route 6.45 exists for, the route this whole day's
+work is about — was checked by nothing, and the reader would have shipped tested
+by the strongest oracle in the repository and not tested at all.
+
+`programs/oracle.sh` has run every case both ways since `sed`, and the argument
+for it is written out in that file: a `sha256sum` whose standard-input path
+drops its last partial chunk is invisible to every named-file case. **That rule
+did not travel to `sweep.sh`**, which is a separate script written for a program
+the shared harness does not fit. So this is not a check somebody got wrong. It
+is a check that was correct where it was written and absent from the file
+written next to it — and the reason is mundane: a case that names a file is
+easier to write than one that redirects.
+
+Both sweeps run both routes now — gzip 66 → 131 cases, `sort` with a piped
+section over the eight repository files longer than one read — and both were
+**proved to fail rather than assumed to.** A reader that stops at the first
+short answer, which is what shipping `readUpTo` read as `fread` would produce,
+is reported by 64 of gzip's 131 and by 184 of sort's 1,127, and by none of the
+file cases in either.
+
+That last clause is the one that matters. The defect is invisible to everything
+that was there before.
+
+---
+
 ## 2026-09-04 (after the close) — the close-out itself, tested twice
 
 **The day was closed out twice**, and the second pass is why this section
