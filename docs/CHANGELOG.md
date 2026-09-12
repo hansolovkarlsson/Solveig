@@ -10,6 +10,21 @@ piece of work as it was argued *before* the work is in
 
 ---
 
+### Closing out 2026-09-12: the front page's count of its readers
+
+**No version, no code, and not committed by the closeout itself.**
+
+**`README.md`'s *Where to start* said two readers, and that neither opened the
+page.** The third reader opened it first, met *Not here* and stopped, which the
+2026-09-04 sweep recorded everywhere the count was spelled *two strangers* and
+nowhere it was spelled *Two readers*. The sentence now names the first two, the
+third with the date, and no total. POSTMORTEM 28.
+
+**Nothing else moved.** An audit of 2026-09-04's twelve commits, eight days on,
+found the day's work in the records, every open item recorded, and the code
+diff clean. The suite is unchanged at **63, 6, 69 and 13**, 151, green before
+the writing and after it, and `make sanitize` is clean.
+
 ### The fourth reader, and the failure this project is built against — 2026-09-04
 
 **No version; nothing in the compiler changed.** Predictions 18 to 23 committed

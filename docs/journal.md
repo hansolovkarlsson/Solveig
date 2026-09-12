@@ -11,6 +11,101 @@ produced no code because they were decisions.
 
 ---
 
+## 2026-09-12: an audit after eight days, and a closeout that had to be reviewed
+
+**Nothing had landed since 2026-09-04.** The day opened on a standup eight days
+old that was still exactly true: tree clean, level with origin, 0.17.0. Two
+sweeps were run against it, one paragraph of the README was rewritten, the
+closeout was written, and a review of the closeout sent most of it back.
+
+### The setup sweep found nothing to add
+
+`/project-setup` in its ensure mode matched the records by role and found all
+five filled, each opening with its own note, the standup in `scratch/` and
+ignored, the licence and the three Makefile targets in place. It wrote nothing.
+The one divergence it named and left: this journal is a single file where the
+newer convention is a directory of dated files. Seven tracked files mention
+`journal.md`, six of them with a link, and this file's own note already settles
+the ordering question the directory shape exists to avoid. Not worth doing
+unless Hans wants it.
+
+### The audit found the day's work recorded, and one sentence left behind
+
+The segment was the twelve commits of 2026-09-04, since the previous closeout
+drew that line and nothing follows it: seven pieces of work by grouping. Six
+have entries in [CHANGELOG.md](CHANGELOG.md); the seventh, `CLAUDE.md` arriving
+in the repository and being corrected, has none, and the changelog's note leaves
+that kind of thing to this file, where 2026-09-04's entry has it. The one
+roadmap item that closed is [COMPLETED.md](COMPLETED.md) 17, and the defect
+shipped as 0.17.0 is [POSTMORTEM.md](POSTMORTEM.md) 24. The code diff read
+clean: identity and path separated everywhere they were compared, both faces of
+the defect tested, one exit from `proto_source_read`. Suite **63, 6, 69 and
+13**, 151, no skips; `make sanitize` the same. Every open item in the standup
+was already on the roadmap or in `solveig-notes.md`.
+
+Three claims were off. `ROADMAP.md`'s map row says *see below* about a
+paragraph above it, and stands. `POSTMORTEM.md`'s scope said *four cohorts*
+over five bullets since at least 2026-09-03; that paragraph was being rewritten
+for entry 28 anyway and now says five. The third is the README.
+
+### The README said two readers, and the sweep that should have caught it knew a different word
+
+`README.md`'s *Where to start* opened: *Two readers who had never seen this
+language were put in front of it, and neither opened this page.* Written at
+10:42 on 2026-09-04 and true of runs 1 and 2. At 11:33 the third reader was
+recorded opening the page first, reading *Not here*, and stopping, and the same
+commit did what [conventions.md](conventions.md) says to do: it grepped for the
+claim rather than opening documents, found *two strangers* in four places,
+including the README's own table of documents at line 721, and corrected all
+four. Then `d01ad10` moved them to four. Line 37 spelled the same count *Two
+readers* and neither sweep reached it, nor did the five overtaken claims
+corrected at 12:01.
+
+That is POSTMORTEM 13's class, a count that is a fact about another document,
+and what it adds is narrow: the sweep was run, on the right day, for the right
+claim, and the claim had two nouns. **A grep for a phrase finds the phrase.**
+The count was not corrected until somebody looked for the thing counted rather
+than for one spelling of it, which an audit did eight days later while checking
+the section's file references for a different reason.
+
+The sentence now names the first two readers as they were, the third with the
+date, and gives no total: a total is the count that went stale, and
+`second-reader.md` declines to put run 4 on the reader axis at all. POSTMORTEM
+28.
+
+### The closeout got the geometry wrong, and a review caught it before the commit
+
+The first draft of today's records said the count had been bumped **six lines
+below the sentence**, in the table under *Where to start*, and built 28's cause
+on that adjacency: the same shape as 25, a sentence outlived by something
+within sight of it, and therefore the *second day* the 2026-09-04 standup had
+asked for before promoting its last-paragraph rule to a standing agreement.
+The hunk was at line 721. The table six lines below the sentence lists three
+files and carries no count. Every part of the argument built on adjacency was
+wrong, and so was the filing: 25 defines itself against exactly this case, a
+claim about *another* document, and 13 already names the class and its defence.
+
+A code review of the four uncommitted files found that, and eleven smaller
+things beside it: a claim that no reader had seen the page since, when run 4
+was handed the README after the sentence went stale; *went to those files*
+about a reader the record says was sent to two of them; *every one is in
+CHANGELOG.md* about seven pieces of work of which six are; *one week later* in
+one record against *eight days* in two; an em dash inherited into an edited
+line; a defect described in the present tense against this repository's own
+rule. The four files were restored from `HEAD` and rewritten.
+
+**What the day actually establishes is smaller than what the draft claimed.**
+The standup's proposed rule, read a document's last paragraph against its
+middle, has one instance behind it still, and this is not a second. What this
+is a second instance of is 19's observation that a defence applied is not a
+defence that reached, and the narrowing it offers is the one in 28: grep for
+the thing counted under every noun the documents give it, not for the phrase
+that was just changed. Whether that goes into `conventions.md` is Hans's call.
+The other thing the day establishes is about this record: the draft stated a
+fact about a diff from a glance at its hunk header, which is the documents
+cohort's failure one level up, and the review that caught it was the same
+re-derivation 13 prescribes, applied to the closeout's own output.
+
 ## 2026-09-04, later — two more readers, and both of them argued with the morning
 
 **The morning's closeout said the day was work the documents had already

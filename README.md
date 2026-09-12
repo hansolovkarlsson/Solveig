@@ -34,10 +34,13 @@ declare `-`.
 
 ## Where to start
 
-**Not here.** Two readers who had never seen this language were put in front of
-it, and neither opened this page — one grepped it after the fact, one never
-opened it at all and volunteered that they had not. Both got a correct program
-on the first compile-and-run anyway, out of three files that are not this one:
+**Not here.** The first two readers who had never seen this language were put
+in front of it, and neither opened this page: one grepped it after the fact, one
+never opened it at all and volunteered that they had not. The third, on
+2026-09-04, opened it first, met the two words above, and stopped reading, which
+is the first time any part of this page has been shown to do a reader any good.
+All three got a correct program on the first compile-and-run, out of files that
+are not this one:
 
 | | |
 | --- | --- |

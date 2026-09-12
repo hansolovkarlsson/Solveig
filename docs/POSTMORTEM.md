@@ -9,18 +9,19 @@ shipped. This is the failures.
 
 ## Scope
 
-Twenty-seven, from five days, in four cohorts that failed for four different
+Twenty-eight, from six days, in five cohorts that failed for five different
 reasons:
 
 - **In the compiler** — eight, five of which were latent from 0.1.0 and 0.2.0.
 - **In the method** — two: a negative control that passed because `make` had
   rebuilt nothing, and a reader experiment whose own prompt changed the surface
   it was measuring.
-- **In the documents** — eight: three an edit that reported success and changed
+- **In the documents**, nine: three an edit that reported success and changed
   nothing, two where no edit was attempted at all, one where a sweep looked in
   the files it remembered instead of for the claim, one where the fix falsified
-  the sentence describing it, and one where a file's closing sentence outlived
-  the section that settled it.
+  the sentence describing it, one where a file's closing sentence outlived the
+  section that settled it, and one where a sweep corrected a count in three
+  files and missed the fourth, which spelled it with a different noun.
 - **In the programs** — four, found by the first real use of a thing.
 - **In the reasoning** — five, where something true was written down as
   something else and had to be retracted.
@@ -608,6 +609,57 @@ claims and none of them read this file's last paragraph against its own middle.
 **A sweep looks for a claim it can check against something else; this one is
 only wrong against a later section of itself.**
 
+### 28. A count with two nouns, and a sweep that knew one of them, 2026-09-12
+
+**What.** `README.md`'s *Where to start* opened: *Two readers who had never seen
+this language were put in front of it, and neither opened this page.* Written at
+10:42 on 2026-09-04 in `6bd7ef4`, after runs 1 and 2, and true of them. At 11:33,
+`dceee92` recorded run 3: that reader opened the page **first**, met *Not here*,
+and stopped, which [second-reader.md](second-reader.md) calls the first evidence
+that any part of the README has been load-bearing. The same commit swept the
+tree for the stale count, found *two strangers* in `does-it-pay.md`,
+`REFERENCE.md`, `targets.md` and the README's own table of documents at line
+721, and corrected all four; `d01ad10` moved them to *four* at 11:55. Line 37
+said *Two readers* and was reached by neither sweep, nor by `62b8e06`'s five
+overtaken claims at 12:01.
+
+**What it cost.** Nothing recorded. Run 4 was handed `README.md` after the
+sentence had gone stale, and `second-reader.md` does not say whether that reader
+opened it. What it stood to cost was the next reader being told, by the page
+they were reading, that nobody reads it, on the strength of a count the same
+file's foot had already moved past twice.
+
+**Cause.** 13's class, not 25's: a count that is a fact about another document,
+with nothing in the sentence to notice when the other document moved. 25's
+sentence disagreed only with itself; this one disagreed with `second-reader.md`
+and with line 721 of its own file. What is new is that the defence 20 wrote
+into [conventions.md](conventions.md), *grep for the claim and not for the
+documents*, was applied that day and did not reach: the claim was spelled
+*two strangers* in four places and *Two readers* in one, and a grep for the
+phrase found the phrase.
+
+> A count is a claim about a thing, not about a phrase. The sweep that corrects
+> one spelling of it has not corrected the count until it has looked for the
+> thing counted, under every noun the documents use for it.
+
+**Fixed** in place on 2026-09-12: the first two readers as they were, the third
+dated, and no total, since a total is the count that went stale and
+`second-reader.md` declines to put run 4 on the reader axis at all.
+
+**Found by** an audit eight days later, reading the sentence against
+`second-reader.md`'s run count while checking that the section's three file
+references resolved. That is 13's defence, a claim about another document
+re-derived when read, working for the reason 19 says it usually does not: the
+sentence was being read for something else.
+
+**This entry's first draft placed the corrected count six lines below the
+sentence**, in the table under *Where to start*, having read a diff hunk's
+header as that table. The hunk was at line 721, some seven hundred lines away,
+and the draft's cause, adjacency, was built on the misreading. A review before
+the commit found it and the entry was rewritten. It is noted here because a
+fact about a diff stated from a glance at the diff is the class this cohort
+collects, one level up.
+
 ---
 
 ## In the programs
@@ -886,11 +938,13 @@ corrected where it stands rather than made never to have happened.
 | Reading a document to act on it, and being contradicted by the rest of it | **1** |
 | A reader run aimed at something else | **1** |
 | Checking the experiment's instructions against the published ones | **1** |
+| Re-deriving a claim about another document while reading for something else | **1** |
 
-**Two of twenty-seven were found by tests**, and one of those two was a broken
-test. Five came from writing programs in the language — four of the six
-programs found one, and the sixth found none — and three more came from reading
-something rather than running it.
+**Two of twenty-eight were found by tests**, and one of those two was a broken
+test. Five came from writing programs in the language (four of the six
+programs found one, and the sixth found none) and five more came from reading
+something rather than running it. The rows sum to one more than the entries,
+because 16 was found by two things and sits in two of them.
 
 The unit tests are worth having — 151 of them, and they caught 1 immediately —
 but they check what was thought of. **What found the rest was a customer, or a
