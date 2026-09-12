@@ -2471,6 +2471,13 @@ The two copies still there are of the *output*, which wants a ring buffer and an
 incremental write and is this program's own business. It cost 1,206
 instructions, 0.003%.
 
+**The named file still arrives whole.** `readUpTo` is standard input's call,
+so the bound above holds for the pipe and not for a name on the command line:
+`doOne` reads a file with `readFile(path)` and hands it to `resetInput` in one
+piece. The ranged `readFile(path, from, count)` that `sort`'s reader is built
+on would give this route the same shape, and it is a separate change, the
+program's own rather than the language's.
+
 **And that before column is why `--memory=N` is a ceiling and not a reading.**
 It steps rather than climbing: 6.62 MB for the first four rows and 8.71 for the
 last three, one jump of 2,095,509 and nothing between. Five compression levels
