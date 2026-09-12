@@ -135,14 +135,16 @@ a different language.
 
 ## Status
 
-**0.43.0** — the language answers 145 messages, up from 144, and `.sob` files
-are still format version 14. [gzip](programs/gzip.sol) is the twenty-second
-program and inflates a gzip stream, held against the tool that produced every
-input it is checked against — 66 round trips, byte for byte. It was written to
-measure what a 32 KB window costs as boxed values and found the window is 4.8%
-of the program where reading the bits is 70.7%. `system:readUpTo(#n)` answers up
-to n bytes of standard input exactly as they were sent, which is what lets a
-program's memory stop depending on the size of its input.
+**0.44.0** — the language answers 146 messages, up from 145, and `.sob` files
+are still format version 14. [Proto](proto/README.md),
+the compiler whose syntax arrives with the file it compiles, is now a subproject
+of this repository, built and tested from the root and reaching Solveig only
+through `bin/`. `system:utcOffset(t)` answers the seconds the machine's clock
+is ahead of UTC at an instant, which is what a `diff` header needs and what
+closed the roadmap's last entry: the program had been an hour out on any file
+older than the last clock change, and no check could see it because every
+check writes its operands fresh. `sort`'s reader was quadratic twice in the
+length of a line and agreed with the tool the whole time, which is now a rule.
 
 Working: the scanner, the single-pass compiler, the re-entrant dispatch loop
 with call frames, blocks with lexical capture, message-based control flow, a

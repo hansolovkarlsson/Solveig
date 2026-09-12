@@ -5,6 +5,42 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+## 0.44.0 — 2026-09-12
+
+**Proto is in the tree, and the roadmap is empty again.**
+
+[Proto](../proto/), the compiler whose syntax arrives with the file it
+compiles, is now `proto/`, brought in by `git subtree add` with its 86 commits.
+It keeps its own Makefile, records and version; the root `make` builds it,
+`make test` runs its suite after Solveig's, and `make install` puts `proto` and
+its dialects beside the four binaries. The boundary did not move: Proto reaches
+Solveig through `bin/` and nothing else, and the case for leaving it outside is
+in the journal next to the decision that overruled it.
+
+**`system:utcOffset(t)`** closes
+[6.44](COMPLETED.md#644-an-instant-cannot-be-written-in-local-time--done), the
+only entry the roadmap had: the seconds this machine's clock is ahead of UTC at
+an instant, as a float, so a `diff` header can be stamped in local time without
+a fork. `diff.sol`'s header had been an hour out for any file last written on
+the other side of a daylight-saving change, for ten days marked *not urgent*,
+because the oracle writes its operands fresh and never held such a file.
+`time` stays a UTC value; the offset lives on `system` because a zone is a fact
+about the machine.
+
+**`sort`'s reader was quadratic twice** in the length of a line longer than one
+read, and had agreed with `/usr/bin/sort` over 1,127 runs because it agreed.
+A reader holds lines, not a buffer, now: a 4 MB line went from 7.71 s to
+0.03 s. `sort` and `gzip -d` both read a pipe through `readUpTo`, which is what
+the message was built for, and [method.md](method.md) gained the rule an oracle
+that compares answers cannot see a defect that is only slow.
+
+**146 messages, up from 145**, across 249 registrations. `.sob` files are still
+format version 14. Checked rather than asserted: 0.43.0's compiler and this
+one produce byte-identical `.sob` files for all 35 examples, and every one runs
+the same on both machines both ways round, except that `time.sol` now sends
+`utcOffset` and the old machine stops there with *object does not understand*,
+which is the shape an old machine refusing a new message is meant to have.
+
 ### `system:utcOffset(t)`, and `diff`'s header stops being an hour out — `602da81` `92fca21`, 2026-09-12
 
 **The language answers 146<!--count messages--> messages**, up from 145, across

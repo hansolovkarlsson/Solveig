@@ -199,6 +199,19 @@ version the binaries inside it report.
 
 ## Status
 
+**0.44.0** — Proto is in the tree, and the roadmap is empty again.
+[Proto](proto/), the compiler whose syntax arrives with the file it compiles,
+is now a subproject with its 86 commits: the root `make` builds it and `make
+test` runs its suite, and it still reaches Solveig only through `bin/`.
+**`system:utcOffset(t)`** answers the seconds the machine's clock is ahead of
+UTC at an instant, which is what a `diff` header needs and what closed the
+roadmap's last entry; `diff.sol` had been an hour out on any file older than
+the last clock change, and its oracle could not see it because the oracle
+writes every operand fresh. `sort`'s reader was quadratic twice in a long line
+and agreed with the tool over 1,127 runs while it was, which is now a rule in
+[method.md](docs/method.md). 146 messages, up from 145, and `.sob` files are
+still format version 14.
+
 **0.43.0** — a decompressor, and the read it turned out to want.
 [gzip](programs/gzip.sol) is the twenty-second program and inflates a gzip
 stream: a bit reader, canonical Huffman a bit at a time, a 32 KB window that
