@@ -11,6 +11,85 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-09-12: an audit over the week's silence, and one item that lived only in the standup
+
+**Nothing had moved in eight days**, which is the condition an audit is for:
+enough distance from the work that nobody is sure any more which of the records
+still tell the truth. Two skills ran, `/project-setup` in its ensure mode and
+`/project-audit` over `v0.43.0..HEAD`, and between them they wrote seven lines.
+
+### The setup found nothing to set up
+
+The ensure pass matches records by role rather than filename, and every role
+here was filled: roadmap, completed, changelog and journal under the standard
+names, the standup in `scratch/` and ignored, and the postmortem **refused on
+record**: [CLAUDE.md](../CLAUDE.md) says there is no such file and one should
+not be created, since predictions are scored in [ideas.md](ideas.md) above the
+outcome that met them. A refusal written down is a decision and not a gap, and
+the skill reported it as one. The one divergence it named is that the journal
+is a single file where the standard is a directory of dated files; retiring
+that would re-point every link into this page and move the document counts,
+and it stays as it is.
+
+### The audit's segment, and what it counted
+
+The boundary was the tag: the releases had been one a day for six days, so
+`v0.43.0` is a line somebody drew, and the thirteen commits after it are all
+the afternoon of 2026-09-04. Eight tasks in those thirteen, four of the commits
+being close-out accounts rather than work, and every task that owed the ledger
+an entry had one: the two conversions and the two quadratics in
+[CHANGELOG.md](CHANGELOG.md) and [programs.md](programs.md), 6.45 extended in
+[COMPLETED.md](COMPLETED.md) with its customers. The claims held too: `20k
+lines of C11` is 20,267 outside `tests/` and `extensions/`, the markers
+`CLAUDE.md` quotes match the live ones, and the standup's suite figures were
+the ones the run produced.
+
+**The one thing that had fallen through was an item that lived only in the
+standup.** The 2026-09-04 close-out listed `gzip -d`'s named-file route as
+still reading whole, and it was true and recorded nowhere durable: the
+conversion to `readUpTo` bounded what the pipe holds, and a name on the command
+line still goes through `readFile(path)` into `resetInput` in one piece.
+[gzip.sol](../programs/gzip.sol) states that as the shape in a comment and not
+as a thing left open. The standup is overwritten every close-out, so an item
+that is only there is rediscovered from scratch the next time somebody measures
+that route.
+
+**Where it went is the decision worth recording.** The roadmap is the default
+target for an open item and it would have been the wrong one: its own opening
+note calls it the list of what the *language* lacks, and the ranged
+`readFile(path, from, count)` this route would use was built for `sort` and
+closed. The item's siblings from the same standup answered the question faster
+than reasoning about it would have. The two output copies are a paragraph in
+[programs.md](programs.md)'s gzip section and `unzip`-that-extracts sits in
+[ideas.md](ideas.md) behind its trigger, so it went beside the first of those,
+as `f020a47`. Seven lines, additive, and no count moved.
+
+### What was reported and not written
+
+**Nothing would see the two quadratics come back.** Every check compares bytes,
+the sweep's longest line is 30,000 where the defect bit at four million, and
+[method.md](method.md) records that as a rule rather than a check. Asked
+whether to record a timed case as an idea behind a trigger, the answer was no:
+nothing breaks today without it, which is the trigger rule applied to the
+audit's own proposal, and the rule already says what would have caught the
+thing.
+
+The code read clean. The new `sort` reader was traced through a line spanning
+pieces, a blank line, a piece ending on a newline and an unterminated last line,
+and `gzip`'s `inReady` turned out to depend on `readUpTo` never answering an
+empty string, which the implementation guarantees in a comment and
+[REFERENCE.md](REFERENCE.md) only implies. Not a defect; a contract stated one
+level down from where a reader would look for it.
+
+The three numbers the audit had to leave unverified were run afterwards, since
+a figure recorded on 2026-09-04 is not one observed today: `sort/sweep.sh` put
+200 generated, 40 real and 9 piped inputs through all 23 option forms against
+`/usr/bin/sort` and nothing disagreed, and `gzip/sweep.sh`'s 131 cases came
+back to the byte. Eight days of silence changed nothing, which is what a run
+is for.
+
+---
+
 ## 2026-09-04 (after the close, third) — the constant was a symptom, and under it were two quadratics
 
 **The review pass left one thing measured and not acted on**, which was the
