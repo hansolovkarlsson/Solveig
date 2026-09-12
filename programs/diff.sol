@@ -464,31 +464,13 @@ report:header := { from, count, lines | | at |
             { "{},{}":fill([from, count]) }) }) }.
 
 ; The stamp a header carries is the file's modification time in **local** time,
-; which is what every diff prints and what this language cannot produce: an
-; instant formats in UTC and there is no message for the offset. So the offset
-; is asked of the machine once, and added.
-;
-; **Once, rather than per file**, and that is a real limitation rather than a
-; shortcut: the offset is the one in force *now*, so a file stamped on the other
-; side of a daylight-saving change is printed an hour out. Asking `date` per
-; file would fix it and would be two forks instead of one to work around a gap
-; that should not be worked around at all. The account is at the bottom.
-report:offset := nil.
-
-report:localOffset := { | z, sign, minutes |
-    self:offset:isNil:ifTrue({
-        z := { system:capture(["date", "+%z"]):at("output"):trim }
-                 :onError({ e | "+0000" }).
-        self:offset := { sign := z:copyFrom(#1, #1):equals("-")
-                                     :ifElse({ #-1 }, { #1 }).
-                         minutes := z:copyFrom(#2, #3):asInteger:mul(#60)
-                                        :add(z:copyFrom(#4, #5):asInteger).
-                         sign:mul(minutes):mul(#60) }
-                       :onError({ e | #0 }) }).
-    self:offset }.
-
+; which is what every diff prints. An instant here formats in UTC, and
+; `system:utcOffset` answers what the machine's clock is ahead of that *at the
+; instant asked*, so a file stamped on the other side of a daylight-saving
+; change comes out right. Until 2026-09-12 this was a fork of `date +%z` once
+; per run, and an hour out for exactly that file. The account is at the bottom.
 report:stamp := { s |
-    s:stamp:plusSeconds(self:localOffset:asFloat)
+    s:stamp:plusSeconds(system:utcOffset(s:stamp))
         :asString("%Y-%m-%d %H:%M:%S") }.
 
 report:unified := { a, b, changes | | context, hunks, current, last |
@@ -820,3 +802,16 @@ demonstrate := { | dir, one, two |
 ; found on 2026-08-31: not a missing feature but a **silent wrong answer**, and
 ; found the same way, by a program with a reason to try the thing nobody had
 ; tried. It is the one finding here that is a defect rather than a limitation.
+
+; ### The stamp was an hour out, and the sweep could not have seen it
+;
+; A unified header prints each file's modification time in local time, and
+; this language had no route from an instant to the offset. The workaround was
+; one fork of `date +%z` per run, which answers the offset in force *now*; a
+; file last touched before the clocks changed was printed an hour out. That is
+; not a rare file, it is most of any tree in the months after March, and the
+; roadmap said "not urgent" for ten days because the sweep and the corpus both
+; write their operands fresh, so both stamps are always on the same side of the
+; change. The oracle agreed by construction. `system:utcOffset(t)` closed it on
+; 2026-09-12, taking the instant so that the answer is right per file; the
+; entry is 6.44.
