@@ -136,7 +136,7 @@ a different language.
 ## Status
 
 **0.44.0** — the language answers 146 messages, up from 145, and `.sob` files
-are still format version 14. [Proto](proto/README.md),
+are still format version 14. [Proto](proto/docs/what-is-proto.md),
 the compiler whose syntax arrives with the file it compiles, is now a subproject
 of this repository, built and tested from the root and reaching Solveig only
 through `bin/`. `system:utcOffset(t)` answers the seconds the machine's clock

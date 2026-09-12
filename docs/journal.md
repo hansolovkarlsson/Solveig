@@ -120,6 +120,21 @@ time in its output knows to look. And no release: the version stays 0.43.0 and
 the entry sits above it in the changelog, because a release is a procedure
 with a tag and a page and was not asked for.
 
+**The release, and the one thing the page said that the file did not.**
+Hans asked for the push and the cut, and 0.44.0 went out by
+[releasing.md](releasing.md): the four files, the tag, the bytes of all 35
+examples compared across both compilers and both machines, the page with its
+three fixups checked by fetching it (five paragraphs, no `<br>`, three links
+answering 200), `site.sh` clean. Then the front page was read as a stranger
+would read it, which the procedure asks for last, and the word *Proto* in the
+new status paragraph was a link to `proto/README.md`, which is a 404 on the
+site: the front-matter plugin does not render a file called README, so the
+link that is right on GitHub is wrong on Pages, and `site.sh` did not see it
+because it holds links against pages and a README is not one. The link now
+goes to Proto's own [what-is-proto](../proto/docs/what-is-proto.md), which is
+served. One line, after the tag, which is what the last step of the procedure
+is for.
+
 **Seen, not caused, and not chased:** `test_documents` failed once in about
 eight runs, always the same way, reporting the NUL-path block at
 `ideas.md:850` as *did not run* and the claim count three short. Eight runs at
