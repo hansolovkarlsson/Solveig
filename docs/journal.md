@@ -11,6 +11,124 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-09-12, third: the only entry on the roadmap, and the morning it stopped being not urgent
+
+**The day opened on a clean tree and one roadmap entry**, 6.44, an instant
+cannot be written in local time, held since 2026-09-02 as *not urgent* with one
+customer. Hans asked what it was, then for a decision, then for a scoping, and
+then to build it. By the close it was `system:utcOffset(t)`, the fork in
+`diff.sol` was gone, and the roadmap was empty for the fifth time.
+
+### The recommendation was to build, and the reason was not the one on record
+
+The entry said the wrongness "needs a file older than the last clock change to
+show", and that sentence was doing more work than it knew. In September the
+last clock change was March, so the file it needs is any file untouched for six
+months, which is most of a tree. Before recommending anything I stamped two
+files, January and July, and put them through the program next to the tool:
+
+```text
+diff -u:        --- old  2026-01-15 12:00:00
+programs/diff:  --- old  2026-01-15 13:00:00
+```
+
+A shipped program, wrong by an hour on an ordinary input, for ten days. So the
+recommendation was not *the trigger has been met by a second customer*, it was
+*the trigger was met on the day the entry was written and nobody looked*. The
+[trigger rule](method.md#a-program-asks-not-a-document) asks that an entry say when its trigger was not met;
+this one had said it, in the sentence that turned out to be the trigger.
+
+**Why nobody had looked is the part worth keeping.** `oracle.sh` writes the
+operands of every case fresh, and `sweep.sh` generates its pairs fresh, so both
+stamps in every header the checks ever compared were on the same side of the
+same clock change, and the file route agreed with the tool by construction.
+That is [the input shape that shows it is the one no corpus has](method.md#an-oracle-that-compares-answers-cannot-see-a-defect-that-is-only-slow),
+the rule `sort` paid for on 2026-09-04, with a modification time where `sort`
+had a line length. A corpus has to be told about a dimension before it can
+vary it, and nobody had told this one about *when*.
+
+### The scoping, and the two decisions that were his
+
+The shape was small enough that the scoping was mostly a list of what it
+touches, but two things were not mine to settle and were put to Hans with a
+recommendation each: the **name**, `utcOffset` against `localOffset`, and the
+**type**, float against integer. He took both recommendations. `utcOffset` is
+ISO's term and `date +%z`'s meaning; `localOffset` says whose without saying
+from what. A float is what every count of seconds here is, and the use is
+`plusSeconds`, which is strict about wanting one. An integer would have been
+the honest type for a thing that is always whole minutes, and would have cost
+`asFloat` at every call.
+
+The third decision was made in the scoping and not put to him, because the
+language had already made it: **on `system`, not on `time`.** The reference
+says *everything is UTC, and that is the decision rather than an omission*,
+and a message on `time` answering a zone's offset would have been the thin end
+of exactly the thing that paragraph refuses. A zone is a fact about the machine
+and lives beside `terminalSize` and `environment`. What the message answers is
+a number, and the language already takes one: `asTime` accepts `+01:00` after
+a timestamp "because an offset is arithmetic". This is the same fact the other
+way round, and `time` still has nothing in it a legislature can change.
+
+**Refused alongside**, so that the paragraph stays true: no `asLocalString`,
+no zone names, no `asTime` of a local reading, and no reading of `TZ` by the
+language. libc reads `TZ`, and the test pins it there.
+
+### The obvious field was wrong for the Makefile's reason
+
+`tm_gmtoff` is the field every C programmer reaches for, and it is a BSD
+extension. The Makefile builds Linux with `_XOPEN_SOURCE=700` and says why in
+a comment written after a Linux runner found `gmtime_r` hidden: naming a
+standard on glibc *hides* what is outside it. `tm_gmtoff` is outside it. So
+the primitive is `localtime_r`, which is POSIX, and the wall-clock reading it
+answers re-read as if it were UTC through `days_from_civil`, which the `asTime`
+parser already had for the reason its own comment gives, minus the instant.
+That is the definition of the offset, and daylight saving comes out right
+because `localtime_r` applied the rules in force at the instant asked. Twenty
+lines, nothing allocated, no root to keep.
+
+Checked under four zones before the test was written: Los Angeles -28800 and
+-25200 for January and July, Stockholm 3600 and 7200, Kolkata 19800 both
+times, UTC zero. Then the same four in `test_system.c`, with `TZ` put back
+afterwards so that the rest of the suite runs under the machine's own.
+
+### What the suite asked for that the scoping had not listed
+
+Three things, each a check doing its job. `test_compile` refused a built-in
+message that no example sends, so `examples/time.sol` gained a paragraph and
+two lines under *Showing one*. It then refused an index that said 145 when
+there were 146, and a cheatsheet that did not list the new one. And the
+document checker found six links across the changelog, ideas.md and this file
+that named the roadmap heading 6.44 had just left, and one comment in the
+example that it read as a claim about output and could not verify, since the
+answer depends on the zone the reader is in. The comment now says `-- ` first,
+which is the example's convention for *like this, not exactly this*.
+
+None of that is a defect in the scoping; it is what the scoping's line *make
+test, and re-sync the count if it moved* stands for. Three commits, in the
+order [method.md](method.md#how-a-feature-ships) gives: the language with its
+documents, then the program, then the records.
+
+### What did not close
+
+The oracle's hole is still open. `oracle.sh` has no way for a case to say
+*stamp this operand in January*, so the defect that raised the entry is pinned
+in `test_system.c` and in the program's own account, not in the corpus that
+holds the program against the tool. Adding a `touch` directive to the harness
+for one program's one case was more harness than the case is worth, and the
+account in `diff.sol` says where the hole is so that the next program with a
+time in its output knows to look. And no release: the version stays 0.43.0 and
+the entry sits above it in the changelog, because a release is a procedure
+with a tag and a page and was not asked for.
+
+**Seen, not caused, and not chased:** `test_documents` failed once in about
+eight runs, always the same way, reporting the NUL-path block at
+`ideas.md:850` as *did not run* and the claim count three short. Eight runs at
+`602da81` before the record edits all passed and three of twenty with them
+failed, which is not enough to say the edits matter; the block itself was
+compiled once and run sixty times from the checker's own sandbox with no
+failure, so whatever it is lives in the harness's run of it and not in the
+block. Recorded here so that the next person to see it knows it was seen.
+
 ## 2026-09-12, later: Proto comes in, and the argument against it is kept
 
 **Proto is now `proto/`**, brought in with `git subtree add` so its 86 commits
@@ -755,7 +873,7 @@ both the answer and the flag.
 The day opened on the question of what is still open, which meant reading
 [ROADMAP.md](ROADMAP.md) and [ideas.md](ideas.md) rather than writing anything.
 The answer is the one yesterday left: two entries,
-[6.44](ROADMAP.md#644-an-instant-cannot-be-written-in-local-time) and
+[6.44](COMPLETED.md#644-an-instant-cannot-be-written-in-local-time--done) and
 [6.45](COMPLETED.md#645-a-pipe-cannot-be-taken-in-bounded-pieces--done), the second
 marked **decision** because the obvious spelling for it is deliberately taken.
 Nothing about those moved. What the reading found was beside them.
@@ -925,7 +1043,7 @@ than for being careful.
 
 ### What is open
 
-[6.44](ROADMAP.md#644-an-instant-cannot-be-written-in-local-time), one customer
+[6.44](COMPLETED.md#644-an-instant-cannot-be-written-in-local-time--done), one customer
 and not urgent. [6.45](COMPLETED.md#645-a-pipe-cannot-be-taken-in-bounded-pieces--done),
 marked **decision**, because the obvious spelling is taken — `readFile` refuses
 a range on a stream on purpose, so a bounded read of a pipe is a different
@@ -1202,7 +1320,7 @@ end, and the four entries stay where they are.
 | [diff](../programs/diff.sol) | the twentieth program, and the first that computes rather than recognises |
 | [sort](../programs/sort.sol) | the twenty-first, and the first that does not have to hold its input |
 | [6.43](COMPLETED.md#643-a-program-cannot-read-standard-input-whole-and-the-call-that-looks-as-though-it-can-answers---done) | a pipe cannot be read whole, and the call that looks as though it can answers `""` |
-| [6.44](ROADMAP.md#644-an-instant-cannot-be-written-in-local-time) | an instant cannot be written in local time |
+| [6.44](COMPLETED.md#644-an-instant-cannot-be-written-in-local-time--done) | an instant cannot be written in local time |
 | four rules | in [method.md](method.md), each from something that went wrong here |
 
 The roadmap's open list had been empty for a day and is not any more, which is
@@ -1625,7 +1743,7 @@ indistinguishable from an empty file. The function already refuses a directory
 and already checks a negative size; a failed seek is the case between them that
 nothing looks at.
 
-[6.44](ROADMAP.md#644-an-instant-cannot-be-written-in-local-time) is smaller
+[6.44](COMPLETED.md#644-an-instant-cannot-be-written-in-local-time--done) is smaller
 and is the
 [stty](COMPLETED.md#634-a-program-cannot-ask-how-big-the-terminal-is--done)
 shape again: a unified header carries a local time, every route out of an

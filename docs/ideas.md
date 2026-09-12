@@ -5082,7 +5082,7 @@ a program cannot read a pipe whole and `readFile("/dev/stdin")` answers `""` on
 one rather than the contents or an error — **both halves fixed on 2026-09-03**,
 and what is left of the entry is `sort`'s want rather than `diff`'s, a pipe
 taken in bounded pieces; and
-[6.44](ROADMAP.md#644-an-instant-cannot-be-written-in-local-time), an instant
+[6.44](COMPLETED.md#644-an-instant-cannot-be-written-in-local-time--done), an instant
 cannot be written in local time, which a unified header needs and which costs a
 fork of `date` that is not even exact across a daylight-saving change.
 

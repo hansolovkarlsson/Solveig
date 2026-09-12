@@ -2187,6 +2187,85 @@ written and could not be seen until something crossed it.
 The rest of this section is live, and is in
 [ROADMAP.md](ROADMAP.md#6-beyond-the-language--gone-from-this-document).
 
+### 6.44 An instant cannot be written in local time — **done**
+
+**Raised on 2026-09-02 by [diff.sol](../programs/diff.sol)**, and it is the
+same shape as
+[6.34](COMPLETED.md#634-a-program-cannot-ask-how-big-the-terminal-is--done):
+reachable through a fork, and the price is the entry.
+
+A unified diff header carries each file's modification time **in local time**,
+which is what every diff prints. `time:asString` is ISO-8601 in UTC and
+`time:asString(format)` hands the format to `strftime` against **gmtime**, so
+every route out of an instant is UTC, and nothing answers the offset from it.
+`system:environment("TZ")` is unset on this machine and would not be the answer
+anywhere: the offset a zone is at depends on the instant.
+
+**The workaround is one fork of `date +%z` and it is not exact.** The offset
+that comes back is the one in force *now*, so a file stamped on the other side
+of a daylight-saving change prints an hour out. Asking `date` per file would
+fix that and would be a fork per operand rather than per run, which is the
+[stty](COMPLETED.md#634-a-program-cannot-ask-how-big-the-terminal-is--done)
+trade again at a lower rate.
+
+**Not built, and not urgent.** One customer, and the wrongness needs a file
+older than the last clock change to show. What it would want is small -- a
+message answering the offset for an instant, which is one call to `localtime`
+-- and it is written down here rather than guessed at later.
+
+**Closed on 2026-09-12 as `system:utcOffset(t)`** -- the seconds this machine's
+clock is ahead of UTC at instant `t`, as a float, negative west of Greenwich.
+`diff.sol` stamps a header with `t:plusSeconds(system:utcOffset(t))` and the
+fork is gone.
+
+**"Not urgent" was wrong, and the paragraph above says why without noticing.**
+The wrongness "needs a file older than the last clock change to show", and in
+September that is every file untouched since March, which is most of any tree.
+Two files stamped 2026-01-15 and 2026-07-15 went through the program on the
+morning it closed and the January one came out `13:00:00` against the tool's
+`12:00:00`. The reason nobody had seen it is that [oracle.sh](../programs/oracle.sh)
+and [sweep.sh](../programs/diff/sweep.sh) both write their operands fresh, so
+the two stamps are always on the same side of a change and the file route
+agrees by construction. That is
+[the input shape that shows it is the one no corpus has](method.md#an-oracle-that-compares-answers-cannot-see-a-defect-that-is-only-slow)
+again, with a modification time where `sort` had a line length, and it is why
+the entry was closed by looking rather than by waiting for a second customer.
+
+**Three decisions, and each went the way the language already leaned.**
+
+*On `system`, not on `time`.* A zone is a fact about the machine and sits
+beside `terminalSize` and `environment`; `time` stays a UTC value with nothing
+in it that a legislature can change. What the message answers is a number, the
+same kind of thing `asTime` already accepts after a timestamp, and the
+reference's "everything is UTC" paragraph stays true with one paragraph added
+after it. Nothing here is a local time: `t:plusSeconds(offset)` is another
+instant, and `asString` will still put a `Z` after it.
+
+*It takes the instant.* The offset a zone is at depends on when you ask, and
+that is the whole difference between this and the fork it replaces. A
+`system:utcOffset` with no argument would have been `date +%z` without the
+fork, and would have kept the defect.
+
+*A float.* Every seconds-valued answer in the language is one -- `asSeconds`,
+`secondsSince`, `timeToRun` -- and the use is `plusSeconds`, which is strict
+about wanting one. An integer would have been the honest type for a thing that
+is always whole minutes and would have cost a conversion at every call.
+
+**The obvious field was refused for a reason the Makefile already records.**
+`tm_gmtoff` is a BSD extension; the Linux build sets `_XOPEN_SOURCE=700`, which
+hides it on glibc, so the primitive would have built here and failed on the
+runner. `localtime_r` is POSIX, and the wall-clock reading it answers, re-read
+as if it were UTC through the `days_from_civil` the `asTime` parser already has,
+minus the instant, is the definition of the offset. Daylight saving comes out
+right because `localtime_r` applied the rules in force at *that* instant.
+
+**Refused alongside, so that this does not become the thin end of a zone:** no
+`asLocalString`, no zone names, no `asTime` of a local reading, and no reading
+of `TZ` by the language. libc reads `TZ`, and the test pins it there through
+four zones -- Los Angeles for the daylight-saving pair, Stockholm for the same
+pair east of Greenwich, Kolkata for a half hour, UTC for zero.
+
+
 ### 6.45 A pipe cannot be taken in bounded pieces — **done**
 
 **What [6.43](COMPLETED.md#643-a-program-cannot-read-standard-input-whole-and-the-call-that-looks-as-though-it-can-answers---done)

@@ -137,13 +137,16 @@ loops in this repository carry a boolean whose only job is to stop them.
 Section 2 has no open design question — the last one, 2.5, is closed. Section
 6, a program's dealings with the world outside it, is nearly all built: reading
 input, writing files, stopping with a status, walking the filesystem, knowing
-the time, a prompt with history, a debugger, and running another program. **One
-entry is open on it** —
-[6.44](#644-an-instant-cannot-be-written-in-local-time), raised on 2026-09-02 by
-[diff.sol](../programs/diff.sol). Its neighbour
-[6.45](COMPLETED.md#645-a-pipe-cannot-be-taken-in-bounded-pieces--done) closed on 2026-09-04 as
-`system:readUpTo(#n)`, the only entry here whose open question was a **name**
-and which therefore could not be closed by anybody but you.
+the time, a prompt with history, a debugger, and running another program.
+**Nothing is open on it.** The last two entries were both raised on 2026-09-02
+by [diff.sol](../programs/diff.sol):
+[6.45](COMPLETED.md#645-a-pipe-cannot-be-taken-in-bounded-pieces--done) closed
+on 2026-09-04 as `system:readUpTo(#n)`, the only entry here whose open question
+was a **name** and which therefore could not be closed by anybody but you, and
+[6.44](COMPLETED.md#644-an-instant-cannot-be-written-in-local-time--done) closed
+on 2026-09-12 as `system:utcOffset(t)`, eight days after the roadmap called it
+not urgent, on the day it was shown that the wrongness it waited for was on
+every file untouched since March.
 
 **The last decision was deferred rather than taken**, on 2026-08-22.
 [6.32](ideas.md#632-a-script-cannot-be-run-with-less-than-the-whole-machine) —
@@ -1080,10 +1083,16 @@ on 2026-08-29 and closed the same afternoon, which is the section still doing
 what it was for: saying what a program written against this needs and has not
 got.
 
-**One entry is open here**, below:
-[6.44](#644-an-instant-cannot-be-written-in-local-time), an instant cannot be
-written in local time, raised on 2026-09-02 by
-[diff.sol](../programs/diff.sol).
+**Nothing is open here.** The last entry,
+[6.44](COMPLETED.md#644-an-instant-cannot-be-written-in-local-time--done), an
+instant cannot be written in local time, was raised on 2026-09-02 by
+[diff.sol](../programs/diff.sol) and closed on 2026-09-12 as
+`system:utcOffset(t)`. It sat for ten days marked *not urgent* because the
+wrongness "needs a file older than the last clock change to show", and that is
+not a rare file: on 2026-09-12 two files stamped in January and July were put
+through the program and the January one came out an hour late. The oracle had
+not seen it because it writes its operands fresh, so both stamps are always on
+the same side of the change.
 
 **Its neighbour closed on 2026-09-04.**
 [6.45](COMPLETED.md#645-a-pipe-cannot-be-taken-in-bounded-pieces--done) was what
@@ -1125,41 +1134,23 @@ reasoning, the threat model and everything the last four days added to it are
 kept in full, because deciding it later from a blank page would cost more than
 keeping it did. The number stays 6.32 and is not reused.
 
-### 6.44 An instant cannot be written in local time
-
-**Raised on 2026-09-02 by [diff.sol](../programs/diff.sol)**, and it is the
-same shape as
-[6.34](COMPLETED.md#634-a-program-cannot-ask-how-big-the-terminal-is--done):
-reachable through a fork, and the price is the entry.
-
-A unified diff header carries each file's modification time **in local time**,
-which is what every diff prints. `time:asString` is ISO-8601 in UTC and
-`time:asString(format)` hands the format to `strftime` against **gmtime**, so
-every route out of an instant is UTC, and nothing answers the offset from it.
-`system:environment("TZ")` is unset on this machine and would not be the answer
-anywhere: the offset a zone is at depends on the instant.
-
-**The workaround is one fork of `date +%z` and it is not exact.** The offset
-that comes back is the one in force *now*, so a file stamped on the other side
-of a daylight-saving change prints an hour out. Asking `date` per file would
-fix that and would be a fork per operand rather than per run, which is the
-[stty](COMPLETED.md#634-a-program-cannot-ask-how-big-the-terminal-is--done)
-trade again at a lower rate.
-
-**Not built, and not urgent.** One customer, and the wrongness needs a file
-older than the last clock change to show. What it would want is small -- a
-message answering the offset for an instant, which is one call to `localtime`
--- and it is written down here rather than guessed at later.
-
 ## How this list emptied, and how it filled and emptied again
+
+**It emptied for the fifth time on 2026-09-12**, when
+[6.44](COMPLETED.md#644-an-instant-cannot-be-written-in-local-time--done) closed
+as `system:utcOffset(t)`. It had been the only entry since 6.45 closed on
+2026-09-04, and it closed by the same route as the one before it: not by a
+second customer but by the first one being shown wrong on an ordinary input.
 
 **It emptied for the fourth time on 2026-09-01 and did not stay empty.** Two
 entries went on it the next day but one, both from
-[diff.sol](../programs/diff.sol) and both about standard input --
-[6.43](COMPLETED.md#643-a-program-cannot-read-standard-input-whole-and-the-call-that-looks-as-though-it-can-answers---done)
-and [6.44](#644-an-instant-cannot-be-written-in-local-time). That is the
-mechanism working rather than an exception to it: *empty* is a description of a
-moment, which this document has said since the last time it was true.
+[diff.sol](../programs/diff.sol) --
+[6.43](COMPLETED.md#643-a-program-cannot-read-standard-input-whole-and-the-call-that-looks-as-though-it-can-answers---done),
+about standard input, and
+[6.44](COMPLETED.md#644-an-instant-cannot-be-written-in-local-time--done), about
+the header. That is the mechanism working rather than an exception to it:
+*empty* is a description of a moment, which this document has said since the
+last time it was true.
 
 **6.43 closed on 2026-09-03 and left one behind.** Its two clauses turned out to
 be one job -- the only reason a program could not read a pipe whole was that the

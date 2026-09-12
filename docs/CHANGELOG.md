@@ -5,6 +5,39 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### `system:utcOffset(t)`, and `diff`'s header stops being an hour out — `602da81` `92fca21`, 2026-09-12
+
+**The language answers 146<!--count messages--> messages**, up from 145, across
+249 registrations. `.sob` files are still format version 14.
+
+**`system:utcOffset(t)`** closes
+[6.44](COMPLETED.md#644-an-instant-cannot-be-written-in-local-time--done): the
+seconds this machine's clock is ahead of UTC at instant `t`, as a float,
+negative west of Greenwich. It is on `system` because a zone is a fact about the
+machine, takes the instant because the offset a zone is at depends on it, and
+answers a float because every count of seconds here is one and the use is
+`plusSeconds`. `time` stays a UTC value: nothing here is a local time, a zone
+name or a reading of `TZ` by the language, and the reference's "everything is
+UTC" paragraph stands with one added after it.
+
+`localtime_r` and the `days_from_civil` the `asTime` parser already had, rather
+than `tm_gmtoff`, which is a BSD extension that `_XOPEN_SOURCE=700` hides on
+glibc: the obvious field would have built here and failed on the Linux runner.
+The test pins `TZ` through four zones, Los Angeles and Stockholm for a January
+and July pair on either side of Greenwich, Kolkata for a half hour, UTC for
+zero.
+
+**[diff.sol](../programs/diff.sol)'s header stamp was an hour out** for any
+file last written on the other side of a daylight-saving change, because the
+fork of `date +%z` it used answered the offset in force *now*. The roadmap had
+held the entry for ten days as *not urgent* because the wrongness "needs a file
+older than the last clock change to show", and in September that is every file
+untouched since March. The oracle and the sweep could not see it because both
+write their operands fresh, so the two stamps are always on the same side of a
+change. The fork is gone and the stamp is `plusSeconds(system:utcOffset(t))`
+per file; 24 agree cases and every `apply.sh` pair are unchanged, which is the
+point: they never held the file that showed it.
+
 ### Proto arrives as `proto/` — `dbca185`, 2026-09-12
 
 **Proto, the compiler whose syntax arrives with the file it compiles, is now a
@@ -814,7 +847,7 @@ because the size comes from a seek a pipe refuses and a failed seek is
 indistinguishable from an empty file. The exact route is `readKey`, at 4.2 MB/s
 against `readLine`'s 84, and `diff` pays it because a diff that cannot tell
 `...c` from `...c\n` is wrong rather than slow.
-[6.44](ROADMAP.md#644-an-instant-cannot-be-written-in-local-time): an instant
+[6.44](COMPLETED.md#644-an-instant-cannot-be-written-in-local-time--done): an instant
 cannot be written in local time, which every unified header carries.
 
 **[oracle.sh](../programs/oracle.sh) generalised twice**, the way it was for
