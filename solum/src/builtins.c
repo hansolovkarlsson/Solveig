@@ -3209,6 +3209,58 @@ static bool instant_from_parts(SolVM *vm, const char *name, int year, int month,
     return true;
 }
 
+/* `system:utcOffset(t)` -- seconds this machine's clock is ahead of UTC at the
+ * instant `t`, as a float; negative west of Greenwich.
+ *
+ * programs/diff.sol asked for this (6.44): a unified header stamps each file in
+ * local time, which is what every diff prints and which nothing here could
+ * produce. The workaround was one fork of `date +%z` per run, and it was wrong
+ * by an hour for any file stamped on the other side of a daylight-saving
+ * change -- which is most files in a tree, not a rare one.
+ *
+ * **On `system` rather than on `time`.** A zone is a fact about the machine,
+ * not about the instant, and it sits here beside `terminalSize` and
+ * `environment` for the same reason. `time` stays a UTC value with no zone in
+ * it: what this answers is a number, the kind of thing `asTime` already takes
+ * after a timestamp, and a program adds it with `plusSeconds` or does not.
+ * There is no local string, no zone name and no reading of `TZ` by the
+ * language -- libc reads it, and that is where it stays.
+ *
+ * **Takes the instant** because the offset a zone is at depends on it. That is
+ * the whole difference between this and the fork it replaces.
+ *
+ * **A float** because every seconds-valued answer here is one -- `asSeconds`,
+ * `secondsSince`, `timeToRun` -- and the use is `t:plusSeconds(offset)`, which
+ * is strict about wanting one.
+ *
+ * `tm_gmtoff` is the obvious field and is a BSD extension: `_XOPEN_SOURCE=700`
+ * hides it on glibc, so the Linux build would fail on a thing that built here.
+ * `localtime_r` is POSIX, and the wall-clock reading it answers, re-read as if
+ * it were UTC through `days_from_civil`, minus the instant, is the definition
+ * of the offset. Daylight saving comes out right because `localtime_r` applied
+ * the rules in force at *that* instant. */
+static SolValue prim_system_utc_offset(SolVM *vm, SolValue self, SolValue *args, int argc)
+{
+    (void)self;
+    if (!check_argc(vm, "utcOffset", argc, 1)) return SOL_NIL_VAL;
+    if (!time_argument(vm, "utcOffset", args[0])) return SOL_NIL_VAL;
+
+    int64_t nanos = SOL_AS_TIME(args[0]);
+    int64_t seconds = nanos / SOL_NANOS_PER_SECOND;
+    if (nanos % SOL_NANOS_PER_SECOND < 0) seconds--;    /* floor, as time_parts */
+
+    time_t when = (time_t)seconds;
+    struct tm local;
+    if (localtime_r(&when, &local) == NULL) {
+        sol_vm_runtime_error(vm, "'utcOffset' cannot read a calendar at that instant");
+        return SOL_NIL_VAL;
+    }
+
+    int64_t as_utc = days_from_civil(local.tm_year + 1900, local.tm_mon + 1, local.tm_mday) * 86400
+                   + local.tm_hour * 3600 + local.tm_min * 60 + local.tm_sec;
+    return SOL_FLOAT_VAL((double)(as_utc - seconds));
+}
+
 /* `time:fromSeconds(s)` -- an instant from seconds since the epoch, which is
  * the one way to name a particular moment rather than the current one.
  *
@@ -6622,6 +6674,7 @@ void sol_builtins_install(SolVM *vm)
     any_receiver(vm, system, "makeDirectory", prim_system_make_directory);
     any_receiver(vm, system, "rename", prim_system_rename);
     any_receiver(vm, system, "time", prim_system_time);
+    any_receiver(vm, system, "utcOffset", prim_system_utc_offset);
     any_receiver(vm, system, "fileId", prim_system_file_id);
     any_receiver(vm, system, "modifiedAt", prim_system_modified_at);
     any_receiver(vm, system, "setModifiedAt", prim_system_set_modified_at);

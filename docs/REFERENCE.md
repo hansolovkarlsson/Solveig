@@ -4008,6 +4008,17 @@ legislation, twice a year in most places and retroactively in some; an instant
 is unambiguous where a wall-clock reading is not. The trailing `Z` is what says
 which of the two you are looking at.
 
+What the machine does have is an **offset**, and
+[`system:utcOffset(t)`](#system) answers it: the seconds its clock is ahead of
+UTC at that instant, which is a number and not a zone, the same kind of thing
+`asTime` takes after a timestamp. It lives on `system` because it is a fact
+about the machine, and takes the instant because the offset a zone is at
+depends on it. `t:plusSeconds(system:utcOffset(t))` is another instant, the one
+whose UTC reading is what the wall clock shows, and formatting it is how a
+`diff` header gets stamped. Nothing here calls that local time, because it is
+not one: it is an instant, an offset along, and `asString` will put a `Z` after
+it that is only true of the first.
+
 **`system:clock` is not this.** That one is a stopwatch — monotonic, unspecified
 epoch, only differences meaningful. This is a calendar. A program asking how
 long something took wants the first; one asking when it happened wants the
@@ -4091,6 +4102,7 @@ it delegates to `object` like everything else. See
 | `rename(from, to)` | nil, having moved it; **replaces** an existing `to` |
 | `clock` | monotonic seconds as a float; only differences are meaningful |
 | `time` | the current instant, as a [time](#time) |
+| `utcOffset(t)` | seconds this machine's clock is ahead of UTC at instant `t`, as a float; negative west of Greenwich |
 | `modifiedAt(path)` | when a file was last written, as a [time](#time); sub-second; **nil** if nothing is there |
 | `setModifiedAt(path, time)` | nil, having set it |
 | `modeOf(path)` | the permission bits, as an integer |
@@ -4249,7 +4261,7 @@ has been given, and cannot give itself more.
 Every built-in message and the types that answer it. The question a reference
 gets asked is usually *what has `copyFrom`?* rather than *what does a string
 do?*, and the sections above answer only the second — so this answers the first.
-145 messages across 248 registrations.
+146 messages across 249 registrations.
 
 **A test keeps it honest**: a message registered in `builtins.c` and missing
 from here fails the build, which is the same bargain that makes every message
@@ -4393,6 +4405,7 @@ appear in an example.
 | `trim` | [string](#string) |
 | `truncated` | [float](#float) |
 | `upTo` | [random](#random) |
+| `utcOffset` | [system](#system) |
 | `value` | [block](#block) |
 | `values` | [dictionary](#dictionary) |
 | `via` | [object](#object) |

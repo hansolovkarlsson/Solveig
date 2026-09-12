@@ -405,6 +405,7 @@ The process, rather than any value. One object with slots, not a class.
 | `exit(#status)` | nothing — the program stops, `#0` to `#255` |
 | `clock` | monotonic seconds as a float; only differences mean anything |
 | `time` | the current instant |
+| `utcOffset(t)` | seconds the machine's clock is ahead of UTC at `t`, as a float; negative west |
 | `write(text)` | writes a string to standard output, adding nothing — no newline |
 | `writeError(text)` | the same, to standard **error** — the only way to reach it |
 | `readLine` `readKey` | one line, or one byte, of standard input; nil at the end |

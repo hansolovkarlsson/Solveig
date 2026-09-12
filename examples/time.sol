@@ -72,6 +72,16 @@ y2k:asString("%H:%M:%S"):display.            ; 00:00:00
 y2k:asString("%A, %d %B %Y"):display.        ; Saturday, 01 January 2000
 y2k:asString("day %j of %Y"):display.        ; day 001 of 2000
 
+; What the machine does have is an **offset** -- the seconds its clock is ahead
+; of UTC at a given instant, which is a number and not a zone. It is asked of
+; `system`, because the zone is the machine's, and it takes the instant because
+; the offset a zone is at depends on it: the same file stamped in January and
+; in July answers differently anywhere with daylight saving. A float, as every
+; count of seconds here is, so it goes straight into `plusSeconds`. That is
+; what a `diff` header prints, and it is still an instant, an offset along.
+offset := system:utcOffset(y2k).
+y2k:plusSeconds(offset):asString("%H:%M"):display.   ; -- 00:00 in London, 16:00 the evening before in Los Angeles
+
 ; ---------------------------------------------------------------------------
 ; Reading one back
 

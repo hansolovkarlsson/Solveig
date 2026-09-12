@@ -2,6 +2,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>
 #include <unistd.h>
 #include <string.h>
 
@@ -1139,6 +1140,69 @@ static void test_a_file_has_an_identity(void)
     remove("build/tests/ident/log");
     remove(base);
     printf("  a file has an identity, and a same-size replacement is a different one\n");
+}
+
+/* `system:utcOffset(t)` -- seconds this machine's clock is ahead of UTC at the
+ * instant `t`. ROADMAP 6.44, raised by `diff.sol`, whose unified header stamps
+ * a file in local time and was an hour out for any file stamped on the other
+ * side of a daylight-saving change, because the fork of `date +%z` it used
+ * answered the offset in force *now*.
+ *
+ * The zone is pinned through `TZ` so the answers are the same on every
+ * machine, and the pair of instants is January and July of the same year in a
+ * zone that observes daylight saving: the two answers differing is the whole
+ * of what taking the instant buys. Kolkata is the half-hour zone, east, so
+ * that a positive and a non-whole-hour offset are both seen; UTC is zero.
+ *
+ * A float, as every seconds-valued answer is, so it goes straight into
+ * `plusSeconds`. The zone is put back afterwards: what follows in this suite
+ * runs under the machine's own. */
+static void test_utc_offset_follows_the_instant(void)
+{
+    const char *had = getenv("TZ");
+    char kept[256] = "";
+    if (had != NULL) snprintf(kept, sizeof kept, "%s", had);
+
+    static const struct { const char *zone; double january, july; } zones[] = {
+        { "America/Los_Angeles", -28800.0, -25200.0 },
+        { "Europe/Stockholm",      3600.0,   7200.0 },
+        { "Asia/Kolkata",         19800.0,  19800.0 },
+        { "UTC",                       0.0,      0.0 },
+    };
+    for (size_t i = 0; i < sizeof zones / sizeof zones[0]; i++) {
+        setenv("TZ", zones[i].zone, 1);
+        tzset();
+
+        SolVM vm; sol_vm_init(&vm);
+        SolChunk chunk;
+        assert(run(&vm, &chunk,
+            "january := system:utcOffset(\"2026-01-15T12:00:00Z\":asTime)."
+            "july := system:utcOffset(\"2026-07-15T12:00:00Z\":asTime)."
+            "isFloat := january:isKindOf(float)."
+            /* and it is what a header wants: the instant moved by the offset */
+            "local := \"2026-01-15T12:00:00Z\":asTime:plusSeconds(january)"
+            "             :asString(\"%H:%M\").") == SOL_OK);
+        assert(SOL_AS_BOOL(global(&vm, "isFloat")));
+        assert(SOL_AS_FLOAT(global(&vm, "january")) == zones[i].january);
+        assert(SOL_AS_FLOAT(global(&vm, "july")) == zones[i].july);
+        if (i == 0) assert(strcmp(SOL_AS_STRING(global(&vm, "local"))->chars, "04:00") == 0);
+        sol_chunk_free(&chunk); sol_vm_free(&vm);
+    }
+
+    if (had != NULL) setenv("TZ", kept, 1); else unsetenv("TZ");
+    tzset();
+
+    /* Refused: anything that is not an instant, and the wrong count. */
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+    assert(run(&vm, &chunk, "system:utcOffset(#1).") == SOL_RUNTIME_ERROR);
+    assert(strstr(vm.error_message.chars, "'utcOffset' expects a time, got integer") != NULL);
+    sol_chunk_free(&chunk);
+    assert(run(&vm, &chunk, "system:utcOffset.") == SOL_RUNTIME_ERROR);
+    sol_chunk_free(&chunk);
+    sol_vm_free(&vm);
+
+    printf("  utcOffset follows the instant, and a header can be stamped in local time\n");
 }
 
 /* A path that is not there answers nil, and a path that cannot be looked at
@@ -2461,6 +2525,7 @@ int main(void)
     test_the_environment();
     test_making_moving_and_removing();
     test_a_file_has_an_identity();
+    test_utc_offset_follows_the_instant();
     test_a_missing_path_answers_nil();
     test_changing_what_is_there_refuses();
     test_the_look_before_you_leap_idiom();
