@@ -11,6 +11,67 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-09-12, later: Proto comes in, and the argument against it is kept
+
+**Proto is now `proto/`**, brought in with `git subtree add` so its 86 commits
+are in this history, and Hans asked for it against a recommendation to leave it
+where it was. The recommendation is recorded here because it was not wrong, it
+was outweighed, and the next time the question comes up the two halves should
+both be on the page.
+
+### The case for leaving it outside
+
+Proto's own Makefile made it: a front end with privileged access to the
+compiler it targets proves only that its author can write one, and the claim
+Proto exists to test is that a dialect is something anybody can write on a
+substrate they do not get to change. Solveig's side said the same in its own
+terms: a small core is a goal in itself, gtk and sdl are sibling repositories,
+and Phoenix is an outside producer with a contract document. Proto is the same
+shape as Phoenix, and a gentler case, since what it emits is source rather than
+a bytecode format that can refuse an old version. The kind of dependence Proto
+has on Solveig is the kind Nim and Cython have on C: total, one-directional,
+and pinned by a version rather than by a directory. `PROTO_SOLVEIG_MINIMUM`
+was that pin, and `make check` enforced it.
+
+### The case that won
+
+Proto emits this language and nothing else. Every change here is a change it
+has to follow, and with two repositories the breakage was found one suite run
+late, when somebody remembered to run Proto's suite against the new HEAD. The
+sync that a sibling checkout offers is one-way: Proto's suite ran against
+`../Solveig`, but nothing in Solveig ran Proto. That gap could have been closed
+with a `make check-proto` that runs the sibling's suite when the directory is
+present, and that was the recommendation. Hans's view was that one tree makes
+the follow-up one commit and one green run rather than two, and that
+maintaining compatibility is easier when the thing that has to stay compatible
+is in the same tree as the thing it follows. That is a judgement about
+maintenance cost, and he is the one paying it.
+
+### What moved and what did not
+
+The boundary did not move. Proto still reaches Solveig only through the
+binaries under `bin/`, from the targets that hand them a file, and includes no
+header. Its Makefile's opening paragraph still says why, with a second
+paragraph saying where it now lives. Its records stay as `proto/docs/`, its own
+set, including a `POSTMORTEM.md` that this repository refuses for its own
+`docs/` and does not refuse for Proto's: the rule here is about what
+predictions look like when they are scored, and Proto keeps a different ledger.
+The claim count in [programs.md](programs.md) sweeps `docs/` and does not see
+`proto/`, which is why the suite stayed green through the move without the
+numbers moving.
+
+What did move: `SOLVEIG ?= ../Solveig` became `..`; the minimum-version check
+in `make check` went, since the parent is the version by construction, and
+`PROTO_SOLVEIG_MINIMUM` stays in `common.h` as the record of the language
+level for anybody building against some other Solveig; the root `make` builds
+`proto/bin/proto`, `make test` runs Proto's suite after its own, `make install`
+puts `proto` beside the four binaries and the dialects under `lib/proto/`, and
+`make clean` recurses. `make dist` needed nothing, since it archives HEAD.
+Proto keeps its own version number and changelog until there is a reason to
+fold them in. The Proto repository on GitHub is archived with a pointer here.
+
+---
+
 ## 2026-09-12: an audit over the week's silence, and one item that lived only in the standup
 
 **Nothing had moved in eight days**, which is the condition an audit is for:

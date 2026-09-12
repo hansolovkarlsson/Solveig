@@ -10,6 +10,18 @@ piece of work as it was argued *before* the work is in
 
 ---
 
+### Into Solveig's tree as `proto/` — 2026-09-12
+
+**No version.** The repository became a subtree of
+[Solveig](https://github.com/hansolovkarlsson/Solveig) at `proto/`, history and
+all; the commit is in that repository's log. `SOLVEIG` defaults to `..`; `make
+check` no longer tests a minimum version, since the parent is the version by
+construction, and `PROTO_SOLVEIG_MINIMUM` stays as the record of the language
+level. The parent's `make` and `make test` build and test this directory. The
+boundary is unchanged: no Solveig header, archive or symbol, only `../bin/`.
+The reasons, on both sides, are in [journal.md](journal.md); the 0.1.0 decision
+this reverses is there too.
+
 ### Closing out 2026-09-12: the front page's count of its readers
 
 **No version, no code, and not committed by the closeout itself.**

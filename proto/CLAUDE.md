@@ -5,12 +5,11 @@ with code in this repository.
 
 ## Start here
 
-`scratch/daily-standup.md` — written at the end of the previous working day to
-be read at the start of the next: where the tree was left, what went in, and
-what is outstanding. `scratch/` is gitignored and is not part of this
-repository, so the file is absent on a fresh clone and on any day that was not
-closed out. When it is absent, `git log` and the documents named below are the
-way in.
+This directory is a subproject of Solveig, its parent, since 2026-09-12; the
+parent's `CLAUDE.md` applies here too, and its `scratch/daily-standup.md` is
+the standup for both. This directory's own `scratch/` is ignored and holds
+what is Proto's alone. When there is no standup, `git log -- proto` and the
+documents named below are the way in.
 
 ## What this is
 

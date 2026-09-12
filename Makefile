@@ -1,7 +1,7 @@
 # Solum -- build for all three components.
 #
-#   make            build bin/solas, bin/solvm, bin/solis, bin/solid
-#   make test       build and run the test suite
+#   make            build bin/solas, bin/solvm, bin/solis, bin/solid, proto/bin/proto
+#   make test       build and run the test suite, then Proto's
 #   make embed      build bin/solhost -- see solum/include/solum/embed.h
 #   make install    install to $(PREFIX), default /usr/local
 #   make uninstall  take it back out again
@@ -144,8 +144,17 @@ BINARIES = $(BIN)/solas $(BIN)/solvm $(BIN)/solis $(BIN)/solid
 # line. The rule is beside the test probe's, further down.
 EXTENSIONS = $(BUILD)/extensions/net.so
 
-.PHONY: all test embed install uninstall dist clean FORCE
-all: $(BINARIES) $(EXTENSIONS)
+# Proto is a second compiler that targets this language and lives in this tree
+# as proto/, with its own Makefile, records and version. It is built by `all`
+# and tested by `test` so that a change here which breaks a dialect goes red
+# in the same run; it reaches this tree only through bin/, never through the
+# headers, and its Makefile explains why. Recursed into rather than absorbed,
+# because its build is its own and a list of its sources here would go stale.
+.PHONY: all test embed install uninstall dist clean proto FORCE
+all: $(BINARIES) $(EXTENSIONS) proto
+
+proto:
+	@$(MAKE) -C proto --no-print-directory
 
 # Below `all`, because make's default goal is whichever target it reads first
 # and this one is not it. Rebuilt every run and replaced only when its contents
@@ -296,6 +305,8 @@ test: $(BINARIES) $(TEST_BINS) $(EXAMPLE_SOBS) $(COMPARISON_SOBS) $(EXT_PROBE) $
 	@echo "-- conformance"
 	@sh conformance/run.sh
 	@for t in $(TEST_BINS); do echo "-- $$t"; $$t || exit 1; done
+	@echo "-- proto"
+	@$(MAKE) -C proto --no-print-directory test
 	@echo "all tests passed"
 
 # The library is copied, not installed one file at a time, because which files
@@ -311,10 +322,12 @@ install: all
 	cp lib/*.sol $(LIBDIR)
 	cp $(EXTENSIONS) $(LIBDIR)
 	@echo "installed to $(DESTDIR)$(PREFIX)"
+	@$(MAKE) -C proto --no-print-directory install PREFIX=$(PREFIX) DESTDIR=$(DESTDIR)
 
 uninstall:
 	rm -f $(patsubst $(BIN)/%,$(BINDIR)/%,$(BINARIES))
 	rm -rf $(LIBDIR)
+	@$(MAKE) -C proto --no-print-directory uninstall PREFIX=$(PREFIX) DESTDIR=$(DESTDIR)
 
 # The version comes from the header the binaries report, so a tarball cannot be
 # named for a version the program inside it does not claim.
@@ -337,5 +350,6 @@ dist:
 
 clean:
 	rm -rf $(BUILD) $(BIN)
+	@$(MAKE) -C proto --no-print-directory clean
 
 -include $(LIB_OBJS:.o=.d)

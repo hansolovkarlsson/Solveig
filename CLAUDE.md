@@ -18,6 +18,13 @@ VM (SolVM), REPL (Solis) and debugger (Solid). Prototype-based, everything is a
 message send. ~20k lines of C11, no dependencies. Docs are published at
 <https://hansolovkarlsson.github.io/Solveig/>.
 
+`proto/` is Proto, a second compiler that emits Solveig source, brought in as a
+subproject on 2026-09-12 with its history. It has its own `CLAUDE.md`, records
+under `proto/docs/` (including a `POSTMORTEM.md`, which is Proto's convention
+and not this repository's) and its own version. The root `make` builds it and
+`make test` runs its suite. Nothing under `proto/` is counted by
+`docs/programs.md`.
+
 ## Commands
 
 `make`, `make test`, `make embed`, `make dist`, `make install`, `make clean`.

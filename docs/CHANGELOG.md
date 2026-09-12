@@ -5,6 +5,19 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### Proto arrives as `proto/` — `dbca185`, 2026-09-12
+
+**Proto, the compiler whose syntax arrives with the file it compiles, is now a
+subproject of this repository**, brought in by `git subtree add` with its 86
+commits. It keeps its own Makefile, records under `proto/docs/`, version and
+`CLAUDE.md`. The root `make` builds `proto/bin/proto`, `make test` runs Proto's
+suite after Solveig's, `make install` installs `proto` and its dialects, and
+`make clean` recurses. Proto's Makefile now defaults `SOLVEIG` to `..` and no
+longer checks a minimum version, the parent being the version by construction.
+The boundary is unchanged: Proto reaches Solveig only through `bin/`. The case
+on both sides is in [journal.md](journal.md); the recommendation was to leave
+it outside, and Hans decided otherwise.
+
 ### `sort`'s reader: two quadratics under a question about a constant — `c91d5ec` `81368b1`, 2026-09-04
 
 The review of the conversions left one thing measured and not acted on:

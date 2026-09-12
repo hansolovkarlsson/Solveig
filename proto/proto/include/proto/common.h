@@ -8,13 +8,15 @@
 
 #define PROTO_VERSION "0.17.0"
 
-/* The Solveig this speaks to, checked by the Makefile's `run` and `test`
- * targets and by nothing at build time.
+/* The Solveig language level this speaks to. Nothing checks it at build
+ * time, and since Proto moved into Solveig's tree nothing checks it at test
+ * time either: the parent is the version by construction. It is kept because
+ * `proto --version` reports it and because a reader building against some
+ * other Solveig should be told which one the output was written for.
  *
  * Proto compiles without Solveig present: it emits Solveig *source*, and
  * source is text. That is on purpose -- see "What Proto is allowed to know
- * about Solveig" in the README. The version matters only when something is
- * about to hand a file to `solas`. */
+ * about Solveig" in the README. */
 #define PROTO_SOLVEIG_MINIMUM "0.40.0"
 
 /* Allocation that stops rather than returning NULL.

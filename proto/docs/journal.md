@@ -11,6 +11,47 @@ produced no code because they were decisions.
 
 ---
 
+## 2026-09-12, later: the second decision of 0.1.0, reversed
+
+**Proto lives in Solveig's tree now**, as `proto/`, with this history intact
+under it. The 0.1.0 entry below records the decision this reverses: solveig-sdl
+had written the rule about itself, *an extension is not part of Solveig*, and
+Proto went beside Solveig rather than inside it, argued from something stronger
+than tidiness. A front end with privileged access to the compiler it targets
+proves only that Solveig's author can write a front end for Solveig.
+
+### What was argued, and what decided it
+
+The argument for staying out was made again today, from this project's own
+Makefile and from Solveig's own habits, and it was recommended. Hans's answer
+was the other half of the same fact: Proto emits Solveig and nothing else, so
+every change to the substrate is a change Proto has to follow, and two
+repositories meant discovering the breakage one suite run late. A sibling
+checkout gives one-way sync, this suite against `../Solveig`, and nothing the
+other way. One tree makes the follow-up one commit and one green run. That is
+a judgement about the cost of keeping up, and it is his to make.
+
+### What the boundary still is
+
+Nothing about it moved. This Makefile builds without Solveig, includes no
+Solveig header, links no Solveig archive, and reaches the parent only through
+`../bin/solas` and `../bin/solvm` from the targets that hand them a file. What
+went is the minimum-version check in `make check`: the parent is the version
+this speaks to by construction, and `PROTO_SOLVEIG_MINIMUM` stays in
+`common.h` as the record of the language level, reported by `--version`, for
+anybody building against a Solveig that is not the parent. `SOLVEIG` defaults
+to `..`. The parent's `make` builds `bin/proto`, its `make test` runs this
+suite after its own, and its `make install` installs `proto` and `lib/*.pro`.
+
+The records stay here as Proto's own: this journal, [CHANGELOG.md](CHANGELOG.md)
+at 0.17.0, [COMPLETED.md](COMPLETED.md), [ROADMAP.md](ROADMAP.md) and
+[POSTMORTEM.md](POSTMORTEM.md), which Solveig's `docs/` refuses for itself and
+does not refuse for this directory. The version number stays Proto's until
+there is a reason to fold it in. The standup is the parent's. The repository at
+github.com/hansolovkarlsson/Proto is archived with a pointer to `Solveig/proto`.
+
+---
+
 ## 2026-09-12: an audit after eight days, and a closeout that had to be reviewed
 
 **Nothing had landed since 2026-09-04.** The day opened on a standup eight days

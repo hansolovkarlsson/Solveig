@@ -117,6 +117,7 @@ lights, and **Solveig** carries the same star into Norse: *sól* joined to
 | `embed/`  | A C program that holds a `SolVM` -- see [embedding.md](docs/embedding.md) |
 | `lib/`    | The library that ships with the language, found on the search path |
 | `extensions/` | Bundles built by `make` and loaded only when a host names one -- [net](extensions/net/README.md), UDP sockets, documented in [NET.md](docs/NET.md) |
+| `proto/`  | **Proto** -- a second compiler, whose syntax arrives with the file it is compiling and whose output is Solveig source. Its own Makefile, records and version; [what it is](proto/README.md) |
 
 Two more live outside this repository, and outside it on purpose — the front
 page says *no dependencies beyond a C11 compiler and `make`*, and it stays true
@@ -132,21 +133,19 @@ already assumes, so nothing has to be installed for `make` to build it.
 Both are built against [extend.h](solum/include/solum/extend.h) and loaded with
 `--extension=`; see [docs/extensions.md](docs/extensions.md).
 
-**A third is outside for a different reason.**
-
-| Repository | What |
-| --- | --- |
-| [Proto](https://github.com/hansolovkarlsson/Proto) | A compiler whose syntax arrives with the file it is compiling. A module declares its own grammar in its header, and what comes out is Solveig source, which `solas` turns into bytecode like any other |
-
-The two above are outside so that *no dependencies beyond a C11 compiler and
-`make`* stays true. **Proto is outside so that it cannot reach in.** Its whole
-claim is that a language is something you write on top of a substrate you do not
-get to change, and a front end living two directories from the compiler it
-targets would prove only that Solveig's author can write a front end for
-Solveig. So it takes nothing from this repository at all — no header, no
+**Proto is inside, and was outside until 2026-09-12, for a reason worth keeping.**
+Its whole claim is that a language is something you write on top of a substrate
+you do not get to change, and a front end living two directories from the
+compiler it targets would prove only that Solveig's author can write a front
+end for Solveig. So for its first seventeen versions it was a
+[separate repository](https://github.com/hansolovkarlsson/Proto), and it still
+takes nothing from this one but the binaries under `bin/`: no header, no
 archive, no symbol. It emits text, `solas` reads text, and **the coupling is a
 file format and a command line, which is the same surface anybody else would
-have.**
+have.** What moved it in is the other half of that dependence: Proto emits
+*this* language and nothing else, so every change here is a change it has to
+follow, and two repositories meant finding that out one suite run late. Now
+`make test` here runs Proto's suite after its own.
 
 ```sh
 proto vectors.pro -o vectors.sol && solas vectors.sol && solvm vectors.sob
@@ -154,8 +153,8 @@ proto vectors.pro -o vectors.sol && solas vectors.sol && solvm vectors.sob
 
 Six programs are written in it — an assembler reaching ARM64, a PEG toolkit,
 SHA-256, a ledger, a document, and a BASIC interpreter — and what they say about
-whether a grammar declared per module is worth having is in that repository's
-[does-it-pay.md](https://github.com/hansolovkarlsson/Proto/blob/main/docs/does-it-pay.md).
+whether a grammar declared per module is worth having is in
+[proto/docs/does-it-pay.md](proto/docs/does-it-pay.md).
 
 Each component keeps its public headers in `<component>/include/<component>/`
 and its implementation in `<component>/src/`. `solum/include/solum/bytecode.h`

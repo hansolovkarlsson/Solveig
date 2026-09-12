@@ -43,12 +43,12 @@ solvm examples/vectors.sob
 | `make run` | `examples/vectors.pro`, compiled and executed |
 | `make examples` / `ember` / `grammar` / `digest` | one group at a time |
 | `make install` | `bin/proto` to `$PREFIX/bin`, `lib/*.pro` to `$PREFIX/lib/proto`; it prints the `PROTO_PATH` to export |
-| `make check` | that `$SOLVEIG` is a built checkout new enough to run the output |
+| `make check` | that `$SOLVEIG` has a built `bin/solas` |
 | `make clean` | remove `build/`, `bin/` and everything generated |
 
 The build needs no Solveig. `make test`, `make run` and the group targets do:
-`SOLVEIG` defaults to `../Solveig` and the version is checked rather than
-assumed.
+`SOLVEIG` defaults to `..`, the Solveig tree this directory lives in, whose own
+`make test` runs this suite.
 
 ---
 

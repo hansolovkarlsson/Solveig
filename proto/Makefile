@@ -16,10 +16,15 @@
 # that a dialect is something anybody can write on top of a substrate they do
 # not get to change.
 #
-# So Solveig is checked for by `run`, `examples` and `test`, which hand it a
-# file, and by nothing else.
+# Since 2026-09-12 that arrangement holds inside Solveig's own tree, as
+# `proto/`. The parent's `make` builds bin/proto and its `make test` runs this
+# suite, so a change to the substrate that breaks a dialect goes red in the
+# same run. Nothing about the boundary moved: this Makefile still reaches
+# Solveig only through the binaries under $(SOLVEIG)/bin, and only from `run`,
+# `examples` and `test`, which hand them a file. The journal has the reasons
+# for both the original placement and the move.
 
-SOLVEIG ?= ../Solveig
+SOLVEIG ?= ..
 
 CC      ?= cc
 CFLAGS  ?= -std=c11 -Wall -Wextra -Wpedantic -g
@@ -90,15 +95,6 @@ PROSE  = programs/prose
 # it reads at run time, so nothing here compiles them.
 BASIC  = programs/basic
 
-# The Solveig a `.sol` is about to be handed to, read from the same header its
-# binaries report their version out of. Checked rather than assumed because the
-# failure it prevents is unhelpful: `solas` not being there gives a shell error
-# about a missing file and says nothing about which file or why.
-SOLVEIG_MINIMUM = 0.40.0
-SOLVEIG_VERSION = $(shell grep SOLUM_VERSION \
-                    $(SOLVEIG)/solum/include/solum/common.h 2>/dev/null \
-                    | tr -d '"' | awk '{print $$3}')
-
 .PHONY: all test sanitize run examples ember grammar digest ledger prose basic \
         check install uninstall dist clean
 
@@ -128,20 +124,15 @@ $(BUILD)/tests/%: tests/%.c $(LIB)
 	$(CC) $(CFLAGS) $(SANITIZE) $(STANDARD) $(INCLUDES) $< $(LIB) -o $@
 
 # Said once, here, because a missing Solveig produces three different unhelpful
-# errors depending on which target reached it first.
+# errors depending on which target reached it first. The minimum-version test
+# went with the move into Solveig's tree: the parent is by construction the
+# version this speaks to, and a checkout pointed at by SOLVEIG= is the caller's
+# own affair. PROTO_SOLVEIG_MINIMUM in common.h still records the language
+# level, for anybody building against a Solveig that is not the parent.
 check:
-	@test -n "$(SOLVEIG_VERSION)" || \
-	    { echo "proto: $(SOLVEIG) is not a Solveig checkout."; \
-	      echo "      make SOLVEIG=/path/to/Solveig"; exit 1; }
 	@test -x "$(SOLVEIG)/bin/solas" || \
 	    { echo "proto: $(SOLVEIG) has not been built -- no bin/solas."; \
 	      echo "      make -C $(SOLVEIG)"; exit 1; }
-	@echo "$(SOLVEIG_VERSION) $(SOLVEIG_MINIMUM)" \
-	    | awk '{ split($$1, a, "."); split($$2, b, "."); \
-	             exit !(a[1] > b[1] || (a[1] == b[1] && a[2] >= b[2])) }' || \
-	    { echo "proto: found Solveig $(SOLVEIG_VERSION) under $(SOLVEIG),"; \
-	      echo "  and this needs $(SOLVEIG_MINIMUM) or later."; \
-	      echo "  Update that checkout, or point SOLVEIG at a newer one."; exit 1; }
 
 # The map is written every time rather than on request. It costs a file and it
 # is the thing that is never there when it is wanted.

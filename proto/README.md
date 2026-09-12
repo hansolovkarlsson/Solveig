@@ -15,10 +15,10 @@ a:print.                          ; #14
 ```
 
 ```sh
-make
+make                                      # from Solveig's root builds this too
 bin/proto --map examples/vectors.pro      # -> examples/vectors.sol + .sol.map
-../Solveig/bin/solas examples/vectors.sol
-../Solveig/bin/solvm examples/vectors.sob
+../bin/solas examples/vectors.sol
+../bin/solvm examples/vectors.sob
 ```
 
 The three lines of header are the whole of that module's grammar. `*` binds
@@ -599,12 +599,14 @@ make run        # examples/vectors.pro, compiled and executed
 ```
 
 **The build needs no Solveig.** `make test`, `make run` and `make examples` do,
-because they hand it a file — `SOLVEIG` defaults to `../Solveig` and the version
-is checked rather than taken on trust:
+because they hand it a file. Proto lives in Solveig's tree as `proto/`, so
+`SOLVEIG` defaults to `..` and the parent's `make` and `make test` cover this
+directory; run here on its own, the Makefile says what is missing rather than
+letting `solas` fail with a shell error:
 
 ```
-proto: ../Solveig has not been built -- no bin/solas.
-      make -C ../Solveig
+proto: .. has not been built -- no bin/solas.
+      make -C ..
 ```
 
 **The examples are compiled and run, not just compiled.** A front end that emits
