@@ -1,0 +1,65 @@
+; money.pro -- fixed-point decimal at two places, as a dialect.
+;
+; An amount is an integer of hundredths: `#1234` is 12.34. Every operator below
+; is declared against that and against nothing else, which is the whole of the
+; idea -- `a * b` here is not integer multiply and cannot be mistaken for it.
+;
+; Standalone, and not built on lib/arith.pro, for programs/digest's reason:
+; `@use "arith.pro"` after this file silently buys integer `*` in place of
+; fixed-point `*`, and a ledger that multiplies wrongly still runs. A dialect
+; that redefines an operator cannot stand on one that defines it differently.
+
+; The precision, written once. A form rather than a repeated literal, so that
+; the two places live in one place -- and so that `half a unit`, which
+; round-half-up needs, is derived rather than restated.
+@syntax scale => #100.
+
+; `+` and `-` need no scaling: hundredths plus hundredths are hundredths.
+@infix  +   60 add.
+@infix  -   60 sub.
+
+; And `-` again, in front, because **`#-1225` is not a literal in Proto**.
+; Solveig's own grammar is `"#" [ "-" ] digit { digit }` and takes it; Proto's
+; lexer left the sign out, so a negative amount is a prefix send. A ledger is
+; the first program here with ordinary negative values -- a hash has none, and
+; neither does an assembler or a parser -- which is why nothing found this
+; sooner. See README.md, *What nobody predicted*.
+;
+; One spelling in both tables is legal and reads correctly: infix and prefix are
+; separate tables and position decides, so `#10 - -#5` is `#10:sub(#5:negated)`.
+@prefix -      negated.
+
+; `*` does. Two amounts multiplied are hundredths *squared*, so the product is
+; divided back down -- and rounded half up on the way, because money that
+; truncates loses a cent per operation and a ledger notices.
+@infix  *   70 => ((left:mul(right)):add(scale:div(#2))):div(scale).
+
+; `/` is an amount over a **count**, which is the division a ledger actually
+; does: split this bill four ways. Amount over amount is a different operation
+; answering a different kind of thing, and is `ratio` below -- see README.md,
+; prediction 4, which is about exactly this.
+@infix  /   70 => (left:add(right:div(#2))):div(right).
+
+@infix  ==  40 equals.
+@infix  <   40 lessThan.
+@infix  >   40 greaterThan.
+@infix  <=  40 => (left:greaterThan(right)):not.
+@infix  >=  40 => (left:lessThan(right)):not.
+
+; A rate is written the way a rate is written: `percent #750 of x` is 7.50% of
+; x. Rates are hundredths too, so the divisor is a hundredth of a hundredth --
+; `scale:mul(scale)`, which is the scale named twice rather than `#10000`
+; written once and hoped over.
+@syntax percent <r> of <a> =>
+    ((a:mul(r)):add(scale:mul(scale):div(#2))):div(scale:mul(scale)).
+
+; Amount over amount, answering hundredths again: `ratio x to y` is x/y as a
+; fixed-point number. This is `/`'s other meaning, and it needs a form because
+; a spelling gets one meaning.
+@syntax ratio <a> to <b> => ((a:mul(scale)):add(b:div(#2))):div(b).
+
+; Control flow, because this file cannot use lib/control.pro without also
+; getting lib/arith.pro's operators on top of its own.
+@syntax if <c> then <a>          => c:ifTrue({ a }).
+@syntax if <c> then <a> else <b> => c:ifElse({ a }, { b }).
+@syntax while <t> do <b>         => { t }:whileTrue({ b }).

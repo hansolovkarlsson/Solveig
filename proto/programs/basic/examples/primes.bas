@@ -1,0 +1,16 @@
+10 REM Primes to 30 by trial division: GOTO, GOSUB and RETURN, and no FOR
+20 LET N = 2
+30 IF N > 30 THEN END
+40 GOSUB 200
+50 IF P = 1 THEN PRINT N
+60 LET N = N + 1
+70 GOTO 30
+200 REM answers P = 1 when N is prime
+210 LET P = 1
+220 LET D = 2
+230 IF D * D > N THEN RETURN
+240 IF N / D * D = N THEN GOTO 300
+250 LET D = D + 1
+260 GOTO 230
+300 LET P = 0
+310 RETURN
