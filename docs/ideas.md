@@ -5085,6 +5085,9 @@ taken in bounded pieces; and
 [6.44](COMPLETED.md#644-an-instant-cannot-be-written-in-local-time--done), an instant
 cannot be written in local time, which a unified header needs and which costs a
 fork of `date` that is not even exact across a daylight-saving change.
+**Closed on 2026-09-12 as `system:utcOffset(t)`**, and the inexactness was not
+a footnote: the fork was an hour out on every file untouched since March, for
+ten days, while the oracle agreed because it writes its operands fresh.
 
 **And it generalised the harness twice.** [oracle.sh](../programs/oracle.sh)
 ran one input because every tool it had been asked about read one; `diff` holds
