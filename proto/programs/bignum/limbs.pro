@@ -1,0 +1,36 @@
+; limbs.pro -- the notation the inside of a bignum is written in.
+;
+; A dialect, so directives and nothing else.
+;
+; A bignum here is an array of limbs, least significant first, each an
+; ordinary integer from 0 to one below the base. The base is ten to the ninth,
+; and not a power of two, for two reasons that turn out to be the same one:
+; a limb product plus a limb plus a carry has to fit in Solveig's one integer,
+; which is signed 64-bit and traps rather than wrapping, and 10^9 is the
+; largest power of ten whose square does. A power of ten makes printing a
+; join and reading a copyFrom, so the oracle can compare text. Binary limbs
+; would have been 2^31 and a conversion loop to print. See README.md,
+; prediction 4.
+;
+; Nothing below is a template on an operator, and that is the finding this
+; file was written to test: a limb is a plain integer, `+` on two of them is
+; Solveig's add, and the rule of the domain -- keep the digit, carry the rest
+; -- is applied after the arithmetic rather than wrapped around it. So the
+; operators come from lib/arith.pro unchanged, by way of lib/control.pro, and
+; nothing here collides with them. sha2.pro and money.pro had to invent a `+`
+; and a `*`; this file has nothing to invent.
+
+@use "../../lib/control.pro".
+
+; The base, written once. A form and not a repeated literal, so that the
+; number of digits a limb holds lives in one place beside the base itself.
+@syntax base  => #1000000000.
+@syntax width => #9.
+
+; The rule of the domain. Both are calls and not patterns, because both are
+; applications of a name to one thing -- GRAMMAR.md, "Which shape a form
+; should have" -- and a pattern here would swallow whatever followed its
+; argument. Solveig's `div` and `mod` are floored, which for a non-negative
+; sum is exactly the digit and the carry.
+@syntax digit(t) => t:mod(base).
+@syntax carry(t) => t:div(base).

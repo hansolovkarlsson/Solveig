@@ -95,15 +95,22 @@ PROSE  = programs/prose
 # it reads at run time, so nothing here compiles them.
 BASIC  = programs/basic
 
+# programs/bignum -- the seventh, and the first in two modules: a library in
+# one dialect and a driver in another, the driver reaching the library's
+# *generated* source with @include. So calc.sol depends on bignum.sol, which
+# is the first time this file has had to order two Proto modules.
+BIGNUM = programs/bignum
+
 .PHONY: all test sanitize run examples ember grammar digest ledger prose basic \
-        check install uninstall dist clean
+        bignum check install uninstall dist clean
 
 # Without this, make treats a generated .sol as an intermediate and deletes it
 # after the .sob is built -- taking the map with it. Both are the artefacts
 # somebody reaches for when the generated code is what they need to read.
 .SECONDARY: $(EXAMPLE_SOLS) $(EMBER)/emberc.sol $(EMBER)/emberc.sob $(EMBER_ASM) \
             $(GRAMMAR_SOLS) $(DIGEST)/sha256.sol $(LEDGER)/ledger.sol \
-            $(PROSE)/note.sol $(BASIC)/basic.sol
+            $(PROSE)/note.sol $(BASIC)/basic.sol $(BIGNUM)/bignum.sol \
+            $(BIGNUM)/calc.sol
 
 all: $(BIN)/proto
 
@@ -191,7 +198,7 @@ run: examples/vectors.sob
 # differently -- and the only witness to that is the real compiler.
 test: $(BIN)/proto $(TEST_BINS) $(EXAMPLE_SOBS) $(EMBER_BINS) $(GRAMMAR_SOBS) \
       $(DIGEST)/sha256.sob $(LEDGER)/ledger.sob $(PROSE)/note.sob \
-      $(BASIC)/basic.sob
+      $(BASIC)/basic.sob $(BIGNUM)/calc.sob
 	@for t in $(TEST_BINS); do echo "-- $$t"; $$t || exit 1; done
 	@for e in $(EXAMPLE_SOBS); do echo "-- $$e"; \
 	    $(SOLVEIG)/bin/solvm $$e > /dev/null || exit 1; done
@@ -214,6 +221,9 @@ test: $(BIN)/proto $(TEST_BINS) $(EXAMPLE_SOBS) $(EMBER_BINS) $(GRAMMAR_SOBS) \
 	   printf 'Ada\n36\n' \
 	     | $(SOLVEIG)/bin/solvm $(BASIC)/basic.sob $(BASIC)/examples/greet.bas; \
 	 } | diff -u $(BASIC)/basic.expected - || exit 1
+	@echo "-- $(BIGNUM)/calc.sob"
+	@$(SOLVEIG)/bin/solvm $(BIGNUM)/calc.sob \
+	    | diff -u $(BIGNUM)/bignum.expected - || exit 1
 	@echo "all tests passed"
 
 # The suite under AddressSanitizer and UBSan, which is a separate build rather
@@ -264,6 +274,21 @@ $(BASIC)/basic.sob: $(BASIC)/basic.sol | check
 basic: $(BASIC)/basic.sob
 	@$(SOLVEIG)/bin/solvm $(BASIC)/basic.sob $(BASIC)/examples/fizzbuzz.bas
 
+# Two Proto modules, and solas sees both: calc.sol includes bignum.sol, so the
+# .sob depends on the generated library as well as on the generated driver.
+$(BIGNUM)/bignum.sol: $(BIGNUM)/bignum.pro $(BIGNUM)/limbs.pro $(DIALECTS) $(BIN)/proto
+	@$(BIN)/proto --map $< -o $@
+
+$(BIGNUM)/calc.sol: $(BIGNUM)/calc.pro $(DIALECTS) $(BIN)/proto
+	@$(BIN)/proto --map $< -o $@
+
+$(BIGNUM)/calc.sob: $(BIGNUM)/calc.sol $(BIGNUM)/bignum.sol | check
+	@$(SOLVEIG)/bin/solas $< -o $@
+
+# Every answer it prints was produced by bc first, and is in bignum.expected.
+bignum: $(BIGNUM)/calc.sob
+	@$(SOLVEIG)/bin/solvm $(BIGNUM)/calc.sob
+
 # The dialects go in beside the binary, and nothing looks for them there.
 #
 # Solveig's binaries are told their library path at build time and search it, so
@@ -302,5 +327,7 @@ clean:
 	rm -f $(LEDGER)/ledger.sol $(LEDGER)/ledger.sol.map $(LEDGER)/ledger.sob
 	rm -f $(BASIC)/basic.sol $(BASIC)/basic.sol.map $(BASIC)/basic.sob
 	rm -f $(PROSE)/note.sol $(PROSE)/note.sol.map $(PROSE)/note.sob
+	rm -f $(BIGNUM)/bignum.sol $(BIGNUM)/bignum.sol.map
+	rm -f $(BIGNUM)/calc.sol $(BIGNUM)/calc.sol.map $(BIGNUM)/calc.sob
 
 -include $(LIB_OBJS:.o=.d)
