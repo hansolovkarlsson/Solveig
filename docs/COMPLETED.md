@@ -1986,7 +1986,7 @@ bracket rules for use inside one. The one thing it was measured against
 before it existed was the corpus: every tracked `.sol` file, balanced and
 free of `invalid` tokens outside the folder of files the compiler refuses.
 
-**The second tier followed the same afternoon** (`dbbd530`), once the first
+**The second tier followed the same afternoon** (`25b2dba`), once the first
 had been looked at. The case for it was the case against typing anything
 in: the reference's Message index is already held to `builtins.c` by the
 build, so a list generated from it and from the libraries' exported

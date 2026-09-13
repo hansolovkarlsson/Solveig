@@ -5,7 +5,7 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-### VS Code completes the selector after a colon — `dbbd530`, 2026-09-13
+### VS Code completes the selector after a colon — `25b2dba`, 2026-09-13
 
 **[editors/vscode](../editors/vscode/README.md) offers every message the
 reference documents and every selector the libraries export**, each with its
