@@ -11,6 +11,59 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-09-13, evening: three questions about where a capability should live, and no code
+
+**Hans asked three design questions in a row after the bignum landed**, each
+about the same boundary from a different side, and each was answered from the
+tree rather than built. Nothing was decided; these are assessments he can
+take or leave, recorded so that the reasoning is not lost to a `/clear`.
+
+**A maths library as an extension, so that it is no load on the machine.**
+The answer split the request in three, because *no load on the machine* is
+true of both routes: a `.so` under `--extension=` and a `.sol` under `lib/`
+are equally absent from a program that does not use them, so what chooses is
+whether the code needs C. Complex numbers and statistics are arithmetic a
+program can write, and dispatch gives them their operators the way it gave
+the bignum its `+` this morning, so they are `lib/` first and C when a program
+is measured waiting. The libm functions Python's `math` has and `float` lacks
+are ten lines each and could live in either home, `extend.h` being able to
+hang a primitive on `float` itself. Matrices are the real extension case: a
+contiguous `double` array behind `sol_foreign_new`, with BLAS or Accelerate
+behind the primitives, in `net`'s shape. The one policy question it would
+raise is that an extension is granted by whoever starts the program, which is
+right for a socket and awkward for a library. Recommended: no extension
+until a program wants one.
+
+**A game engine over the SDL extension.** Yes, a two-dimensional one, and the
+extension's shape is already right for it: it hands the program a frame and
+gets out of the way, which its README argues for at length. What it lacks
+today is textures, text, sound and held-key state, every one a primitive in
+`sdl.c` and none a VM change. The budget is the ceiling: near 280 million
+instructions a second at `-O2` by this morning's measure, so about 4.7
+million per frame at sixty frames a second, which is hundreds of sprites with
+simple logic and not a particle system. Recommended: one game first, Pong or
+Breakout, and the engine is what is left after the second.
+
+**A host embedding the machine with SDL linked in, instead of the extension.**
+Not better, and not the opposite: `sol_extension_register` links an extension
+into a binary, and `extend.h` says that is a supported way to ship one, so a
+game host is `solvm`'s `main.c` with one call added and the scripts see the
+same `sdl`. The host buys one executable, no flag, and per-script limits if
+the game ever runs a player's mods; it costs the tools, since `solvm`, `solis`
+and `solid` know nothing of a fifth binary, and it revives the
+two-to-the-number-of-capabilities argument from 2026-08-28 the moment it is
+meant to be the general engine rather than one game. A host that owned the
+frame loop would be the callback shape the SDL repository refused.
+Recommended as a sequence: scripts over the extension while developing, the
+extension linked into a host when shipping, and the scripts unchanged between.
+
+**What the three have in common** is the morning's finding wearing three
+hats: a rule that lives in an object is reached by dispatch and needs no
+special home, and the only things that earn C are a wider product, a C
+library, or a measured wait.
+
+---
+
 ## 2026-09-13, later: Proto's seventh program, and a number for the large-number library
 
 **Hans asked what Proto had outstanding, then for a program to write, then for
