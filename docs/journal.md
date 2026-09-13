@@ -11,6 +11,45 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-09-13, evening: Proto in the editor, and the line a grammar cannot cross
+
+**Hans asked for the same for `.pro` files**, and the answer turned on one
+sentence in Proto's reference: a dialect declares operators, precedence and
+meaning, and *it does not declare tokens*. A TextMate grammar colours tokens.
+So the fixed half of a language whose syntax arrives with the file is
+exactly the half a grammar can see, and the declared half, which file made
+`while` a syntax word and `*` bind at 70, is exactly what it cannot, since a
+grammar does not open files. That line decided the shape: a grammar for the
+tokens and directives, and a reader in the extension for the rest, because
+an extension can open files and a grammar cannot.
+
+**The grammar found two things the reference had to be read twice for.**
+`|` is not an operator character and cannot become one, the tokens table
+says, and `examples/utf8.pro` declares `@infix | 50 bitOr.` Both are true:
+the bar is a token of its own that `@infix` may look up, so `{ a | b }` keeps
+one reading in every module, and a `@prefix |` is refused since a block's
+temporaries open with one. The declaration head takes a lone bar; in code a
+bar no block or group header claimed colours as an operator. And
+`while (n < #20)` is lexically `swap(a, b)`: a name before a parenthesis is a
+form used in either shape, and nothing else in Proto puts one there, so the
+call colour is right for both, which is more than the morning's grammar
+could say about `sin(x)`.
+
+**The reader is the one piece of a language server that needed no server.**
+A header is small, declarative, and read whole, and Proto says where a
+`@use` is looked for: beside the file, then `-I`, then `PROTO_PATH`. The
+extension does the first and third; `-I` is the command line's. From the
+header, a bare word offers the forms as snippets made from their
+declarations, a block hole getting its braces, and a hover on `&&` shows
+`@infix && 30 => left:and({ right }).` and the file it came from. The check
+is again the corpus: every `.pro` header parsed under `osascript`, with as
+many declarations found as the file has directive lines, and every `@use`
+resolving beside its file. The two `.pro` files that reach `lib/` by
+`../../lib/` did, which is the resolution rule doing its one job.
+
+**Not looked at**, either half. The hover in particular has only been
+parsed: `extension.js` is the file that VS Code runs and `osascript` cannot.
+
 ## 2026-09-13, afternoon: the second tier, and the list came from where the build already looks
 
 **Hans asked for the selector list**, the second of the three rungs scoped

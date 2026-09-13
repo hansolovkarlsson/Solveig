@@ -5,6 +5,34 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### VS Code reads a Proto dialect — `6b490af`, 2026-09-13
+
+**`dialect.js` reads the header of an open `.pro` file and of everything it
+`@use`s**, resolved beside the file and then along `PROTO_PATH`, read once,
+ending at the first statement as Proto's own reader does. A bare word then
+offers the dialect's forms as snippets built from their declarations,
+`while <c> <b: block>` inserting the hole as a tab stop and the block with
+its braces, and hovering an operator or a syntax word shows the declaration
+that gave it its meaning and the file that said so. `test.py` reads every
+`.pro` header with it under `osascript` and finds as many declarations as
+the files have directive lines; the cases run against `lib/clike.pro`
+through the example that uses it.
+
+### VS Code colours a `.pro` file — `cb04b91`, 2026-09-13
+
+**A second grammar in [editors/vscode](../editors/vscode/README.md), from
+Proto's token table**, which no dialect can change and which is therefore
+the part of a language with declared syntax that a grammar can see:
+Solveig's tokens with operators everywhere, a signless float, `@expr`
+refused, and the five directives with their parts, down to a hole's kind
+and whether it is one of the five. A syntax word a `@use`d file declared
+colours as a form used when a parenthesis follows and as an object when
+none does, because a grammar cannot read the other file. The selector list
+applies unchanged, Proto's messages being Solveig's; after `@` the eight
+directive forms are offered and after a hole's colon the five kinds, both
+lists drawn from Proto's reference by the generator. All 24 `.pro` files
+balance and none is refused.
+
 ### VS Code completes the selector after a colon — `25b2dba`, 2026-09-13
 
 **[editors/vscode](../editors/vscode/README.md) offers every message the

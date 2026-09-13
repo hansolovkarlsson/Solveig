@@ -1996,6 +1996,15 @@ was narrowed rather than overturned: a literal or a prototype's name before
 the colon is known, and its selectors go first; everything else is offered
 in one order.
 
+**Proto followed in the evening** (`cb04b91`, `6b490af`), and the case was
+argued from its reference before either half was built: a dialect cannot
+declare tokens, so a grammar can colour a `.pro` file to the token and no
+further, and what a dialect does declare is read by the extension, which
+can open the `@use`d file where a grammar cannot. The measure before
+building was the same corpus, all 24 `.pro` files balanced and none
+refused, and for the reader, every header yielding as many declarations as
+it has directive lines.
+
 ### 5.1a Error recovery could loop forever — **fixed**
 
 `synchronise` tested whether the previous token was a `.` before advancing, so a
