@@ -47,8 +47,9 @@ many declarations found as the file has directive lines, and every `@use`
 resolving beside its file. The two `.pro` files that reach `lib/` by
 `../../lib/` did, which is the resolution rule doing its one job.
 
-**Not looked at**, either half. The hover in particular has only been
-parsed: `extension.js` is the file that VS Code runs and `osascript` cannot.
+**Looked at, both halves.** Hans opened a `.pro` file and reported it
+working, hover included, which is the one part `osascript` could not run:
+`extension.js` is the file VS Code runs, and it ran.
 
 ## 2026-09-13, afternoon: the second tier, and the list came from where the build already looks
 
