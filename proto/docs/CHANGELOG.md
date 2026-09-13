@@ -42,8 +42,8 @@ on one line while a run-time trace has a line and no column; a new row under
 CPython's `int`, at 44 instructions per limb product with the one-based index
 arithmetic costing as much as the array access. The prediction said two orders
 of magnitude and was wrong. A large-number library is a library; the ratio is
-what a C extension would buy, and nothing has waited for it. Records in the
-commit after these two.
+what a C extension would buy, and nothing has waited for it. Records in
+`a57982c`.
 
 ### Into Solveig's tree as `proto/` — 2026-09-12
 
