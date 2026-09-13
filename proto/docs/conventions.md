@@ -60,7 +60,7 @@ no Proto feature reaches.
 
 **Predictions are recorded before a program is written**, in the manner of
 Solveig's `ideas.md`, so that *it found nothing* stays an available answer. All
-six programs in `programs/` have a table of them and a *What it found* section
+seven programs in `programs/` have a table of them and a *What it found* section
 written afterwards. Predictions that were wrong stay in, marked wrong:
 `programs/ember` predicted Solveig would bite first and it did not, and
 `programs/digest` predicted a template costs nothing at run time and it does not.
@@ -173,7 +173,7 @@ good intention.
 ## What the build guarantees
 
 `make` needs a C11 compiler and nothing else — no Solveig header, archive or
-symbol. `make test` needs Solveig, because it runs every example and all six
+symbol. `make test` needs Solveig, because it runs every example and all seven
 programs all the way through `solas` and `solvm`, `programs/ember` all the way to
 a linked binary diffed against expected output, and `programs/digest` against
 digests that an independent oracle produced first.

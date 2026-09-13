@@ -10,6 +10,41 @@ piece of work as it was argued *before* the work is in
 
 ---
 
+### `programs/bignum` — 2026-09-13
+
+**The seventh program, and the first in two modules.** Arbitrary-precision
+natural numbers: a library, `bignum.pro`, written in a five-line limb dialect,
+and a driver, `calc.pro`, written in `lib/control.pro` and reaching the
+library's generated source with `@include`. Add, subtract, multiply, divide by
+a small integer, compare, raise to a power; every line the driver prints was
+printed by `bc` first. `3ba0380` is the predictions and the answers,
+`39f902e` the program and the Makefile, which orders two Proto modules for the
+first time.
+
+**It was written to find where a dialect ends, and found that this one does
+not end anywhere.** No operator in either header is a template. One
+`@infix + 60 add.` adds two limbs in the library and two bignums in the
+driver, because `add` is a message and the receiver decides. The roadmap's
+entry with no proposal has one now, and it is a rule rather than a feature:
+a dialect traps its scaffolding exactly when its domain's values are the
+substrate's own, since a template on the spelling is then the only place the
+rule can go. `digest` and `ledger` were bitten for that reason; this was not.
+
+**Folding's third customer declined**, as predicted: no send in the generated
+code has two literal operands. **The map holds across modules**: a misspelled
+message in the library reported `bignum.sol:27` over `calc.sol:16`, one frame
+per generated file, and each file's map took its line back. What the exercise
+found instead is that a generated line is a span, a `while` body being emitted
+on one line while a run-time trace has a line and no column; a new row under
+*Rough edges*, checked the day it was found, and `solveig-notes.md` 4.
+
+**And a number for a question from outside.** `1000!` in 40 ms at `-O2`, 170×
+CPython's `int`, at 44 instructions per limb product with the one-based index
+arithmetic costing as much as the array access. The prediction said two orders
+of magnitude and was wrong. A large-number library is a library; the ratio is
+what a C extension would buy, and nothing has waited for it. Records in the
+commit after these two.
+
 ### Into Solveig's tree as `proto/` — 2026-09-12
 
 **No version.** The repository became a subtree of

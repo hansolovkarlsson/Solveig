@@ -138,6 +138,13 @@ measurement made this look larger than it is**. What survives is the claim, not
 the figure: *a form is a method that costs nothing at run time* is either true
 or it is not.
 
+**A third customer, and it declines.** `programs/bignum` has its base in the
+inner loop, which is `digest`'s shape, and no send in its generated code has
+two literal operands: `digit(t)` is `t:mod(#1000000000)`, and nothing is
+*derived* from the base the way `ledger` derived half a unit from its scale. A
+folder would find nothing to do. Predicted before the program was written, and
+right, so this entry moves by a customer declining rather than by a figure.
+
 **It is not obviously safe, which is why this is an entry and not a patch.**
 Folding `#32:sub(#17)` means evaluating a send at expand time, and `integer:sub`
 is a slot a Solveig program may assign — run rather than assumed:
@@ -180,7 +187,8 @@ making true for its own sake. **The number is small and the claim is not**: 5.4%
 on one program is not an argument, but a sentence in the README that is 98% true
 is a different kind of debt.
 
-**A dialect ends at its domain and cannot say where. Two programs now.**
+**A dialect ends at its domain and cannot say where. Three programs now, and
+the third had no trap, which is the first proposal.**
 `programs/digest` declares `+` as addition modulo 2³², right for every line of
 SHA-256 and a trap for the loop counters beside it — `shift - #8` at zero is
 `#4294967288` and the loop never ends. `programs/ledger` declares `/` as
@@ -198,9 +206,24 @@ value is `0.074995…`, because a ledger has amounts wanting two places and rate
 wanting five, and a dialect has one scale to give. **The same dialect can be
 wrong for a second quantity inside its own domain.**
 
-Still no proposal. A dialect that could say where it ends would have to say it
-per operator and per quantity, which is a type system and a larger thing than
-this project is.
+A dialect that could say where it ends would have to say it per operator and
+per quantity, which is a type system and a larger thing than this project is.
+
+**`programs/bignum` was written on 2026-09-13 to find the boundary, in two
+modules whose headers were meant to disagree about `+`, and found there was
+none to find.** Its values are objects, so `+` is `add` and the receiver
+decides; the library's `*` is an integer product on one line and a bignum
+product two methods down under one declaration, and the loop counters beside
+the domain are as safe as the domain. The proposal is not a feature: **a
+dialect traps its scaffolding exactly when its domain's values are the
+substrate's own**, because then a template on the spelling is the only place
+the rule can go and a template cannot look at its receiver. A 32-bit word and
+an amount in hundredths are integers, so `digest` and `ledger` had to invent
+and were bitten; a bignum is not, so nothing was invented and nothing bit. The
+question to ask before writing a domain dialect is therefore *are its values
+the substrate's own*, and if they are, the trap is certain and the workaround
+is the one both programs used. [does-it-pay.md](does-it-pay.md) has the
+argument under *The seventh program*.
 
 ## Waiting on a customer — optional and repeated parts
 
@@ -359,7 +382,8 @@ invocation is measured and the likelihood of a reader choosing it is not. **The
 next run uses the published invocation**, and that is what would settle it.
 
 The two rows still unchecked are long send chains and `t__1` names; temporaries
-in a group is a stated absence rather than a severity guess.
+in a group is a stated absence rather than a severity guess. A fifth row was
+added on 2026-09-13 and checked the day it was found.
 
 | | |
 | --- | --- |
@@ -367,3 +391,4 @@ in a group is a stated absence rather than a severity guess.
 | Temporaries in a group | `( \| t \| … )` is Solveig's; Proto reads `( expr. expr )`. |
 | The map is written only with `--map` | The Makefile always passes it, and so does `README.md`'s quickstart. **A reader run reached the failure the map exists for, with no map written** — see below. |
 | A generated name is `t__1` | Legible, and it collides with nothing because the whole module's identifiers are checked. It is still a name a person could have wanted. |
+| A generated line is a span | A `while` body or an `if` arm is emitted on one line, and a run-time trace carries a line and no column, so the map, exact to the column, cannot narrow it. Checked on `programs/bignum`: 16 of the library's 103 generated lines carry more than one source line, four at worst. Either Proto keeps a line break inside an expanded hole, or Solveig's trace gains the column its compile errors have. Neither built; `solveig-notes.md` 4 is the second half. |

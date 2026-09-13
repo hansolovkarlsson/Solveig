@@ -77,4 +77,108 @@ same `1000!`.
 
 ## What it found
 
-Written after.
+Written after. The predictions above were committed in `3ba0380`, before a
+line of `bignum.pro` existed. The program compiled clean the first time, and
+its first run agreed with `bc` on every line.
+
+### The predictions
+
+| | |
+| --- | --- |
+| **1. The dialect has nothing to invent** | **Right.** `limbs.pro` is five lines: `base`, `width`, `digit(t)`, `carry(t)` and a `@use` of `lib/control.pro`. No operator in either module is a template. It is the first value domain here with nothing invented, and the first whose dialect collides with nothing. |
+| **2. `lib/arith.pro` serves both, because messages dispatch** | **Right, and it reaches further than predicted.** One `@infix + 60 add.` adds two bignums in `fibonacci` and two limbs in `big:add`. Inside `bignum.pro` itself, `result * b` in `pow` is a bignum product and `ai * b:at(j)` in `mul` is an integer one, under the same declaration in the same file. The two-module split was designed to find where a dialect ends, and the answer is that **this dialect does not end anywhere**: both modules could have shared one header without a collision. Mixing the types fails loudly in both directions, `'add' expects integer, got object` one way and `integer does not understand 'limbs'` the other. |
+| **3. Folding gets no third customer** | **Right.** No send in either generated file has two literal operands. `rem * base` expands to `rem:mul(#1000000000)`, which has a name in it and nothing a folder could reach. |
+| **4. The overflow trap chooses the base** | **Right.** Base 10⁹, and the inequality that fixes it is the comment on `big:mul`. Nothing in Python's `math` module was wanted; what was wanted was a wider product, which no scripting language's integers offer either. Python's own `int` keeps 30-bit digits in C for the same reason this file keeps nine decimal ones. |
+| **5. `@include` of a generated file works, and an error names it** | **Right.** A message misspelled in the library's copy under a scratch directory reported `[bignum.sol:27] in block` over `[calc.sol:16] in block`, one frame per generated file, and each file's map beside it took the line back: `bignum.sol:27` to `bignum.pro:55`, `calc.sol:16` to `calc.pro:51`. Proto was not changed. The Makefile gained the three rules every program has and one extra prerequisite, `calc.sob` depending on `bignum.sol` as well as `calc.sol`. |
+| **6. A library and not an extension, and the number says so** | **Right about the kind, wrong about the number.** `1000!` takes 40 ms at `-O2` and 190 ms at the default `-g` build; CPython's `int` takes 0.24 ms for the same product. That is **170×**, not two orders of magnitude, and the claim about where the cost sits was wrong too. See below. |
+
+### 6, measured
+
+| | instructions |
+| --- | ---: |
+| `1000!`, 999 multiplications by one limb | 11,291,573 |
+| one product of two 100-limb numbers | 444,565 |
+| per limb product, the inner loop | **44** |
+
+Forty-four instructions per limb product, by binary search on `--steps`, and
+the disassembly says what they are: fifteen sends, of which four touch the
+array (`at` twice, `atPut`, `size`) and **eleven are arithmetic**. Four of the
+eleven are `i + j - #1`, computed twice, once to read and once to write; two are
+`digit` and `carry`; the rest are the product, the two additions, the counter
+and its test. **The one-based index costs as much as the array access it
+indexes**, which is not what prediction 6 said the cost was.
+
+| `1000!`, five runs averaged | seconds |
+| --- | ---: |
+| Solveig, `-O2` | 0.040 |
+| Solveig, default `-g` build | 0.19 |
+| CPython 3 `int` | 0.00024 |
+
+So the answer to the question from outside Proto is in two halves. **A
+large-number library is a library**: this one is correct with nothing missing
+from the machine, it is 126 lines of generated Solveig that `@include` reaches,
+and a program that wanted it in Solveig's `lib/` would have it by copying a
+file. **The case for a C extension is the ratio and nothing else**: 170× is
+real, and it is also 40 ms, and no program here has waited for it. An
+extension in the shape of `extensions/net`, a global `big` holding primitives,
+is what that ratio would buy when a program is measured waiting, and not
+before.
+
+### What the two modules actually found
+
+The roadmap entry this was written against says *a dialect ends at its domain
+and cannot say where*, and it had two programs behind it: `digest`'s `+` masked
+to 2³² and `ledger`'s `*` scaled back down, each right for its domain and a trap
+for the loop counter beside it. This program has the same shape, a domain with
+scaffolding around it, and **no trap**, and the difference is not the module
+boundary. It is what the domain's values are.
+
+A limb is a Solveig integer. A bignum is an object. `+` on the first is the
+integer's `add`, and `+` on the second is `big:add`, and the header did not
+have to know which because the receiver knows. `digest` and `ledger` could not
+do that: a 32-bit word and an amount of money are *also* Solveig integers, so
+the only place their rule could live was a template on the spelling, and a
+template cannot look at its receiver. That is the whole mechanism:
+
+> **A template bakes a domain into a spelling. Dispatch reads the domain off
+> the receiver. A dialect traps its scaffolding exactly when its domain's
+> values are the substrate's own, because then the spelling is the only place
+> the rule can go.**
+
+`basic` found that a program can contain a domain without being one, because
+its domain arrives with the input. This is the other half: a program can *be*
+a domain without needing a dialect for it, because its domain is an object.
+The dialects that pay, the invented ones [does-it-pay.md](../../docs/does-it-pay.md)
+counts as the only evidence, are the ones that trap, and for one reason.
+
+### What nobody predicted
+
+**A run-time trace names a line, and a generated line is a span.** Proto emits
+the body of a `while` on one line, so `bignum.sol:27` is source lines 54 to
+57 and the map, which is exact to the column, cannot narrow a report that has
+no column. Sixteen of the library's 103 generated lines carry more than one
+line of the module, every one a loop body or an `if`. A four-line span is a
+recovery, and it is not the exact one the map was built to give. Two fixes,
+neither built: Proto could keep a source line break inside an expanded hole,
+or Solveig's trace could carry a column the way its compile errors already
+do. [ROADMAP.md](../../docs/ROADMAP.md) has the row, and
+[solveig-notes.md](../../docs/solveig-notes.md) the second half.
+
+**`n(#2)` had to be a form.** In Solveig, `f(x)` on a name is `x:f`, so a block
+called that way is a message the integer does not understand. Two characters in
+a header, and the reason is in the comment, but it is a spelling a reader of C
+or Python will write first.
+
+**Nothing in Solveig bit.** Objects with slots assigned after `object:new`,
+`error:raise` in a method, `fill` asking an object for `asString`, arrays of
+arrays: the seventh program is the third in a row to record that the substrate
+did not surprise it. The count is worth keeping because `ember` predicted the
+opposite and was wrong.
+
+### What did not come up
+
+Hygiene, the collision rules, `@use` resolution: nothing, from a seventh
+program, and the collision rules could not, this being the first domain dialect
+with nothing to collide. Optional and repeated parts were not wanted. A hole's
+kind was not needed. Division of one bignum by another was not written, because
+nothing asked for it, and it is the first thing a second customer would.

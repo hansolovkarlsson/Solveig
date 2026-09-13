@@ -726,7 +726,7 @@ predicate logic, which turns out to be three questions wearing one name.
 
 | | |
 | --- | --- |
-| [does-it-pay.md](docs/does-it-pay.md) | what six programs and four strangers say about the question this project exists to answer |
+| [does-it-pay.md](docs/does-it-pay.md) | what seven programs and four strangers say about the question this project exists to answer |
 | [REFERENCE.md](docs/REFERENCE.md) | every directive, hole kind and shipped dialect, and where everything lives — the page to look things up in |
 | [what-is-proto.md](docs/what-is-proto.md) | how the parts fit together, kept as the five questions that were asked and answered |
 | [pipeline.html](docs/pipeline.html) | the same path drawn — the pipeline, lockstep matching, expansion, and the map |
@@ -743,7 +743,7 @@ predicate logic, which turns out to be three questions wearing one name.
 
 ## The programs
 
-**Six, and they are why several of the versions above exist.**
+**Seven, and they are why several of the versions above exist.**
 
 | | |
 | --- | --- |
@@ -753,6 +753,7 @@ predicate logic, which turns out to be three questions wearing one name.
 | [`programs/ledger`](programs/ledger) | a statement in fixed-point decimal, against exact-decimal figures produced elsewhere. Found that Proto has one of Solveig's three integer literals, and that folding is worth 0.19% when the dialect is not in the loop. |
 | [`programs/prose`](programs/prose) | a document written in its own dialect and rendered to text. Found that a form can contain content but not half a line, and that a document is a domain of steps like the other two. |
 | [`programs/basic`](programs/basic) | a BASIC interpreter, with a prompt. The first program that is not a pass over its input, and the one that stated the ceiling: notation is fixed when a file is read, and an interpreter decides everything after that. |
+| [`programs/bignum`](programs/bignum) | arbitrary-precision integers, checked against `bc`, in two modules that were meant to disagree about `+` and did not. Found that a dialect traps its scaffolding exactly when its values are the substrate's own, and that a large-number library is a library. |
 
 Each carries a table of predictions recorded **before** it was written and a
 *What it found* section written after. Predictions that were wrong stay in,

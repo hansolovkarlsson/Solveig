@@ -141,6 +141,75 @@ script in this repository's history and can be lifted by anybody who wants it.
 
 ---
 
+## 4. A run-time trace carries a line and no column
+
+**Kind:** missing functionality, small; matters more to a generated file than
+to a written one.
+
+**What happens.** A compile error is reported with a column,
+`[prog.sol:1:7] solas: ...`, and a run-time frame is not:
+
+```
+solvm: integer does not understand 'asStrin'
+  [bignum.sol:27] in block
+  [calc.sol:16] in block
+  [calc.sol:17] in script
+```
+
+**Why it matters here.** Proto's map is exact to the column, and a generated
+line is often a span: a `while` body or an `if` arm is emitted on one line, so
+`bignum.sol:27` is `bignum.pro` lines 54 to 57 and the map cannot narrow it
+without a column to look up. Sixteen of that library's 103 generated lines are
+spans. A four-line answer is a recovery; the exact one is what the map was
+built to give.
+
+**Expected.** `[bignum.sol:27:10] in block`, the column of the send that
+failed, which the compiler had when it emitted the instruction. **Observed.**
+The line alone.
+
+**Suggested fix.** Carry the column in the line table beside the line, and
+print it in the frame. The other half is Proto's, keeping a source line break
+inside an expanded hole, and is on its roadmap under *Rough edges*; either
+alone would do, and this one helps every generated file, not only Proto's.
+
+**Not a blocker.** Found on 2026-09-13 by `programs/bignum`, which put a
+deliberate error in a copy of its library to test the map across two modules.
+
+## 5. What a large-number library wants, and what Python's `math` has that Solveig does not
+
+**Kind:** an inventory, not a request. Written because Hans asked, with
+`programs/bignum`, whether a maths extension in the shape of `extensions/net`
+is wanted, and whether Python's `math` module is the measure of *advanced
+maths*.
+
+**A bignum is a library.** `programs/bignum/bignum.sol` is 126 lines of
+generated Solveig, correct against `bc`, and nothing in it needed a capability
+the machine lacks. What it wanted and could not have is a product wider than
+64 bits, and no scripting language's integers offer that either: CPython keeps
+30-bit digits in C for the same reason this keeps nine decimal ones. The trap
+on overflow is what fixed the base, and it fixed it correctly. The case for a
+C extension is speed alone: `1000!` takes 40 ms at `-O2` against 0.24 ms for
+CPython's `int`, 170×, and no program has waited for it. If one does, the
+shape is `net`'s, a global holding primitives, and the measurement comes
+first.
+
+**Python's `math` is a different question**, being float mathematics rather
+than large integers, and most of it sorts by 3.14's own argument: a function a
+program cannot write correctly for itself is a primitive, and one it can is
+`lib/math.sol`. Against Solveig's `float` today, which has `floor`, `ceiling`,
+`rounded`, `truncated`, `sqrt`, `pow`, `exp`, `log`, the six trigonometric
+messages, `float:pi` and `float:atan2`:
+
+| would be primitives, being C-library calls a program cannot reproduce | `log2`, `log10`, `log1p`, `expm1`, `exp2`, `cbrt`, `hypot`, `sinh`, `cosh`, `tanh`, `asinh`, `acosh`, `atanh`, `erf`, `erfc`, `gamma`, `lgamma`, `frexp`, `ldexp`, `nextafter`, `ulp` |
+| would be `lib/math.sol`, being arithmetic a program can write | `degrees`, `radians`, `fabs`, `copysign`, `fmod`, `remainder`, `modf`, `isclose`, `dist`, `fsum`, `prod`, `sumprod`, and on integers `gcd`, `lcm`, `isqrt`, `factorial`, `comb`, `perm` |
+| constants | `e` and `tau` beside `float:pi`; `inf` and `nan` are already `infinity` and `nan` |
+
+`fsum` is the one in the second row that is not obvious: a correctly rounded
+sum is Shewchuk's algorithm, which can be written in Solveig and is not short.
+Nothing in either row was wanted by any of the seven programs here, which is
+the standing rule's answer for now: a surface does not grow without a
+customer, and the customer names the row.
+
 ## A prediction about Solveig that was wrong
 
 `programs/ember` is a lexer, a recursive-descent parser and an ARM64 code

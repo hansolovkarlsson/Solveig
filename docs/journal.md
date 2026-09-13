@@ -11,6 +11,35 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-09-13, later: Proto's seventh program, and a number for the large-number library
+
+**Hans asked what Proto had outstanding, then for a program to write, then for
+the bignum**, and asked alongside it whether Solveig wants a maths extension in
+the shape of `extensions/net`, and whether Python's `math` is the measure of
+what *advanced maths* would mean. The program is `proto/programs/bignum`, and
+its records are Proto's: the README carries the predictions and what they met,
+and Proto's journal has the day. Two things are Solveig's to know.
+
+**A large-number library is a library.** 126 lines of generated Solveig,
+correct against `bc`, needing nothing the machine lacks; the overflow trap
+fixed its base at ten to the ninth and fixed it correctly. `1000!` takes 40 ms
+at `-O2` against 0.24 ms for CPython's `int`, which is 170× and also 40 ms.
+The case for a C extension is that ratio and nothing else, and it has no
+customer. Python's `math` sorts, by 3.14's own argument, into C-library calls
+that would be primitives and arithmetic that would be `lib/math.sol`;
+`proto/docs/solveig-notes.md` 5 has the inventory, and nothing in it was
+wanted.
+
+**A run-time frame has a line and no column.** Compile errors carry one; a
+frame does not, and a generated line is often a span of source lines, so
+Proto's map, exact to the column, had nothing to look up. `solveig-notes.md`
+4, with the frame that showed it.
+
+The `-O2` figure meant a clean rebuild and a second one to put `-g` back. The
+tree is on the default build again.
+
+---
+
 ## 2026-09-13: the flake was one document living off another
 
 **Hans asked for the standup, a commit, a push, and then to chase the flake**

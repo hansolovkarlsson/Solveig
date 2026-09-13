@@ -1,6 +1,6 @@
 # The second reader
 
-*[does-it-pay.md](does-it-pay.md) weighs six programs and ends on the one thing
+*[does-it-pay.md](does-it-pay.md) weighs seven programs and ends on the one thing
 none of them tested. This is the design for testing it and the predictions,
 recorded before each run and scored after — **four runs now**, oldest first,
 with wrong predictions left in and marked wrong.*
@@ -55,7 +55,7 @@ it right first time and a reader who takes six are both results; **only the
 second produces a list of what a dialect cannot say about itself**, which is
 what this is for.
 
-**And the task is checked against a hand-computed answer**, as the six programs
+**And the task is checked against a hand-computed answer**, as the seven programs
 are: the pairs with `1 ≤ a < b ≤ 6` and an even product are (1,2) (1,4) (1,6)
 (2,3) (2,4) (2,5) (2,6) (3,4) (3,6) (4,5) (4,6) (5,6) — **twelve**, of the
 fifteen pairs.

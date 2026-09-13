@@ -2,16 +2,16 @@
 
 *[targets.md](targets.md) names the question this project exists to answer —
 **whether a grammar declared per module is a good idea** — and then leaves it to
-be answered somewhere else. Six programs have answered parts of it, each in its
-own README, each quoting the one before. This is the six of them weighed
+be answered somewhere else. Seven programs have answered parts of it, each in
+its own README, each quoting the one before. This is the seven of them weighed
 together.*
 
-*Four are tabulated below; the fifth and sixth have sections of their own,
-because each was written after this page existed and against the question this
-page ended on at the time.*
+*Four are tabulated below; the fifth, sixth and seventh have sections of their
+own, because each was written after this page existed and against the question
+this page ended on at the time.*
 
 ***And four readers who did not write any of it have since been measured against
-the question the six programs could not touch.** Their sections are at the foot,
+the question the seven programs could not touch.** Their sections are at the foot,
 and they are the only evidence here not produced by the author of the thing
 being judged — see [second-reader.md](second-reader.md).*
 
@@ -37,7 +37,7 @@ the design.
 
 ---
 
-## What the six declared
+## What the seven declared
 
 | | operators | forms | dialect | program |
 | --- | ---: | ---: | ---: | ---: |
@@ -47,6 +47,7 @@ the design.
 | [`ledger`](../programs/ledger) — fixed-point decimal | 10 | 6 | 17 | 44 |
 | [`prose`](../programs/prose) — a document | 0 | 7 | 9 | 64 |
 | [`basic`](../programs/basic) — a BASIC interpreter | 0 | 15 | 16 | 251 |
+| [`bignum`](../programs/bignum) — arbitrary precision, in two modules | 1 | 5 | 5 | 153 |
 
 *Lines are non-blank, non-comment. `program` is the module, `dialect` the file
 it uses.*
@@ -185,7 +186,7 @@ cannot be left unbalanced, because a block cannot be left unclosed. But the
 dialect did not invent that rule; it borrowed one Solveig already enforces.
 `sha2.pro` invented its own — nothing in Solveig makes `+` mask to 2³². **Only
 the invented kind is evidence that a declared grammar does something a fixed one
-cannot**, and it remains the one clear instance in six programs.
+cannot**, and it remains the one clear instance in seven programs.
 
 **What was still unknown** was a dialect used by *somebody who did not write
 it* — every dialect here having been written by the author of the file that uses
@@ -250,6 +251,45 @@ argument for putting hygiene in with forms in 0.2.0 predicted, and the only
 evidence that argument could ever have.
 
 
+
+## The seventh program, and why the invented kind traps
+
+Every value domain here had been Solveig's own integer wearing a rule: a
+32-bit word, an amount in hundredths. [`bignum`](../programs/bignum) is a value
+domain whose values are **objects**, and it is in two modules that were meant
+to disagree about `+`, to find where a dialect ends. They did not disagree.
+`limbs.pro` is five lines, declares no operator, and takes `lib/control.pro`
+unchanged; the driver takes the same file and adds `^`. One `@infix + 60 add.`
+adds two limbs in the library and two bignums in the driver, and inside the
+library one `*` is an integer product on one line and a bignum product two
+methods down.
+
+**So the first domain dialect with nothing invented is also the first with no
+trap**, and the two facts are one. `digest`'s `+` and `ledger`'s `*` are
+templates because their values are integers and a rule on an integer has
+nowhere to live but the spelling; a template cannot look at its receiver, so
+the rule reaches the loop counter beside the domain as surely as the domain.
+A bignum's rule lives in `big:add`, dispatch reads it off the receiver, and the
+header has nothing to add.
+
+> **A dialect traps its scaffolding exactly when its domain's values are the
+> substrate's own, because then the spelling is the only place the rule can
+> go.**
+
+That narrows the table above from the other side. The invented kind is the only
+evidence that a declared grammar does something a fixed one cannot, and it is
+also the only kind that costs a silence: the two are the same property. A
+domain that is an object gets its notation from arithmetic's spellings for
+free and gets nothing else from the header, which is why this dialect pays
+least of the seven: five lines, and what they buy is `digit(t)` and
+`carry(t)`.
+
+**And it measured the other question, the one from outside.** Solveig's own
+`ideas.md` wants *a large-number-math library* one day. This one is 126 lines
+of generated Solveig, correct against `bc`, and 170× slower than CPython's
+`int` at `1000!`, 44 instructions per limb product with the one-based index
+arithmetic costing as much as the array access. It is a library. The ratio is
+what a C extension would buy, and nothing has waited for it yet.
 ---
 
 ## The second reader, measured
@@ -269,7 +309,7 @@ to test is that a programmer can declare notation. The first stranger to touch
 it did, unasked, and got it right.
 
 **Every cost was on the other side of the compiler**, which turns the cost table
-above inside out. Six programs found four silences, and all four are things a
+above inside out. Seven programs found four silences, and all four are things a
 *dialect* does — a wrong precedence, a hole's shape, a domain boundary, a hole
 named twice. **A reader met none of them.** What they met was:
 
@@ -281,7 +321,7 @@ named twice. **A reader met none of them.** What they met was:
 Both are fixed. Neither is about notation at all.
 
 > **A declared grammar's cost to its author is the dialect. Its cost to a reader
-> is the substrate.** Six programs measured the first and could not have found
+> is the substrate.** Seven programs measured the first and could not have found
 > the second, because an author already knows what sends exist.
 
 **And the proxy flattered it.** The design said in advance that a session with

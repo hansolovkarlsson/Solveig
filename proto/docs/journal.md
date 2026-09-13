@@ -11,6 +11,95 @@ produced no code because they were decisions.
 
 ---
 
+## 2026-09-13: a program written to find a boundary, and the boundary was not there
+
+**Hans asked what was outstanding, then for a program to write, then for the
+bignum**, with one instruction beside it: pay attention to whether Solveig
+wants a maths extension in the shape of `net`, and whether Python's `math`
+library is the measure of what *advanced maths* would mean. The program was
+chosen because every one of the six before it is one code module and one
+dialect file, and the roadmap's only entry with no proposal, *a dialect ends
+at its domain and cannot say where*, has the design's own answer sitting
+untested in `examples/vectors.pro`: a second file may declare `+` to mean
+something else, and neither file has to know.
+
+### The predictions went in first, with bc's answers beside them
+
+Six predictions, committed with `bignum.expected` before a line of code, the
+expected file produced by `bc` so that the program could not be its own
+oracle. The sharpest was the second: that `lib/arith.pro` would serve the
+driver unchanged for integers and bignums alike, because `+` names a message
+and a message dispatches. The one that was going to be wrong was the sixth,
+which put a number on the speed.
+
+### The program ran right the first time, and the two modules did not disagree
+
+`limbs.pro` came out at five lines: the base, its width, `digit(t)` and
+`carry(t)`, over `lib/control.pro` unchanged. The library is 126 lines, the
+driver 27, and the first run matched `bc` on every line. Prediction 2 reached
+further than it was written: inside the library, `ai * b:at(j)` is an integer
+product and `result * b` two methods down is a bignum one, under the same
+declaration in the same file. The two modules were built to disagree about
+`+` and had nothing to disagree about, and that is the finding. `digest` and
+`ledger` invented a `+` and a `*` because their values are Solveig's own
+integers wearing a rule, and a rule on an integer has nowhere to live but a
+template on the spelling, which cannot look at its receiver and so reaches
+the loop counter beside the domain. A bignum is an object, so the rule lives
+in `big:add` and the header has nothing to add. **A dialect traps its
+scaffolding exactly when its domain's values are the substrate's own.** The
+roadmap entry has that as its proposal now, and it is a question to ask before
+writing a domain dialect rather than a feature to build.
+
+### What was measured
+
+By binary search on `--steps`: 11,291,573 instructions for `1000!` and
+444,565 for one product of two 100-limb numbers, which is 44 per limb product.
+The disassembly says fifteen of the 44 are sends, four on the array and eleven
+arithmetic, and four of the eleven are `i + j - #1` computed twice. Prediction
+6 had said the cost was the array access; the index arithmetic costs the same.
+By wall clock, `1000!` is 40 ms at `-O2`, the build `performance.md`
+measures, and 190 ms at the default `-g` build; CPython's `int` takes 0.24 ms.
+That is 170×, and the prediction said two orders of magnitude. The `-O2`
+measurement meant a clean rebuild of the parent and a second one to put `-g`
+back, which is what the memory about benchmarks says to do and why.
+
+**So the answer to Hans's question is in two halves, and both are in the
+README.** A large-number library is a library: correct with nothing missing
+from the machine, and `@include` reaches it. The case for a C extension is
+the ratio and nothing else, and no program has waited 40 ms for it. Python's
+`math` is a different question from a bignum, and `solveig-notes.md` 5 sorts
+its contents into what would be primitives by 3.14's own argument and what
+would be `lib/math.sol`; nothing in it was wanted by this program.
+
+### What the exercise found that nobody predicted
+
+A misspelled message in a copy of the library reported `[bignum.sol:27]` over
+`[calc.sol:16]`, one frame per generated file, and each map took its line
+back: 27 to `bignum.pro:55`, 16 to `calc.pro:51`. Prediction 5 held and Proto
+was not changed. But 27 is also lines 54, 56 and 57, because a `while` body is
+emitted on one generated line and a run-time trace carries a line and no
+column, so the map's column, which `tests/test_map.c` checks harder than
+anything else here, had nothing to apply itself to. Sixteen of the library's
+103 generated lines are spans of the module's own lines, every one a loop body
+or an `if` arm. A four-line span is a recovery and not the exact one the map
+was built for. Two fixes, neither built: Proto keeping a line break inside an
+expanded hole, or Solveig's trace carrying the column its compile errors
+already have. A row under *Rough edges*, checked on the day, and
+`solveig-notes.md` 4.
+
+`n(#2)` had to be a form, because `f(x)` on a name is `x:f` in Solveig. And
+nothing in Solveig bit, for the third program in a row.
+
+### What moved in the records
+
+Seven programs where there were six, everywhere a running count is kept;
+`does-it-pay.md` gained a row and a section; the roadmap's folding entry a
+third customer declining, its boundary entry a proposal, and its rough-edges
+table a fifth row. The parent's journal has a paragraph pointing here. No
+version: nothing in the compiler changed.
+
+---
+
 ## 2026-09-12, later: the second decision of 0.1.0, reversed
 
 **Proto lives in Solveig's tree now**, as `proto/`, with this history intact
