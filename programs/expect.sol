@@ -848,6 +848,17 @@ markersIn := { path, source | | n |
 checkMarkdown := { path | | source, name, n, expected, parts, output, label,
                            context, contextLines, clean, joined, before,
                            all, shown, i |
+    ; **And emptied again before each document**, for the same reason one
+    ; level down. Every document in a pass ran in the leftovers of the ones
+    ; before it, and one block lived off that: ideas.md's NUL-path block wrote
+    ; to `build/`, which nothing on its page makes and which the reference's
+    ; `makeDirectory("build")` block, earlier in the alphabet, had left behind.
+    ; So it passed, and when something removed the sandbox between the two --
+    ; a second checker starting is enough, since the wipe above is its first
+    ; act -- it was reported as *did not run*, once in about eight runs on
+    ; 2026-09-12. A dependency that only shows under a race is the same
+    ; dependency; this makes it show on every run.
+    system:run(["rm", "-rf", sandbox]).
     source := system:readFile(path).
     markersIn:value(path, source).
     seen:add(path).

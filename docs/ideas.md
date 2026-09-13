@@ -848,12 +848,12 @@ filesystem message on `system` answers about a **prefix** of the name it was
 given, and says nothing:
 
 ```
-system:writeFile("build/nul-path.txt", "hello\n").
-name := "build/nul-path.txt":concat(#0:asCharacter):concat("zzz").
-name:size:print.                  ; #22
+system:writeFile("nul-path.txt", "hello\n").
+name := "nul-path.txt":concat(#0:asCharacter):concat("zzz").
+name:size:print.                  ; #16
 system:fileExists(name):print.    ; true
-system:fileSize(name):print.      ; #6    -- which is build/nul-path.txt
-system:remove("build/nul-path.txt").
+system:fileSize(name):print.      ; #6    -- which is nul-path.txt
+system:remove("nul-path.txt").
 ```
 
 **What made it worth an entry is how it failed, not that it failed.** The

@@ -11,6 +11,58 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-09-13: the flake was one document living off another
+
+**Hans asked for the standup, a commit, a push, and then to chase the flake**
+recorded yesterday: `test_documents` reporting `ideas.md:850` as *did not run*
+about once in eight runs. Yesterday's note said the fault "lives in the
+harness's run of it and not in the block". Half right. It lives in the block's
+reliance on what the harness happened to leave lying about.
+
+**The chase, in order.** Twenty-four sequential runs of the exact command the
+C harness uses, at the current tree: none failed, which already said the
+one-in-eight had been measured while something else was going on. The C side
+of `run`, `capture`, `writeFile` and `fileSize` is deterministic on that block,
+and the checker calls a block *did not run* only when its stand-alone run
+either would not compile or printed an undocumented `solvm:` line. So the
+question was what could put an error line into a run of six statements that
+write a file and read it back, and the answer was the path: the block wrote
+`build/nul-path.txt` relative to the checker's sandbox, and nothing on
+ideas.md's page makes a `build/` folder there. REFERENCE.md does, in the block
+that shows `remove` refusing a directory with `kept.txt` still in it, and
+REFERENCE.md sorts before ideas.md. The sandbox is emptied once per pass, so
+every document ran in the leftovers of the ones before it and this one block
+was standing on them.
+
+**Reproduced by construction, twice.** A run with the sandbox deleted from
+outside between REFERENCE.md and ideas.md reported `ideas.md:850 did not run`
+with the count short. A copy of the checker that empties the sandbox before
+every document reported exactly that block and nothing else, three claims
+short, which is yesterday's symptom to the digit and says no other block in
+the documents depends on another document's leftovers. The block rewritten to
+write beside itself passed under the same checker.
+
+**What removed the sandbox yesterday is not proven.** The checker's own first
+act is `rm -rf build/expect-run`, so two checkers overlapping does it, and
+nothing else in the tree touches that directory but `make clean`. It fits
+"under load", and it fits eight clean runs at one commit and three bad in
+twenty at another, because the timing decides it and the edits do not. The
+sixty runs of the block alone passed because `build/` was there for all of
+them.
+
+**Two changes, both small.** The block writes `nul-path.txt` where it stands,
+with the size claim following. The checker empties the sandbox before each
+document as well as before the pass, with the reason written where it keeps
+the reason for the first wipe: the same principle one level down, a checker
+whose answer depends on what ran before it agrees with you eventually. A
+per-process sandbox, which would make concurrent checkers safe outright, was
+not built: there is no pid primitive and the case is one race that is now
+visible on every run.
+
+**The trigger was met.** Not by the flake, which one green re-run would have
+hidden, but by the reproduction: a fault that can be produced on demand
+carries its own case.
+
 ## 2026-09-12, third: the only entry on the roadmap, and the morning it stopped being not urgent
 
 **The day opened on a clean tree and one roadmap entry**, 6.44, an instant

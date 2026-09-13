@@ -5,6 +5,21 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### The checker empties its sandbox before each document — `pending`, 2026-09-13
+
+**`test_documents` failed once in about eight runs on 2026-09-12**, always
+reporting the NUL-path block at `ideas.md:850` as *did not run* and the claim
+count three short. The block wrote to `build/`, which nothing on its page
+makes: the folder was there because REFERENCE.md's `makeDirectory("build")`
+block, earlier in the alphabet, had left it in the checker's sandbox, and the
+sandbox was emptied once per pass. Anything that removed the sandbox between
+the two documents, and a second checker starting is enough since that is its
+first act, turned the dependency into a failure. Wiping the sandbox before
+every document in a copy of the checker failed exactly that block and nothing
+else, so the block now writes beside itself and the checker empties the
+sandbox before each document, which makes a dependency of that kind fail on
+every run instead of one in eight. 1,066 claims, unchanged.
+
 ## 0.44.0 — 2026-09-12
 
 **Proto is in the tree, and the roadmap is empty again.**
