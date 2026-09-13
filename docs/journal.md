@@ -11,6 +11,21 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-09-13, late afternoon: five binaries in one directory
+
+**Hans asked whether Proto's compiler could be built into Solveig's `bin/`
+rather than `proto/bin/`.** Two shapes were put to him: Proto writing there
+itself, one line in its Makefile, or the root Makefile copying the binary up
+and leaving Proto untouched. He took the first, "instead" being what he
+asked for. The one trap was `clean`: Proto's ran `rm -rf $(BUILD) $(BIN)`,
+which with `BIN` pointing at Solveig's `bin/` would have deleted the four
+binaries every time Proto cleaned, including from its own `sanitize` target,
+which cleans first. It now removes the one file it puts there. The proof
+was `make clean && make && make test` from the root, `ls bin` showing five,
+and `make clean` inside `proto/` leaving four. Proto's boundary sentence
+changed by a clause: it reaches Solveig only through `bin/`, reading four
+and writing one.
+
 ## 2026-09-13, mid-afternoon: Proto in the editor, and the line a grammar cannot cross
 
 **Hans asked for the same for `.pro` files**, and the answer turned on one

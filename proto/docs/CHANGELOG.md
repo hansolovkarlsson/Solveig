@@ -10,6 +10,18 @@ piece of work as it was argued *before* the work is in
 
 ---
 
+### The compiler is built beside Solveig's four — `f4dd0d3`, 2026-09-13
+
+**`make` writes `../bin/proto`, not `bin/proto`.** `BIN` defaults to
+`$(SOLVEIG)/bin`, so one directory holds the whole toolkit and one `PATH`
+entry reaches all five. `clean` removes the one file this Makefile puts
+there and never the directory, since the four beside it are not Proto's to
+take; that rule was the whole risk of the move, and `make clean && make &&
+make test` from either directory is the check. The boundary is where it was:
+this Makefile reaches Solveig only through `bin/`, reading four binaries and
+now writing one. A standalone `make` inside `proto/` still works, `..` being
+Solveig's root.
+
 ### `programs/bignum` — 2026-09-13
 
 **The seventh program, and the first in two modules.** Arbitrary-precision

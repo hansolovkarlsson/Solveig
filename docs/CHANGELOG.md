@@ -5,6 +5,15 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### `bin/` holds five binaries — `f4dd0d3`, 2026-09-13
+
+**`make` now writes Proto's compiler to `bin/proto`**, beside `solas`,
+`solvm`, `solis` and `solid`, instead of to `proto/bin/`. One directory on
+`PATH` reaches the whole toolkit; `make install` already put the five
+together. Proto's `clean` removes only its own file there. The change is
+[Proto's](../proto/docs/CHANGELOG.md), and this entry is here because the
+directory is this repository's.
+
 ### VS Code reads a Proto dialect — `6b490af`, 2026-09-13
 
 **`dialect.js` reads the header of an open `.pro` file and of everything it
