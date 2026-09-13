@@ -11,6 +11,52 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-09-13, later: the editor gets colour, and the boundary that stops it getting more
+
+**Hans wanted VS Code to colour a `.sol` file and complete what he types.**
+The answer split in two before anything was built, because the two halves
+cost differently by an order of magnitude. Colouring is a TextMate grammar,
+a JSON file of regexes, and the lexical half of
+[GRAMMAR.md](GRAMMAR.md) is already close to one. Completion has three
+rungs: the editor's own word-based kind, free once the language is
+registered; a static list of selectors drawn from the reference, cheap and
+blind to the receiver; and a language server, which is days and a second
+program. The wall is between the second and the third, and it is the
+language's: every send is dynamic, so *what can this receiver answer* is a
+run-time question, and a tool that guessed at it would be wrong often enough
+to be worse than none. Hans took the first tier, grammar plus free
+completion, and named `editors/vscode/` as its home. The trigger was his own
+wish, stated in one sentence.
+
+**The grammar took one wrong turn.** The first draft read a block's
+parameters and temporaries with `\G`-anchored rules, *immediately after the
+previous match*, which is how most grammars do it. It has a hole: inside a
+region, once `a` is consumed, `| b |` in `a | b | c` reads as temporaries.
+The header went into the brace's own `begin` pattern instead, so it is matched
+where the brace is and nowhere else, and a disjunction three wide is three
+operators. What that costs is a header on the line after the brace, which
+nine blocks in the corpus have, `{ n, p, q |` then `| it |`; a line-start
+rule covers that outside a region, where nothing else can begin a line with a
+bar, and inside one the line is left plain, because there it could be a
+continued disjunction.
+
+**The check is the corpus.** There is no `node` on this machine and so no
+`vscode-textmate`, so `editors/vscode/test.py` is a TextMate engine small
+enough to read, run over every `.sol` file `git` tracks. Two properties: each
+file leaves the bracket stack balanced, which catches a string or comment rule
+that lets a brace through, and no file outside `conformance/refused/` produces
+an `invalid` token, which is the grammar agreeing with the compiler about what
+is refused. The one `invalid` it did find was `@nosuch`, in the file that
+exists to be refused for it. Fifteen fixture lines were written by hand from
+the grammar page before the engine ran, in the conformance corpus's way. The
+checker is not in `make test`: it is Python, and the suite's rule that nothing
+outside C11 and `make` is needed to run it holds.
+
+**Not verified: the picture.** The grammar has been tokenised, not looked at.
+Whether the colours are the right ones is a question for the editor, and the
+README says how to install the folder in place so that a change to the grammar
+is live on reload.
+
 ## 2026-09-13, evening: three questions about where a capability should live, and no code
 
 **Hans asked three design questions in a row after the bignum landed**, each

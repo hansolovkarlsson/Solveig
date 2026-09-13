@@ -1963,6 +1963,29 @@ still deferred, in [ideas.md](ideas.md#the-exported-symbol-surface-and-the-lto-i
 
 ## 5. Tooling and ergonomics
 
+### An editor that colours the language, measured before it was built — `caa292a`, 2026-09-13
+
+**Hans asked for two things in VS Code, colouring and completion**, and the
+case was to separate them before building either, because they are not the
+same size. Colouring is a TextMate grammar: a JSON file of regexes, and the
+lexical half of [GRAMMAR.md](GRAMMAR.md) is already most of one. An
+afternoon. Completion is three rungs. The editor's own word-based completion
+comes free with a registered language and covers most of what a selector-heavy
+language types. A static selector list from the reference is a few hours and
+cannot know the receiver. A language server is days and a second program to
+keep, and what it could honestly offer is bounded by the language: every send
+is dynamic, so completion by receiver has nothing to read, and what is left is
+go-to-definition for `:=` bindings and `solas` errors mapped to lines.
+
+**The shape chosen was the first tier**, grammar and free completion, in
+`editors/vscode/` rather than a sibling repository, because a grammar is not
+a dependency the front page has to disclaim: nothing in `make` touches it.
+The one rule the grammar had to get right on its own is that operators exist
+only inside `@expr`, and a region is lexical, so it carries a second set of
+bracket rules for use inside one. The one thing it was measured against
+before it existed was the corpus: every tracked `.sol` file, balanced and
+free of `invalid` tokens outside the folder of files the compiler refuses.
+
 ### 5.1a Error recovery could loop forever — **fixed**
 
 `synchronise` tested whether the previous token was a `.` before advancing, so a

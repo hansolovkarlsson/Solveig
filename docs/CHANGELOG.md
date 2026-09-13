@@ -5,6 +5,18 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### VS Code colours a `.sol` file — `caa292a`, 2026-09-13
+
+**[editors/vscode](../editors/vscode/README.md)** is a TextMate grammar
+written from [GRAMMAR.md](GRAMMAR.md), with a language configuration for
+comment toggling and bracket pairs, and nothing more: completion is the
+editor's own word-based kind, and there is no language server, for the reason
+the README gives. It is installed from the folder rather than the
+marketplace. `test.py` runs the grammar over every `.sol` file in the
+repository with a small engine of its own: all 202 leave the bracket stack
+balanced, and the one `invalid` token is in `conformance/refused/`, where the
+compiler agrees. Not in `make test`, which stays C11 and `make`.
+
 ### The checker empties its sandbox before each document — `2d7b05c`, 2026-09-13
 
 **`test_documents` failed once in about eight runs on 2026-09-12**, always
