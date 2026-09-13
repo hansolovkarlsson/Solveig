@@ -45,9 +45,17 @@
     return known.indexOf(name) >= 0 ? [name] : [];
   }
 
-  // The situation at the cursor: null when it is not after a colon, or is
-  // inside a string or a comment, or the colon is the := of a binding.
-  function context(before, data) {
+  // The situation at the cursor, or null when there is nothing to offer: not
+  // after a colon, inside a string or a comment, or at the := of a binding.
+  // In a Proto module two more places have something: after an @, the
+  // directives; after the colon inside a hole, <c: , the five kinds.
+  function context(before, data, language) {
+    if (language === 'proto') {
+      var d = /@([A-Za-z_][A-Za-z0-9_]*)?$/.exec(before);
+      if (d && !inTextOrComment(before.slice(0, d.index))) return { kind: 'directive', partial: d[1] || '' };
+      var h = new RegExp('<' + ID + '\\s*:\\s*(' + ID + ')?$').exec(before);
+      if (h && !inTextOrComment(before.slice(0, h.index))) return { kind: 'kind', partial: h[1] || '' };
+    }
     var m = new RegExp('^(.*?)(:)(' + ID + ')?$').exec(before);
     if (!m || inTextOrComment(m[1])) return null;
     var known = [];
@@ -56,7 +64,38 @@
         if (known.indexOf(sig.receiver) < 0) known.push(sig.receiver);
       });
     });
-    return { receivers: receiverOf(m[1], known), partial: m[3] || '' };
+    return { kind: 'selector', receivers: receiverOf(m[1], known), partial: m[3] || '' };
+  }
+
+  // A directive's form, `@infix <op> <prec> <message>.`, as the snippet that
+  // inserts after the @ the user has typed: each <part> a tab stop, and the
+  // ellipsis of the statement shape one more.
+  function directiveSnippet(form) {
+    var n = 0;
+    return form.replace(/^@/, '').replace(/<([^>]*)>|\u2026/g, function (all, part) {
+      n++;
+      return part ? '${' + n + ':' + part + '}' : '$' + n;
+    });
+  }
+
+  function directiveItems(data) {
+    return data.directives.map(function (d) {
+      return {
+        label: d.form.slice(1).split(/[\s(]/)[0],
+        detail: d.form,
+        documentation: d.meaning,
+        insertText: directiveSnippet(d.form),
+        snippet: true,
+        sortText: d.form
+      };
+    });
+  }
+
+  function kindItems(data) {
+    return data.holeKinds.map(function (k, i) {
+      return { label: k.kind, detail: 'hole kind', documentation: k.meaning,
+               insertText: k.kind, snippet: false, sortText: String(i) };
+    });
   }
 
   function takesArguments(sig) {
@@ -67,6 +106,8 @@
   // first; the rest follow, because a chain's receiver is not knowable and
   // hiding them would hide the right answer as often as not.
   function items(data, ctx) {
+    if (ctx.kind === 'directive') return directiveItems(data);
+    if (ctx.kind === 'kind') return kindItems(data);
     return data.selectors.map(function (s) {
       var mine = s.signatures.filter(function (sig) { return ctx.receivers.indexOf(sig.receiver) >= 0; });
       var shown = mine.length ? mine : s.signatures;
@@ -91,5 +132,5 @@
     });
   }
 
-  return { context: context, items: items, receiverOf: receiverOf, inTextOrComment: inTextOrComment };
+  return { context: context, items: items, receiverOf: receiverOf, inTextOrComment: inTextOrComment, directiveSnippet: directiveSnippet };
 });

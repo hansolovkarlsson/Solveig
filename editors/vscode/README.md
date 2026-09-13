@@ -1,7 +1,7 @@
 # Solveig for VS Code
 
-Syntax colouring, bracket matching and comment toggling for `.sol` files, and
-completion of the selector after a colon: every message the reference
+Syntax colouring, bracket matching and comment toggling for Solveig's `.sol`
+files and Proto's `.pro` files, and completion of the selector after a colon: every message the reference
 documents and every selector the shipped libraries export, each with what it
 answers. Type `#3:` and `add` is at the top of the list; type `a:` and the
 whole list is offered, because what `a` is cannot be known without running
@@ -77,6 +77,41 @@ follow, or, for temporaries, at the start of the next line, which is where
 lines, or a temporaries list wrapped across three, is left plain rather than
 coloured wrong.
 
+## What the Proto grammar knows
+
+`syntaxes/proto.tmLanguage.json` is Proto's token table from
+[its reference](../../proto/docs/REFERENCE.md#tokens), which no dialect can
+change, and that is the whole reason a grammar can colour a language whose
+syntax arrives with the file. Solveig's tokens with three differences:
+
+- **Operators are tokens everywhere**: a run of `+ - * / < > = ! & ^ % ~ ? \`,
+  or `||`, is `keyword.operator`. Whether the run is *declared* is the
+  compiler's to know, so an undeclared one looks like a declared one. A lone
+  `|` is an operator only by declaration, and one that no block or group
+  header claimed is coloured as one.
+- **`-3` is an operator and a literal**, since a float has no sign in Proto;
+  `#-3` keeps its sign, as in Solveig.
+- **The header directives have parts.** `@use`, `@infix`, `@infixr`, `@prefix`
+  and `@syntax` are `keyword.control.directive`; a declared operator is
+  `keyword.operator.declared`, a precedence `constant.numeric.precedence`, a
+  message `entity.name.function.send`, `=>` `keyword.operator.template` and
+  the template after it is code, with `left`, `right` and `operand` as
+  `variable.parameter.operand`. In `@syntax`, the form's name is
+  `entity.name.function.syntax`, the words between holes are
+  `keyword.control.syntax-word`, a hole's name `variable.parameter.hole` and
+  its kind `storage.type.kind`; a kind that is not one of the five is
+  `invalid.illegal.kind`. `@expr` is refused by Proto and coloured as
+  `invalid`; `@include` passes through and is a directive; any other
+  `@word`, or a declaration the grammar could not read whole, is `invalid`.
+
+What it gets wrong, and cannot help: in `while (n < #20) {`, `while` is a
+word that `lib/clike.pro` made into syntax through `@use`, and a grammar
+cannot read another file. It is coloured as a form used, since a name before
+a parenthesis is that in either shape, `swap(a, b)` or `while (c)`; a
+syntax word with no parenthesis after it, `then`, `do`, `else`, is coloured as
+an object. In the file that declares it, `@syntax while ...`, the word is
+coloured as syntax.
+
 ## What completion knows
 
 `selectors.json` is written by `messages.py` from two places and typed in
@@ -90,6 +125,12 @@ from none:
 - **`lib/*.sol`**, for every `receiver:name := { params |` a library binds,
   less any name its object's `exports` leaves out, with the one line the
   comment above it says.
+
+In a Proto module two more places offer: after `@`, the eight directive
+forms from [the header table](../../proto/docs/REFERENCE.md#the-header), each
+inserting as a snippet with a tab stop per part; and after the colon inside
+a hole, `<t: `, the five kinds. Both lists come from Proto's reference by the
+same generator.
 
 The provider offers after a colon and nowhere else, not inside a string or a
 comment, and not at the `:=` of a binding. When the text before the colon is
@@ -111,8 +152,9 @@ reference or a library.
 `test.py` runs three things and is not in `make test`, which stays C11 and
 `make`; run it by hand after changing anything here:
 
-- the grammar over every `.sol` file in the repository with a small TextMate
-  engine of its own, and over a fixture of lines tokenised by hand;
+- both grammars over every `.sol` and `.pro` file in the repository with a
+  small TextMate engine of its own, and over fixtures of lines tokenised by
+  hand;
 - `messages.py --check`, that `selectors.json` is current;
 - `completion.js` under `osascript`, the JavaScript engine every Mac has,
   against cases written from the reference. No `node` is needed, here or to

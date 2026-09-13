@@ -21,20 +21,20 @@ import json, os, re, subprocess, sys, tempfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.abspath(os.path.join(HERE, '..', '..'))
-GRAMMAR = json.load(open(os.path.join(HERE, 'syntaxes', 'solveig.tmLanguage.json')))
-REPO = GRAMMAR['repository']
+SOLVEIG = json.load(open(os.path.join(HERE, 'syntaxes', 'solveig.tmLanguage.json')))
+PROTO = json.load(open(os.path.join(HERE, 'syntaxes', 'proto.tmLanguage.json')))
 
-def rules(patterns):
+def rules(patterns, grammar):
     """Flatten includes into a list of rule dicts."""
     out = []
     for p in patterns:
         if 'include' not in p:
             out.append(p); continue
-        r = REPO[p['include'][1:]]
+        r = grammar['repository'][p['include'][1:]]
         if 'match' in r or 'begin' in r:
             out.append(r)
         else:
-            out.extend(rules(r['patterns']))
+            out.extend(rules(r['patterns'], grammar))
     return out
 
 _cache = {}
@@ -43,7 +43,7 @@ def rx(src):
         _cache[src] = re.compile(src)
     return _cache[src]
 
-def capture_tokens(m, captures, scopes):
+def capture_tokens(m, captures, scopes, grammar):
     """Tokens for a match, honouring captures and their nested patterns."""
     toks, pos = [], m.start()
     for k in sorted(captures, key=int):
@@ -55,7 +55,7 @@ def capture_tokens(m, captures, scopes):
             toks.append((pos, s, scopes))
         inner = scopes + ([cap['name']] if 'name' in cap else [])
         if 'patterns' in cap:
-            toks.extend(tokenise_span(m.string, s, e, inner, rules(cap['patterns'])))
+            toks.extend(tokenise_span(m.string, s, e, inner, rules(cap['patterns'], grammar), grammar))
         else:
             toks.append((s, e, inner))
         pos = e
@@ -63,7 +63,7 @@ def capture_tokens(m, captures, scopes):
         toks.append((pos, m.end(), scopes))
     return toks
 
-def tokenise_span(text, pos, end, scopes, rs):
+def tokenise_span(text, pos, end, scopes, rs, grammar):
     """Match-only rules over text[pos:end], as a capture's patterns are."""
     toks = []
     while pos < end:
@@ -77,13 +77,13 @@ def tokenise_span(text, pos, end, scopes, rs):
         m, r = best
         if m.start() > pos:
             toks.append((pos, m.start(), scopes))
-        toks.extend(capture_tokens(m, r.get('captures', {}), scopes + ([r['name']] if 'name' in r else [])))
+        toks.extend(capture_tokens(m, r.get('captures', {}), scopes + ([r['name']] if 'name' in r else []), grammar))
         pos = m.end()
     return toks
 
-def tokenise(text):
+def tokenise(text, grammar=SOLVEIG):
     """Yield (line_no, start, end, scopes) over the whole text; return the stack depth left."""
-    stack = [(None, ['source.solveig'], rules(GRAMMAR['patterns']), {})]
+    stack = [(None, [grammar['scopeName']], rules(grammar['patterns'], grammar), {})]
     for ln, line in enumerate(text.split('\n'), 1):
         pos = 0
         while True:
@@ -102,14 +102,14 @@ def tokenise(text):
             _, m, kind, r = best
             if m.start() > pos: yield (ln, pos, m.start(), scopes)
             if kind == 'end':
-                for t in capture_tokens(m, end_caps, scopes): yield (ln,) + t
+                for t in capture_tokens(m, end_caps, scopes, grammar): yield (ln,) + t
                 stack.pop()
             elif kind == 'match':
-                for t in capture_tokens(m, r.get('captures', {}), scopes + ([r['name']] if 'name' in r else [])): yield (ln,) + t
+                for t in capture_tokens(m, r.get('captures', {}), scopes + ([r['name']] if 'name' in r else []), grammar): yield (ln,) + t
             else:
                 inner = scopes + ([r['name']] if 'name' in r else [])
-                for t in capture_tokens(m, r.get('beginCaptures', {}), inner): yield (ln,) + t
-                stack.append((rx(r['end']), inner, rules(r.get('patterns', [])), r.get('endCaptures', {})))
+                for t in capture_tokens(m, r.get('beginCaptures', {}), inner, grammar): yield (ln,) + t
+                stack.append((rx(r['end']), inner, rules(r.get('patterns', []), grammar), r.get('endCaptures', {})))
             pos = m.end()
             if pos >= len(line) and not (kind == 'end' and m.start() == m.end()):
                 # the line is spent, unless an empty end ($) is still to be matched here
@@ -230,11 +230,103 @@ FIXTURE = [
         (')', 'punctuation.section.group.end.solveig')]),
 ]
 
-def run_fixture():
+# Proto's tokens are Solveig's with operators everywhere, and the directives
+# have parts: docs at proto/docs/REFERENCE.md, "The header" and "Tokens".
+P = 'proto'
+PROTO_FIXTURE = [
+    ('@use "../lib/clike.pro".', [
+        ('@use', 'keyword.control.directive.use.proto'), ('"', 'punctuation.definition.string.begin.proto'),
+        ('../lib/clike.pro', 'string.quoted.double.proto'), ('"', 'punctuation.definition.string.end.proto'),
+        ('.', 'punctuation.terminator.statement.proto')]),
+    ('@infix  +   60 add.', [
+        ('@infix', 'keyword.control.directive.proto'), ('+', 'keyword.operator.declared.proto'),
+        ('60', 'constant.numeric.precedence.proto'), ('add', 'entity.name.function.send.proto'),
+        ('.', 'punctuation.terminator.statement.proto')]),
+    ('@infixr ^ 80 pow.', [
+        ('@infixr', 'keyword.control.directive.proto'), ('^', 'keyword.operator.declared.proto'),
+        ('80', 'constant.numeric.precedence.proto'), ('pow', 'entity.name.function.send.proto'),
+        ('.', 'punctuation.terminator.statement.proto')]),
+    ('@infix  &&  30 => left:and({ right }).', [
+        ('@infix', 'keyword.control.directive.proto'), ('&&', 'keyword.operator.declared.proto'),
+        ('30', 'constant.numeric.precedence.proto'), ('=>', 'keyword.operator.template.proto'),
+        ('left', 'variable.parameter.operand.proto'), (':', 'punctuation.separator.send.proto'),
+        ('and', 'entity.name.function.send.proto'), ('(', 'punctuation.section.group.begin.proto'),
+        ('{', 'punctuation.section.block.begin.proto'), ('right', 'variable.parameter.operand.proto'),
+        ('}', 'punctuation.section.block.end.proto'), (')', 'punctuation.section.group.end.proto'),
+        ('.', 'punctuation.terminator.statement.proto')]),
+    ('@infix  |   50 bitOr. (a | b)', [
+        ('@infix', 'keyword.control.directive.proto'), ('|', 'keyword.operator.declared.proto'),
+        ('50', 'constant.numeric.precedence.proto'), ('bitOr', 'entity.name.function.send.proto'),
+        ('.', 'punctuation.terminator.statement.proto'), ('(', 'punctuation.section.group.begin.proto'),
+        ('a', 'entity.name.type.object.proto'), ('|', 'keyword.operator.proto'), ('b', 'entity.name.type.object.proto'),
+        (')', 'punctuation.section.group.end.proto')]),
+    ('@prefix !      not.', [
+        ('@prefix', 'keyword.control.directive.proto'), ('!', 'keyword.operator.declared.proto'),
+        ('not', 'entity.name.function.send.proto'), ('.', 'punctuation.terminator.statement.proto')]),
+    ('@prefix - => #0:sub(operand).', [
+        ('@prefix', 'keyword.control.directive.proto'), ('-', 'keyword.operator.declared.proto'),
+        ('=>', 'keyword.operator.template.proto'), ('#0', 'constant.numeric.integer.proto'),
+        (':', 'punctuation.separator.send.proto'), ('sub', 'entity.name.function.send.proto'),
+        ('(', 'punctuation.section.group.begin.proto'), ('operand', 'variable.parameter.operand.proto'),
+        (')', 'punctuation.section.group.end.proto'), ('.', 'punctuation.terminator.statement.proto')]),
+    ('@syntax do <b: block> while <c>      => (b:value. { c }:whileTrue(b)).', [
+        ('@syntax', 'keyword.control.directive.proto'), ('do', 'entity.name.function.syntax.proto'),
+        ('<', 'punctuation.definition.hole.begin.proto'), ('b', 'variable.parameter.hole.proto'),
+        (':', 'punctuation.separator.kind.proto'), ('block', 'storage.type.kind.proto'), ('>', 'punctuation.definition.hole.end.proto'),
+        ('while', 'keyword.control.syntax-word.proto'),
+        ('<', 'punctuation.definition.hole.begin.proto'), ('c', 'variable.parameter.hole.proto'), ('>', 'punctuation.definition.hole.end.proto'),
+        ('=>', 'keyword.operator.template.proto'), ('(', 'punctuation.section.group.begin.proto'),
+        ('b', 'entity.name.type.object.proto'), (':', 'punctuation.separator.send.proto'), ('value', 'entity.name.function.send.proto'),
+        ('.', 'punctuation.terminator.statement.proto'), ('{', 'punctuation.section.block.begin.proto'),
+        ('c', 'entity.name.type.object.proto'), ('}', 'punctuation.section.block.end.proto'),
+        (':', 'punctuation.separator.send.proto'), ('whileTrue', 'entity.name.function.send.proto'),
+        ('(', 'punctuation.section.group.begin.proto'), ('b', 'entity.name.type.object.proto'), (')', 'punctuation.section.group.end.proto'),
+        (')', 'punctuation.section.group.end.proto'), ('.', 'punctuation.terminator.statement.proto')]),
+    ('@syntax swap(a, b) => { | t | t := a. a := b. b := t }:value.', [
+        ('@syntax', 'keyword.control.directive.proto'), ('swap', 'entity.name.function.syntax.proto'),
+        ('(', 'punctuation.section.parameters.begin.proto'), ('a', 'variable.parameter.proto'), (',', 'punctuation.separator.comma.proto'),
+        ('b', 'variable.parameter.proto'), (')', 'punctuation.section.parameters.end.proto'),
+        ('=>', 'keyword.operator.template.proto'), ('{', 'punctuation.section.block.begin.proto'),
+        ('|', 'punctuation.separator.temporaries.proto'), ('t', 'variable.other.temporary.proto'), ('|', 'punctuation.separator.temporaries.proto'),
+        ('t', 'entity.name.type.object.proto'), (':=', 'keyword.operator.assignment.proto'), ('a', 'entity.name.type.object.proto'),
+        ('.', 'punctuation.terminator.statement.proto'), ('a', 'entity.name.type.object.proto'), (':=', 'keyword.operator.assignment.proto'),
+        ('b', 'entity.name.type.object.proto'), ('.', 'punctuation.terminator.statement.proto'), ('b', 'entity.name.type.object.proto'),
+        (':=', 'keyword.operator.assignment.proto'), ('t', 'entity.name.type.object.proto'), ('}', 'punctuation.section.block.end.proto'),
+        (':', 'punctuation.separator.send.proto'), ('value', 'entity.name.function.send.proto'), ('.', 'punctuation.terminator.statement.proto')]),
+    ('@syntax if <c> <t: thing> => c.', [
+        ('@syntax', 'keyword.control.directive.proto'), ('if', 'entity.name.function.syntax.proto'),
+        ('<', 'punctuation.definition.hole.begin.proto'), ('c', 'variable.parameter.hole.proto'), ('>', 'punctuation.definition.hole.end.proto'),
+        ('<', 'punctuation.definition.hole.begin.proto'), ('t', 'variable.parameter.hole.proto'), (':', 'punctuation.separator.kind.proto'),
+        ('thing', 'invalid.illegal.kind.proto'), ('>', 'punctuation.definition.hole.end.proto'),
+        ('=>', 'keyword.operator.template.proto'), ('c', 'entity.name.type.object.proto'), ('.', 'punctuation.terminator.statement.proto')]),
+    ('while (n < #20 && a<=b || -3.5 % 2 != %101) { n = n + #1 }.', [
+        ('while', 'entity.name.function.call.proto'), ('(', 'punctuation.section.group.begin.proto'),
+        ('n', 'entity.name.type.object.proto'), ('<', 'keyword.operator.proto'), ('#20', 'constant.numeric.integer.proto'),
+        ('&&', 'keyword.operator.proto'), ('a', 'entity.name.type.object.proto'), ('<=', 'keyword.operator.proto'),
+        ('b', 'entity.name.type.object.proto'), ('||', 'keyword.operator.proto'), ('-', 'keyword.operator.proto'),
+        ('3.5', 'constant.numeric.float.proto'), ('%', 'keyword.operator.proto'), ('2', 'constant.numeric.float.proto'),
+        ('!=', 'keyword.operator.proto'), ('%101', 'constant.numeric.binary.proto'), (')', 'punctuation.section.group.end.proto'),
+        ('{', 'punctuation.section.block.begin.proto'), ('n', 'entity.name.type.object.proto'), ('=', 'keyword.operator.proto'),
+        ('n', 'entity.name.type.object.proto'), ('+', 'keyword.operator.proto'), ('#1', 'constant.numeric.integer.proto'),
+        ('}', 'punctuation.section.block.end.proto'), ('.', 'punctuation.terminator.statement.proto')]),
+    ('@expr(a). @nosuch. @include "x.sol". swap(a, b). x := #[a = #1].', [
+        ('@expr', 'invalid.illegal.directive.refused.proto'), ('(', 'punctuation.section.group.begin.proto'),
+        ('a', 'entity.name.type.object.proto'), (')', 'punctuation.section.group.end.proto'), ('.', 'punctuation.terminator.statement.proto'),
+        ('@nosuch', 'invalid.illegal.directive.proto'), ('.', 'punctuation.terminator.statement.proto'),
+        ('@include', 'keyword.control.directive.include.proto'), ('"', 'punctuation.definition.string.begin.proto'),
+        ('x.sol', 'string.quoted.double.proto'), ('"', 'punctuation.definition.string.end.proto'), ('.', 'punctuation.terminator.statement.proto'),
+        ('swap', 'entity.name.function.call.proto'), ('(', 'punctuation.section.group.begin.proto'), ('a', 'entity.name.type.object.proto'),
+        (',', 'punctuation.separator.comma.proto'), ('b', 'entity.name.type.object.proto'), (')', 'punctuation.section.group.end.proto'),
+        ('.', 'punctuation.terminator.statement.proto'), ('x', 'entity.name.type.object.proto'), (':=', 'keyword.operator.assignment.proto'),
+        ('#[', 'punctuation.section.dictionary.begin.proto'), ('a', 'entity.name.type.object.proto'), ('=', 'keyword.operator.pair.proto'),
+        ('#1', 'constant.numeric.integer.proto'), (']', 'punctuation.section.dictionary.end.proto'), ('.', 'punctuation.terminator.statement.proto')]),
+]
+
+def run_fixture(fixture, grammar):
     bad = 0
-    for line, want in FIXTURE:
+    for line, want in fixture:
         lines = line.split('\n')
-        got = [(lines[ln - 1][s:e].strip(), leaf(sc)) for (ln, s, e, sc) in tokenise(line) if lines[ln - 1][s:e].strip()]
+        got = [(lines[ln - 1][s:e].strip(), leaf(sc)) for (ln, s, e, sc) in tokenise(line, grammar) if lines[ln - 1][s:e].strip()]
         if got != want:
             bad += 1
             print(f'FIXTURE  {line}')
@@ -242,12 +334,12 @@ def run_fixture():
                 if g != w: print(f'    got {g!r}\n   want {w!r}')
     return bad
 
-def run_corpus():
-    files = subprocess.run(['git', 'ls-files', '*.sol'], cwd=ROOT, capture_output=True, text=True).stdout.split()
+def run_corpus(glob, grammar):
+    files = subprocess.run(['git', 'ls-files', glob], cwd=ROOT, capture_output=True, text=True).stdout.split()
     bad, counts = 0, {}
     for f in files:
         text = open(os.path.join(ROOT, f), encoding='utf-8', errors='replace').read()
-        gen = tokenise(text)
+        gen = tokenise(text, grammar)
         illegal = []
         try:
             while True:
@@ -318,6 +410,28 @@ eq('the detail names the receivers', item('a:', 'add').detail, 'array, float, in
 eq('the documentation has one line per signature', item('a:', 'add').documentation.split('\n').length, 3);
 eq('a library selector says where it lives', item('a:', 'timesCollect').documentation.indexOf('lib/control.sol') > 0, true);
 eq('every selector is offered', C.items(data, ctx('a:')).length, data.selectors.length);
+function pctx(before) { return C.context(before, data, 'proto'); }
+function pitem(before, name) {
+  var list = C.items(data, pctx(before));
+  for (var i = 0; i < list.length; i++) if (list[i].label === name) return list[i];
+  return null;
+}
+eq('proto: a colon is a send', pctx('#3:').kind, 'selector');
+eq('proto: and knows its receiver', pctx('#3:').receivers, ['integer']);
+eq('proto: an @ offers directives', pctx('@').kind, 'directive');
+eq('proto: a partial directive', pctx('@inf').partial, 'inf');
+eq('proto: an @ in a comment does not', pctx('; @'), null);
+eq('proto: an @ in a string does not', pctx('"a@'), null);
+eq('proto: the directives are the reference table', C.items(data, pctx('@')).length, data.directives.length);
+eq('proto: use inserts its form', pitem('@', 'use').insertText, 'use "${1:file}".');
+eq('proto: infix inserts its form', pitem('@', 'infix').insertText, 'infix ${1:op} ${2:prec} ${3:message}.');
+eq('proto: the statement shape has a stop for the ellipsis', C.directiveSnippet('@syntax <name> <hole> <word> \u2026 => <template>.'), 'syntax ${1:name} ${2:hole} ${3:word} $4 => ${5:template}.');
+eq('proto: a hole colon offers kinds', pctx('@syntax if <c> <t:').kind, 'kind');
+eq('proto: a partial kind', pctx('@syntax if <c> <t: bl').partial, 'bl');
+eq('proto: the kinds are the five', C.items(data, pctx('<t:')).map(function (k) { return k.label; }), ['expression', 'name', 'literal', 'block', 'place']);
+eq('proto: a send colon is not a hole', pctx('<c> => c:').kind, 'selector');
+eq('solveig: an @ offers nothing', ctx('@'), null);
+eq('solveig: a hole colon is a send', ctx('<t:').kind, 'selector');
 """
 
 def run_js():
@@ -339,11 +453,14 @@ def run_js():
     return 0
 
 if __name__ == '__main__':
-    bad = run_fixture()
-    cbad, n, counts = run_corpus()
+    bad = run_fixture(FIXTURE, SOLVEIG) + run_fixture(PROTO_FIXTURE, PROTO)
+    cbad, n, counts = run_corpus('*.sol', SOLVEIG)
+    pbad, pn, pcounts = run_corpus('*.pro', PROTO)
     for k in sorted(counts): print(f'{counts[k]:8d}  {k}')
+    for k in sorted(pcounts): print(f'{pcounts[k]:8d}  {k}')
     mbad = run_messages()
     jbad = run_js()
     cases = JS_CASES.count("\neq(")
-    print(f'{len(FIXTURE)} fixture lines, {n} files, {cases} completion cases; {bad + cbad + mbad + jbad} problem(s)')
-    sys.exit(1 if bad + cbad + mbad + jbad else 0)
+    total = bad + cbad + pbad + mbad + jbad
+    print(f'{len(FIXTURE)} + {len(PROTO_FIXTURE)} fixture lines, {n} .sol and {pn} .pro files, {cases} completion cases; {total} problem(s)')
+    sys.exit(1 if total else 0)

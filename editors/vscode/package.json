@@ -1,7 +1,7 @@
 {
   "name": "solveig",
   "displayName": "Solveig",
-  "description": "Syntax colouring, bracket matching, comment toggling and selector completion for Solveig .sol files",
+  "description": "Syntax colouring, bracket matching, comment toggling and completion for Solveig .sol and Proto .pro files",
   "version": "0.1.0",
   "publisher": "hansolovkarlsson",
   "license": "MIT",
@@ -18,7 +18,8 @@
   ],
   "main": "./extension.js",
   "activationEvents": [
-    "onLanguage:solveig"
+    "onLanguage:solveig",
+    "onLanguage:proto"
   ],
   "contributes": {
     "languages": [
@@ -32,6 +33,17 @@
           ".sol"
         ],
         "configuration": "./language-configuration.json"
+      },
+      {
+        "id": "proto",
+        "aliases": [
+          "Proto",
+          "proto"
+        ],
+        "extensions": [
+          ".pro"
+        ],
+        "configuration": "./language-configuration.json"
       }
     ],
     "grammars": [
@@ -39,12 +51,21 @@
         "language": "solveig",
         "scopeName": "source.solveig",
         "path": "./syntaxes/solveig.tmLanguage.json"
+      },
+      {
+        "language": "proto",
+        "scopeName": "source.proto",
+        "path": "./syntaxes/proto.tmLanguage.json"
       }
     ],
     "snippets": [
       {
         "language": "solveig",
         "path": "./snippets/solveig.json"
+      },
+      {
+        "language": "proto",
+        "path": "./snippets/proto.json"
       }
     ]
   }

@@ -1,5 +1,5 @@
 {
- "generated": "by editors/vscode/messages.py from docs/REFERENCE.md and lib/*.sol; do not edit",
+ "generated": "by editors/vscode/messages.py from docs/REFERENCE.md, lib/*.sol and proto/docs/REFERENCE.md; do not edit",
  "types": [
   "integer",
   "float",
@@ -2517,6 +2517,62 @@
      "source": "REFERENCE.md#time"
     }
    ]
+  }
+ ],
+ "directives": [
+  {
+   "form": "@use \"<file>\".",
+   "meaning": "read that dialect file's header into this module"
+  },
+  {
+   "form": "@infix <op> <prec> <message>.",
+   "meaning": "infix operator, grouping left; becomes `left:<message>(right)`"
+  },
+  {
+   "form": "@infix <op> <prec> => <template>.",
+   "meaning": "the same, standing for a template; operands are `left` and `right`"
+  },
+  {
+   "form": "@infixr <op> <prec> <message>.",
+   "meaning": "the same, grouping right"
+  },
+  {
+   "form": "@prefix <op> <message>.",
+   "meaning": "prefix operator; becomes `operand:<message>`"
+  },
+  {
+   "form": "@prefix <op> => <template>.",
+   "meaning": "the same, as a template; the operand is `operand`"
+  },
+  {
+   "form": "@syntax <name>(<params>) => <template>.",
+   "meaning": "a form that reads like a call"
+  },
+  {
+   "form": "@syntax <name> <hole> <word> … => <template>.",
+   "meaning": "a form that reads like a statement"
+  }
+ ],
+ "holeKinds": [
+  {
+   "kind": "expression",
+   "meaning": "anything at all, and the default"
+  },
+  {
+   "kind": "name",
+   "meaning": "an identifier"
+  },
+  {
+   "kind": "literal",
+   "meaning": "an integer, float, string or symbol"
+  },
+  {
+   "kind": "block",
+   "meaning": "`{ … }`"
+  },
+  {
+   "kind": "place",
+   "meaning": "something that may be assigned to"
   }
  ]
 }

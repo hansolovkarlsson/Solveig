@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Write selectors.json from docs/REFERENCE.md and lib/*.sol, or check it.
+"""Write selectors.json from the references and lib/*.sol, or check it.
 
     python3 editors/vscode/messages.py            # rewrite selectors.json
     python3 editors/vscode/messages.py --check    # exit 1 if it would change
@@ -7,7 +7,8 @@
 The list is the reference's Message index, which the build holds to
 builtins.c; the per-type tables give each message its signature and what it
 answers. A library adds the selectors it binds with :=, less any that its
-object's exports list leaves out. Nothing here is typed in by hand, so the
+object's exports list leaves out. Proto's reference gives its header
+directives and the five hole kinds. Nothing here is typed in by hand, so the
 completion list cannot drift from the documents without this check saying so.
 """
 import json, os, re, sys
@@ -118,6 +119,23 @@ def library():
             out.append((recv, name, sig, summary_for(lines, i, name), 'lib/' + path))
     return out
 
+def proto():
+    """The header directives and hole kinds, from the two tables that list them."""
+    text = open(os.path.join(ROOT, 'proto', 'docs', 'REFERENCE.md'), encoding='utf-8').read()
+    heading, directives, kinds = '', [], []
+    for line in text.split('\n'):
+        if line.startswith('#'):
+            heading = line.lstrip('#').strip(); continue
+        if not line.startswith('| `'):
+            continue
+        cells = [c.strip() for c in line.strip().strip('|').split('|')]
+        form = cells[0].strip('`')
+        if heading == 'The header' and form.startswith('@'):
+            directives.append({'form': form, 'meaning': plain(cells[1])})
+        elif heading == 'What a hole accepts':
+            kinds.append({'kind': form, 'meaning': plain(cells[1])})
+    return directives, kinds
+
 def build():
     index, rows = reference()
     by = {}
@@ -152,9 +170,12 @@ def build():
             if key not in seen:
                 seen.add(key); uniq.append(s)
         e['signatures'] = uniq
-    return {'generated': 'by editors/vscode/messages.py from docs/REFERENCE.md and lib/*.sol; do not edit',
+    directives, kinds = proto()
+    return {'generated': 'by editors/vscode/messages.py from docs/REFERENCE.md, lib/*.sol and proto/docs/REFERENCE.md; do not edit',
             'types': TYPES,
-            'selectors': [by[k] for k in sorted(by)]}
+            'selectors': [by[k] for k in sorted(by)],
+            'directives': directives,
+            'holeKinds': kinds}
 
 if __name__ == '__main__':
     data = json.dumps(build(), indent=1, ensure_ascii=False) + '\n'
@@ -166,5 +187,6 @@ if __name__ == '__main__':
         print('selectors.json is current')
     else:
         open(OUT, 'w', encoding='utf-8').write(data)
-        n = len(json.loads(data)['selectors'])
-        print(f'{n} selectors written to {os.path.relpath(OUT, ROOT)}')
+        d = json.loads(data)
+        print(f"{len(d['selectors'])} selectors, {len(d['directives'])} directive forms and "
+              f"{len(d['holeKinds'])} hole kinds written to {os.path.relpath(OUT, ROOT)}")

@@ -333,6 +333,7 @@ examples/       five, run by `make test`
 programs/       five real programs, each with its own README
 tests/          test_reader, test_expand, test_map, test_use
 docs/           the documents below
+../editors/     VS Code colours a .pro file and completes its directives: editors/vscode/README.md
 ```
 
 | example | |

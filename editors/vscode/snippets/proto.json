@@ -1,0 +1,55 @@
+{
+  "block": {
+    "prefix": "block",
+    "body": "{ ${1:a} | $0 }",
+    "description": "A block with one parameter"
+  },
+  "temporaries": {
+    "prefix": "temps",
+    "body": "| ${1:t} |",
+    "description": "Temporaries, at the top of a block or a group"
+  },
+  "method": {
+    "prefix": "method",
+    "body": [
+      "${1:receiver}:${2:name} := { ${3:a} |",
+      "\t$0",
+      "}."
+    ],
+    "description": "Bind a method on a prototype"
+  },
+  "object": {
+    "prefix": "object",
+    "body": "${1:name} := object:new.",
+    "description": "A fresh object delegating to object"
+  },
+  "exports": {
+    "prefix": "exports",
+    "body": "${1:name}:exports(['${2:selector}]).",
+    "description": "Draw an object's export boundary"
+  },
+  "whileTrue": {
+    "prefix": "while",
+    "body": [
+      "{ ${1:condition} }:whileTrue({",
+      "\t$0",
+      "})."
+    ],
+    "description": "A loop: the receiver block is the condition"
+  },
+  "dictionary": {
+    "prefix": "dict",
+    "body": "#[${1:key} = ${2:value}]",
+    "description": "A dictionary literal"
+  },
+  "include": {
+    "prefix": "include",
+    "body": "@include \"${1:file}.sol\".",
+    "description": "Compile a file into this one"
+  },
+  "use": {
+    "prefix": "use",
+    "body": "@use \"${1:dialect}.pro\".",
+    "description": "Read a dialect file's header into this module"
+  }
+}
