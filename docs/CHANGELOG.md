@@ -5,7 +5,7 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-### The checker empties its sandbox before each document — `pending`, 2026-09-13
+### The checker empties its sandbox before each document — `2d7b05c`, 2026-09-13
 
 **`test_documents` failed once in about eight runs on 2026-09-12**, always
 reporting the NUL-path block at `ideas.md:850` as *did not run* and the claim
