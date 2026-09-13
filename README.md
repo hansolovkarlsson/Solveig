@@ -117,7 +117,7 @@ lights, and **Solveig** carries the same star into Norse: *sól* joined to
 | `embed/`  | A C program that holds a `SolVM` -- see [embedding.md](docs/embedding.md) |
 | `lib/`    | The library that ships with the language, found on the search path |
 | `extensions/` | Bundles built by `make` and loaded only when a host names one -- [net](extensions/net/README.md), UDP sockets, documented in [NET.md](docs/NET.md) |
-| `editors/` | Editor support: [vscode](editors/vscode/README.md), syntax colouring and bracket matching for VS Code, installed from the folder |
+| `editors/` | Editor support: [vscode](editors/vscode/README.md), syntax colouring, bracket matching and selector completion for VS Code, installed from the folder |
 | `proto/`  | **Proto** -- a second compiler, whose syntax arrives with the file it is compiling and whose output is Solveig source. Its own Makefile, records and version; [what it is](proto/README.md) |
 
 Two more live outside this repository, and outside it on purpose — the front

@@ -1,0 +1,2522 @@
+{
+ "generated": "by editors/vscode/messages.py from docs/REFERENCE.md and lib/*.sol; do not edit",
+ "types": [
+  "integer",
+  "float",
+  "string",
+  "array",
+  "symbol",
+  "boolean",
+  "dictionary",
+  "time",
+  "block",
+  "object",
+  "system",
+  "random",
+  "nil"
+ ],
+ "selectors": [
+  {
+   "name": "abs",
+   "signatures": [
+    {
+     "receiver": "float",
+     "signature": "abs",
+     "answers": "as integer",
+     "source": "REFERENCE.md#float"
+    },
+    {
+     "receiver": "integer",
+     "signature": "abs",
+     "answers": "an integer; traps on the most negative",
+     "source": "REFERENCE.md#integer"
+    }
+   ]
+  },
+  {
+   "name": "acos",
+   "signatures": [
+    {
+     "receiver": "float",
+     "signature": "acos",
+     "answers": "radians; `nan` outside the domain",
+     "source": "REFERENCE.md#float"
+    }
+   ]
+  },
+  {
+   "name": "add",
+   "signatures": [
+    {
+     "receiver": "array",
+     "signature": "add(v)",
+     "answers": "**the array**, so it chains",
+     "source": "REFERENCE.md#array"
+    },
+    {
+     "receiver": "float",
+     "signature": "add(n)",
+     "answers": "as integer",
+     "source": "REFERENCE.md#float"
+    },
+    {
+     "receiver": "integer",
+     "signature": "add(n)",
+     "answers": "an integer; traps on overflow",
+     "source": "REFERENCE.md#integer"
+    }
+   ]
+  },
+  {
+   "name": "and",
+   "signatures": [
+    {
+     "receiver": "boolean",
+     "signature": "and(block)",
+     "answers": "short-circuit; the block runs only if needed",
+     "source": "REFERENCE.md#boolean"
+    }
+   ]
+  },
+  {
+   "name": "appendFile",
+   "signatures": [
+    {
+     "receiver": "system",
+     "signature": "appendFile(path, text)",
+     "answers": "nil, having added to the end; creates the file",
+     "source": "REFERENCE.md#system"
+    }
+   ]
+  },
+  {
+   "name": "asBase",
+   "signatures": [
+    {
+     "receiver": "integer",
+     "signature": "asBase(#n)",
+     "answers": "the digits in base `n`, 2 to 36, as a string",
+     "source": "REFERENCE.md#integer"
+    }
+   ]
+  },
+  {
+   "name": "asByte",
+   "signatures": [
+    {
+     "receiver": "string",
+     "signature": "asByte",
+     "answers": "the number of the one byte in it; strict about there being one",
+     "source": "REFERENCE.md#string"
+    }
+   ]
+  },
+  {
+   "name": "asCharacter",
+   "signatures": [
+    {
+     "receiver": "integer",
+     "signature": "asCharacter",
+     "answers": "the one-byte string that byte spells; `#0` to `#255`",
+     "source": "REFERENCE.md#integer"
+    }
+   ]
+  },
+  {
+   "name": "asFloat",
+   "signatures": [
+    {
+     "receiver": "integer",
+     "signature": "asFloat",
+     "answers": "a float; loses precision above 2^53",
+     "source": "REFERENCE.md#integer"
+    },
+    {
+     "receiver": "string",
+     "signature": "asFloat",
+     "answers": "strict: the whole string must be a number",
+     "source": "REFERENCE.md#string"
+    }
+   ]
+  },
+  {
+   "name": "asInteger",
+   "signatures": [
+    {
+     "receiver": "string",
+     "signature": "asInteger",
+     "answers": "strict: the whole string must be a number",
+     "source": "REFERENCE.md#string"
+    },
+    {
+     "receiver": "string",
+     "signature": "asInteger(#n)",
+     "answers": "reads base `n`, 2 to 36; the digits alone, no `0x`",
+     "source": "REFERENCE.md#string"
+    }
+   ]
+  },
+  {
+   "name": "asJson",
+   "signatures": [
+    {
+     "receiver": "object",
+     "signature": "asJson",
+     "answers": "`asJson` is a method on `object`, so nil answers \"null\" without anything",
+     "source": "lib/json.sol"
+    },
+    {
+     "receiver": "string",
+     "signature": "asJson",
+     "answers": "`asJson` is a method on `object`, so nil answers \"null\" without anything",
+     "source": "lib/json.sol"
+    },
+    {
+     "receiver": "symbol",
+     "signature": "asJson",
+     "answers": "`asJson` is a method on `object`, so nil answers \"null\" without anything",
+     "source": "lib/json.sol"
+    },
+    {
+     "receiver": "integer",
+     "signature": "asJson",
+     "answers": "`asJson` is a method on `object`, so nil answers \"null\" without anything",
+     "source": "lib/json.sol"
+    },
+    {
+     "receiver": "boolean",
+     "signature": "asJson",
+     "answers": "`asJson` is a method on `object`, so nil answers \"null\" without anything",
+     "source": "lib/json.sol"
+    },
+    {
+     "receiver": "float",
+     "signature": "asJson",
+     "answers": "A float that happens to be whole prints as `150`, not `150.0`, so writing it plainly would hand back an integer on the next read",
+     "source": "lib/json.sol"
+    },
+    {
+     "receiver": "array",
+     "signature": "asJson",
+     "answers": "`asJson` is a method on `object`, so nil answers \"null\" without anything",
+     "source": "lib/json.sol"
+    },
+    {
+     "receiver": "dictionary",
+     "signature": "asJson",
+     "answers": "Sorted, so that writing the same document twice gives the same text",
+     "source": "lib/json.sol"
+    }
+   ]
+  },
+  {
+   "name": "asLowercase",
+   "signatures": [
+    {
+     "receiver": "string",
+     "signature": "asLowercase",
+     "answers": "a new string; ASCII letters only",
+     "source": "REFERENCE.md#string"
+    }
+   ]
+  },
+  {
+   "name": "asPrettyJson",
+   "signatures": [
+    {
+     "receiver": "object",
+     "signature": "asPrettyJson(indent)",
+     "answers": "Only the two that nest need to know about indenting",
+     "source": "lib/json.sol"
+    },
+    {
+     "receiver": "array",
+     "signature": "asPrettyJson(indent)",
+     "answers": "",
+     "source": "lib/json.sol"
+    },
+    {
+     "receiver": "dictionary",
+     "signature": "asPrettyJson(indent)",
+     "answers": "",
+     "source": "lib/json.sol"
+    }
+   ]
+  },
+  {
+   "name": "asSeconds",
+   "signatures": [
+    {
+     "receiver": "time",
+     "signature": "asSeconds",
+     "answers": "seconds since the epoch, as a float",
+     "source": "REFERENCE.md#time"
+    }
+   ]
+  },
+  {
+   "name": "asString",
+   "signatures": [
+    {
+     "receiver": "integer",
+     "signature": "asString",
+     "answers": "the digits, without the `#`",
+     "source": "REFERENCE.md#integer"
+    },
+    {
+     "receiver": "string",
+     "signature": "asString",
+     "answers": "itself",
+     "source": "REFERENCE.md#string"
+    },
+    {
+     "receiver": "string",
+     "signature": "asString(spec)",
+     "answers": "padded text; see the spec below",
+     "source": "REFERENCE.md#string"
+    },
+    {
+     "receiver": "symbol",
+     "signature": "asString",
+     "answers": "the name, as a string",
+     "source": "REFERENCE.md#symbol"
+    },
+    {
+     "receiver": "time",
+     "signature": "asString",
+     "answers": "ISO-8601 in UTC — `2000-01-01T00:00:00Z`",
+     "source": "REFERENCE.md#time"
+    },
+    {
+     "receiver": "time",
+     "signature": "asString(format)",
+     "answers": "the format handed to C's `strftime`",
+     "source": "REFERENCE.md#time"
+    }
+   ]
+  },
+  {
+   "name": "asSymbol",
+   "signatures": [
+    {
+     "receiver": "string",
+     "signature": "asSymbol",
+     "answers": "the interned symbol for these characters",
+     "source": "REFERENCE.md#string"
+    }
+   ]
+  },
+  {
+   "name": "asTime",
+   "signatures": [
+    {
+     "receiver": "string",
+     "signature": "asTime",
+     "answers": "an instant, read as ISO-8601; strict",
+     "source": "REFERENCE.md#string"
+    },
+    {
+     "receiver": "string",
+     "signature": "asTime(format)",
+     "answers": "the same, the format handed to `strptime`",
+     "source": "REFERENCE.md#string"
+    }
+   ]
+  },
+  {
+   "name": "asUppercase",
+   "signatures": [
+    {
+     "receiver": "string",
+     "signature": "asUppercase",
+     "answers": "a new string; ASCII letters only",
+     "source": "REFERENCE.md#string"
+    }
+   ]
+  },
+  {
+   "name": "asUtf8",
+   "signatures": [
+    {
+     "receiver": "integer",
+     "signature": "asUtf8",
+     "answers": "",
+     "source": "lib/text.sol"
+    }
+   ]
+  },
+  {
+   "name": "asin",
+   "signatures": [
+    {
+     "receiver": "float",
+     "signature": "asin",
+     "answers": "radians; `nan` outside the domain",
+     "source": "REFERENCE.md#float"
+    }
+   ]
+  },
+  {
+   "name": "at",
+   "signatures": [
+    {
+     "receiver": "array",
+     "signature": "at(#i)",
+     "answers": "the element; **one-based**, out of range is an error",
+     "source": "REFERENCE.md#array"
+    },
+    {
+     "receiver": "dictionary",
+     "signature": "at(key)",
+     "answers": "the value; **an error** when the key is not there",
+     "source": "REFERENCE.md#dictionary"
+    },
+    {
+     "receiver": "dictionary",
+     "signature": "at(key, default)",
+     "answers": "the value, or `default` when the key is not there",
+     "source": "REFERENCE.md#dictionary"
+    },
+    {
+     "receiver": "string",
+     "signature": "at(#i)",
+     "answers": "a one-character string; **one-based**",
+     "source": "REFERENCE.md#string"
+    }
+   ]
+  },
+  {
+   "name": "atEnd",
+   "signatures": [
+    {
+     "receiver": "scan",
+     "signature": "atEnd",
+     "answers": "",
+     "source": "lib/scan.sol"
+    }
+   ]
+  },
+  {
+   "name": "atPut",
+   "signatures": [
+    {
+     "receiver": "array",
+     "signature": "atPut(#i, v)",
+     "answers": "the value stored",
+     "source": "REFERENCE.md#array"
+    },
+    {
+     "receiver": "dictionary",
+     "signature": "atPut(key, value)",
+     "answers": "**the value stored**, so it chains",
+     "source": "REFERENCE.md#dictionary"
+    }
+   ]
+  },
+  {
+   "name": "atan",
+   "signatures": [
+    {
+     "receiver": "float",
+     "signature": "atan",
+     "answers": "radians; `nan` outside the domain",
+     "source": "REFERENCE.md#float"
+    }
+   ]
+  },
+  {
+   "name": "atan2",
+   "signatures": [
+    {
+     "receiver": "float",
+     "signature": "atan2(y, x)",
+     "answers": "the angle to the point, radians, all four quadrants",
+     "source": "REFERENCE.md#float"
+    }
+   ]
+  },
+  {
+   "name": "between",
+   "signatures": [
+    {
+     "receiver": "random",
+     "signature": "between(#a, #b)",
+     "answers": "an integer from `#a` to `#b`, both included",
+     "source": "REFERENCE.md#random"
+    },
+    {
+     "receiver": "integer",
+     "signature": "between(low, high)",
+     "answers": "Inclusive at both ends, which is the reading the four sites that wrote it out longhand all wanted: a surrogate range and a confidence interval both include what they name",
+     "source": "lib/math.sol"
+    },
+    {
+     "receiver": "float",
+     "signature": "between(low, high)",
+     "answers": "",
+     "source": "lib/math.sol"
+    }
+   ]
+  },
+  {
+   "name": "bitAnd",
+   "signatures": [
+    {
+     "receiver": "integer",
+     "signature": "bitAnd(n)",
+     "answers": "an integer, bit by bit",
+     "source": "REFERENCE.md#integer"
+    }
+   ]
+  },
+  {
+   "name": "bitNot",
+   "signatures": [
+    {
+     "receiver": "integer",
+     "signature": "bitNot",
+     "answers": "every bit flipped",
+     "source": "REFERENCE.md#integer"
+    }
+   ]
+  },
+  {
+   "name": "bitOr",
+   "signatures": [
+    {
+     "receiver": "integer",
+     "signature": "bitOr(n)",
+     "answers": "an integer, bit by bit",
+     "source": "REFERENCE.md#integer"
+    }
+   ]
+  },
+  {
+   "name": "bitXor",
+   "signatures": [
+    {
+     "receiver": "integer",
+     "signature": "bitXor(n)",
+     "answers": "an integer, bit by bit",
+     "source": "REFERENCE.md#integer"
+    }
+   ]
+  },
+  {
+   "name": "boundTo",
+   "signatures": [
+    {
+     "receiver": "block",
+     "signature": "boundTo(receiver)",
+     "answers": "a new block over the same code, with `self` set",
+     "source": "REFERENCE.md#block"
+    }
+   ]
+  },
+  {
+   "name": "capture",
+   "signatures": [
+    {
+     "receiver": "system",
+     "signature": "capture(argv)",
+     "answers": "a dictionary of `\"output\"` and `\"status\"`",
+     "source": "REFERENCE.md#system"
+    },
+    {
+     "receiver": "system",
+     "signature": "capture(argv, streams)",
+     "answers": "a dictionary of `\"output\"` and `\"status\"`",
+     "source": "REFERENCE.md#system"
+    },
+    {
+     "receiver": "shell",
+     "signature": "capture(command)",
+     "answers": "The same, keeping what it wrote",
+     "source": "lib/shell.sol"
+    }
+   ]
+  },
+  {
+   "name": "ceiling",
+   "signatures": [
+    {
+     "receiver": "float",
+     "signature": "ceiling",
+     "answers": "an **integer**; errors on infinity, not-a-number, or out of range",
+     "source": "REFERENCE.md#float"
+    }
+   ]
+  },
+  {
+   "name": "clock",
+   "signatures": [
+    {
+     "receiver": "system",
+     "signature": "clock",
+     "answers": "monotonic seconds as a float; only differences are meaningful",
+     "source": "REFERENCE.md#system"
+    }
+   ]
+  },
+  {
+   "name": "collect",
+   "signatures": [
+    {
+     "receiver": "array",
+     "signature": "collect(block)",
+     "answers": "a new array of the block's answers",
+     "source": "REFERENCE.md#array"
+    }
+   ]
+  },
+  {
+   "name": "concat",
+   "signatures": [
+    {
+     "receiver": "string",
+     "signature": "concat(s)",
+     "answers": "a new string; strict about its argument",
+     "source": "REFERENCE.md#string"
+    }
+   ]
+  },
+  {
+   "name": "copyFrom",
+   "signatures": [
+    {
+     "receiver": "array",
+     "signature": "copyFrom(#a, #b)",
+     "answers": "a new array, `#a` to `#b`, both ends included",
+     "source": "REFERENCE.md#array"
+    },
+    {
+     "receiver": "string",
+     "signature": "copyFrom(#a, #b)",
+     "answers": "the characters `#a` to `#b`, both ends included",
+     "source": "REFERENCE.md#string"
+    }
+   ]
+  },
+  {
+   "name": "cos",
+   "signatures": [
+    {
+     "receiver": "float",
+     "signature": "cos",
+     "answers": "**radians**",
+     "source": "REFERENCE.md#float"
+    }
+   ]
+  },
+  {
+   "name": "countIn",
+   "signatures": [
+    {
+     "receiver": "re",
+     "signature": "countIn(text)",
+     "answers": "",
+     "source": "lib/re.sol"
+    }
+   ]
+  },
+  {
+   "name": "day",
+   "signatures": [
+    {
+     "receiver": "time",
+     "signature": "day",
+     "answers": "integers; **January is `#1`**",
+     "source": "REFERENCE.md#time"
+    }
+   ]
+  },
+  {
+   "name": "dec",
+   "signatures": [
+    {
+     "receiver": "integer",
+     "signature": "dec",
+     "answers": "one more, one less; traps at the ends",
+     "source": "REFERENCE.md#integer"
+    }
+   ]
+  },
+  {
+   "name": "display",
+   "signatures": [
+    {
+     "receiver": "every type",
+     "signature": "display",
+     "answers": "",
+     "source": "REFERENCE.md#every-type"
+    }
+   ]
+  },
+  {
+   "name": "div",
+   "signatures": [
+    {
+     "receiver": "float",
+     "signature": "div(n)",
+     "answers": "as integer",
+     "source": "REFERENCE.md#float"
+    },
+    {
+     "receiver": "integer",
+     "signature": "div(n)",
+     "answers": "**floored**; traps on zero and on `INT64_MIN div #-1`",
+     "source": "REFERENCE.md#integer"
+    }
+   ]
+  },
+  {
+   "name": "do",
+   "signatures": [
+    {
+     "receiver": "array",
+     "signature": "do(block)",
+     "answers": "the array, having run the block per element",
+     "source": "REFERENCE.md#array"
+    },
+    {
+     "receiver": "dictionary",
+     "signature": "do(block)",
+     "answers": "the dictionary, having run the block once per **value**",
+     "source": "REFERENCE.md#dictionary"
+    }
+   ]
+  },
+  {
+   "name": "doUntil",
+   "signatures": [
+    {
+     "receiver": "block",
+     "signature": "doUntil(condition)",
+     "answers": "nil, having run the receiver **until** the condition is true — the body first, so always at least once",
+     "source": "REFERENCE.md#block"
+    }
+   ]
+  },
+  {
+   "name": "endOfMatchAt",
+   "signatures": [
+    {
+     "receiver": "re",
+     "signature": "endOfMatchAt(text, at)",
+     "answers": "**One past the last character matched**, which is what lib/pattern.sol answers and what `copyFrom(start, stop:sub(#1))` in every caller expects",
+     "source": "lib/re.sol"
+    }
+   ]
+  },
+  {
+   "name": "endsWith",
+   "signatures": [
+    {
+     "receiver": "string",
+     "signature": "endsWith(suffix)",
+     "answers": "",
+     "source": "lib/text.sol"
+    }
+   ]
+  },
+  {
+   "name": "ensure",
+   "signatures": [
+    {
+     "receiver": "block",
+     "signature": "ensure(cleanUp)",
+     "answers": "the block's answer, having run `cleanUp` either way",
+     "source": "REFERENCE.md#block"
+    }
+   ]
+  },
+  {
+   "name": "environment",
+   "signatures": [
+    {
+     "receiver": "system",
+     "signature": "environment(name)",
+     "answers": "the variable, or **nil** when it is not set",
+     "source": "REFERENCE.md#system"
+    }
+   ]
+  },
+  {
+   "name": "equals",
+   "signatures": [
+    {
+     "receiver": "every type",
+     "signature": "equals",
+     "answers": "",
+     "source": "REFERENCE.md#every-type"
+    }
+   ]
+  },
+  {
+   "name": "ere",
+   "signatures": [
+    {
+     "receiver": "re",
+     "signature": "ere(source)",
+     "answers": "",
+     "source": "lib/re.sol"
+    }
+   ]
+  },
+  {
+   "name": "exit",
+   "signatures": [
+    {
+     "receiver": "system",
+     "signature": "exit(status)",
+     "answers": "nothing — the program stops, with `status` from #0 to #255",
+     "source": "REFERENCE.md#system"
+    }
+   ]
+  },
+  {
+   "name": "exp",
+   "signatures": [
+    {
+     "receiver": "float",
+     "signature": "exp",
+     "answers": "e to the self, and the **natural** logarithm",
+     "source": "REFERENCE.md#float"
+    }
+   ]
+  },
+  {
+   "name": "exports",
+   "signatures": [
+    {
+     "receiver": "reflection",
+     "signature": "exports",
+     "answers": "the object's export list, or **nil** where it has drawn none",
+     "source": "REFERENCE.md#reflection"
+    },
+    {
+     "receiver": "reflection",
+     "signature": "exports(names)",
+     "answers": "draws one — see The export boundary",
+     "source": "REFERENCE.md#reflection"
+    }
+   ]
+  },
+  {
+   "name": "file",
+   "signatures": [
+    {
+     "receiver": "sob",
+     "signature": "file(chunk)",
+     "answers": "",
+     "source": "lib/sob.sol"
+    }
+   ]
+  },
+  {
+   "name": "fileExists",
+   "signatures": [
+    {
+     "receiver": "system",
+     "signature": "fileExists(path)",
+     "answers": "true if a file — not a directory — is at that path",
+     "source": "REFERENCE.md#system"
+    }
+   ]
+  },
+  {
+   "name": "fileId",
+   "signatures": [
+    {
+     "receiver": "system",
+     "signature": "fileId(path)",
+     "answers": "what the filesystem calls this file, as a string; **nil** if nothing is there",
+     "source": "REFERENCE.md#system"
+    }
+   ]
+  },
+  {
+   "name": "fileSize",
+   "signatures": [
+    {
+     "receiver": "system",
+     "signature": "fileSize(path)",
+     "answers": "an integer, without reading the file; **nil** if nothing is there",
+     "source": "REFERENCE.md#system"
+    }
+   ]
+  },
+  {
+   "name": "filesIn",
+   "signatures": [
+    {
+     "receiver": "system",
+     "signature": "filesIn(path)",
+     "answers": "an array of the names in a directory; an error if it is not one",
+     "source": "REFERENCE.md#system"
+    }
+   ]
+  },
+  {
+   "name": "fill",
+   "signatures": [
+    {
+     "receiver": "string",
+     "signature": "fill([...])",
+     "answers": "a new string with the blanks filled; see below",
+     "source": "REFERENCE.md#string"
+    }
+   ]
+  },
+  {
+   "name": "find",
+   "signatures": [
+    {
+     "receiver": "re",
+     "signature": "find(text)",
+     "answers": "`find` answers where a match begins and `endOfMatchAt` where one ending",
+     "source": "lib/re.sol"
+    }
+   ]
+  },
+  {
+   "name": "findFrom",
+   "signatures": [
+    {
+     "receiver": "re",
+     "signature": "findFrom(text, at)",
+     "answers": "",
+     "source": "lib/re.sol"
+    }
+   ]
+  },
+  {
+   "name": "findLast",
+   "signatures": [
+    {
+     "receiver": "re",
+     "signature": "findLast(text, at)",
+     "answers": "",
+     "source": "lib/re.sol"
+    }
+   ]
+  },
+  {
+   "name": "first",
+   "signatures": [
+    {
+     "receiver": "array",
+     "signature": "first(#n)",
+     "answers": "a new array of up to `n`; **clamps**",
+     "source": "REFERENCE.md#array"
+    }
+   ]
+  },
+  {
+   "name": "floor",
+   "signatures": [
+    {
+     "receiver": "float",
+     "signature": "floor",
+     "answers": "an **integer**; errors on infinity, not-a-number, or out of range",
+     "source": "REFERENCE.md#float"
+    }
+   ]
+  },
+  {
+   "name": "fraction",
+   "signatures": [
+    {
+     "receiver": "random",
+     "signature": "fraction",
+     "answers": "a float, at least `0.0` and always less than `1.0`",
+     "source": "REFERENCE.md#random"
+    }
+   ]
+  },
+  {
+   "name": "fromSeconds",
+   "signatures": [
+    {
+     "receiver": "time",
+     "signature": "fromSeconds(f)",
+     "answers": "an instant, from seconds since the epoch *(on the class)*",
+     "source": "REFERENCE.md#time"
+    }
+   ]
+  },
+  {
+   "name": "greaterOrEqual",
+   "signatures": [
+    {
+     "receiver": "float",
+     "signature": "greaterOrEqual(n)",
+     "answers": "as integer",
+     "source": "REFERENCE.md#float"
+    },
+    {
+     "receiver": "integer",
+     "signature": "greaterOrEqual(n)",
+     "answers": "a boolean",
+     "source": "REFERENCE.md#integer"
+    },
+    {
+     "receiver": "string",
+     "signature": "greaterOrEqual(s)",
+     "answers": "a boolean",
+     "source": "REFERENCE.md#string"
+    },
+    {
+     "receiver": "symbol",
+     "signature": "greaterOrEqual(s)",
+     "answers": "a boolean",
+     "source": "REFERENCE.md#symbol"
+    },
+    {
+     "receiver": "time",
+     "signature": "greaterOrEqual(t)",
+     "answers": "a boolean",
+     "source": "REFERENCE.md#time"
+    }
+   ]
+  },
+  {
+   "name": "greaterThan",
+   "signatures": [
+    {
+     "receiver": "float",
+     "signature": "greaterThan(n)",
+     "answers": "as integer",
+     "source": "REFERENCE.md#float"
+    },
+    {
+     "receiver": "integer",
+     "signature": "greaterThan(n)",
+     "answers": "a boolean",
+     "source": "REFERENCE.md#integer"
+    },
+    {
+     "receiver": "string",
+     "signature": "greaterThan(s)",
+     "answers": "a boolean, comparing characters",
+     "source": "REFERENCE.md#string"
+    },
+    {
+     "receiver": "symbol",
+     "signature": "greaterThan(s)",
+     "answers": "a boolean, comparing the text",
+     "source": "REFERENCE.md#symbol"
+    },
+    {
+     "receiver": "time",
+     "signature": "greaterThan(t)",
+     "answers": "a boolean",
+     "source": "REFERENCE.md#time"
+    }
+   ]
+  },
+  {
+   "name": "group",
+   "signatures": [
+    {
+     "receiver": "re",
+     "signature": "group(n)",
+     "answers": "What group n took in the last successful match, or nil",
+     "source": "lib/re.sol"
+    }
+   ]
+  },
+  {
+   "name": "hour",
+   "signatures": [
+    {
+     "receiver": "time",
+     "signature": "hour",
+     "answers": "integers",
+     "source": "REFERENCE.md#time"
+    }
+   ]
+  },
+  {
+   "name": "ifElse",
+   "signatures": [
+    {
+     "receiver": "boolean",
+     "signature": "ifElse(t, f)",
+     "answers": "the chosen block's answer",
+     "source": "REFERENCE.md#boolean"
+    }
+   ]
+  },
+  {
+   "name": "ifElseIf",
+   "signatures": [
+    {
+     "receiver": "array",
+     "signature": "ifElseIf",
+     "answers": "a chain of alternatives, written flat",
+     "source": "lib/control.sol"
+    }
+   ]
+  },
+  {
+   "name": "ifFalse",
+   "signatures": [
+    {
+     "receiver": "boolean",
+     "signature": "ifFalse(block)",
+     "answers": "the block's answer, or nil",
+     "source": "REFERENCE.md#boolean"
+    }
+   ]
+  },
+  {
+   "name": "ifTrue",
+   "signatures": [
+    {
+     "receiver": "boolean",
+     "signature": "ifTrue(block)",
+     "answers": "the block's answer, or nil",
+     "source": "REFERENCE.md#boolean"
+    }
+   ]
+  },
+  {
+   "name": "inc",
+   "signatures": [
+    {
+     "receiver": "integer",
+     "signature": "inc",
+     "answers": "one more, one less; traps at the ends",
+     "source": "REFERENCE.md#integer"
+    }
+   ]
+  },
+  {
+   "name": "includes",
+   "signatures": [
+    {
+     "receiver": "dictionary",
+     "signature": "includes(key)",
+     "answers": "a boolean",
+     "source": "REFERENCE.md#dictionary"
+    }
+   ]
+  },
+  {
+   "name": "indexOf",
+   "signatures": [
+    {
+     "receiver": "array",
+     "signature": "indexOf(v)",
+     "answers": "where `v` first is, **one-based**, or nil",
+     "source": "REFERENCE.md#array"
+    },
+    {
+     "receiver": "string",
+     "signature": "indexOf(s)",
+     "answers": "where `s` first appears, **one-based**, or nil",
+     "source": "REFERENCE.md#string"
+    },
+    {
+     "receiver": "string",
+     "signature": "indexOf(s, #from)",
+     "answers": "the same, looking from `#from` — for the second occurrence and the ones after it",
+     "source": "REFERENCE.md#string"
+    }
+   ]
+  },
+  {
+   "name": "inject",
+   "signatures": [
+    {
+     "receiver": "array",
+     "signature": "inject(start, block)",
+     "answers": "one value, folded left to right",
+     "source": "REFERENCE.md#array"
+    }
+   ]
+  },
+  {
+   "name": "isDirectory",
+   "signatures": [
+    {
+     "receiver": "system",
+     "signature": "isDirectory(path)",
+     "answers": "true if a directory is at that path",
+     "source": "REFERENCE.md#system"
+    }
+   ]
+  },
+  {
+   "name": "isKindOf",
+   "signatures": [
+    {
+     "receiver": "reflection",
+     "signature": "isKindOf(class)",
+     "answers": "whether the receiver delegates to `class`, at any depth",
+     "source": "REFERENCE.md#reflection"
+    }
+   ]
+  },
+  {
+   "name": "isNil",
+   "signatures": [
+    {
+     "receiver": "every type",
+     "signature": "isNil",
+     "answers": "",
+     "source": "REFERENCE.md#every-type"
+    }
+   ]
+  },
+  {
+   "name": "isTerminal",
+   "signatures": [
+    {
+     "receiver": "system",
+     "signature": "isTerminal(which)",
+     "answers": "whether `'input`, `'output` or `'error` is a terminal",
+     "source": "REFERENCE.md#system"
+    }
+   ]
+  },
+  {
+   "name": "join",
+   "signatures": [
+    {
+     "receiver": "array",
+     "signature": "join(s)",
+     "answers": "the strings with `s` between them; strict",
+     "source": "REFERENCE.md#array"
+    }
+   ]
+  },
+  {
+   "name": "keyText",
+   "signatures": [
+    {
+     "receiver": "json",
+     "signature": "keyText(k)",
+     "answers": "",
+     "source": "lib/json.sol"
+    }
+   ]
+  },
+  {
+   "name": "keyWaiting",
+   "signatures": [
+    {
+     "receiver": "system",
+     "signature": "keyWaiting(seconds)",
+     "answers": "whether a byte is there to read, waiting up to that long for one",
+     "source": "REFERENCE.md#system"
+    }
+   ]
+  },
+  {
+   "name": "keys",
+   "signatures": [
+    {
+     "receiver": "dictionary",
+     "signature": "keys",
+     "answers": "an array, in **no order worth relying on**",
+     "source": "REFERENCE.md#dictionary"
+    }
+   ]
+  },
+  {
+   "name": "keysAndValuesDo",
+   "signatures": [
+    {
+     "receiver": "dictionary",
+     "signature": "keysAndValuesDo(block)",
+     "answers": "the same, the block taking a key and a value",
+     "source": "REFERENCE.md#dictionary"
+    }
+   ]
+  },
+  {
+   "name": "last",
+   "signatures": [
+    {
+     "receiver": "array",
+     "signature": "last(#n)",
+     "answers": "a new array of up to `n`; **clamps**",
+     "source": "REFERENCE.md#array"
+    }
+   ]
+  },
+  {
+   "name": "lessOrEqual",
+   "signatures": [
+    {
+     "receiver": "float",
+     "signature": "lessOrEqual(n)",
+     "answers": "as integer",
+     "source": "REFERENCE.md#float"
+    },
+    {
+     "receiver": "integer",
+     "signature": "lessOrEqual(n)",
+     "answers": "a boolean",
+     "source": "REFERENCE.md#integer"
+    },
+    {
+     "receiver": "string",
+     "signature": "lessOrEqual(s)",
+     "answers": "a boolean",
+     "source": "REFERENCE.md#string"
+    },
+    {
+     "receiver": "symbol",
+     "signature": "lessOrEqual(s)",
+     "answers": "a boolean",
+     "source": "REFERENCE.md#symbol"
+    },
+    {
+     "receiver": "time",
+     "signature": "lessOrEqual(t)",
+     "answers": "a boolean",
+     "source": "REFERENCE.md#time"
+    }
+   ]
+  },
+  {
+   "name": "lessThan",
+   "signatures": [
+    {
+     "receiver": "float",
+     "signature": "lessThan(n)",
+     "answers": "as integer",
+     "source": "REFERENCE.md#float"
+    },
+    {
+     "receiver": "integer",
+     "signature": "lessThan(n)",
+     "answers": "a boolean",
+     "source": "REFERENCE.md#integer"
+    },
+    {
+     "receiver": "string",
+     "signature": "lessThan(s)",
+     "answers": "a boolean, comparing characters",
+     "source": "REFERENCE.md#string"
+    },
+    {
+     "receiver": "symbol",
+     "signature": "lessThan(s)",
+     "answers": "a boolean, comparing the text",
+     "source": "REFERENCE.md#symbol"
+    },
+    {
+     "receiver": "time",
+     "signature": "lessThan(t)",
+     "answers": "a boolean",
+     "source": "REFERENCE.md#time"
+    }
+   ]
+  },
+  {
+   "name": "line",
+   "signatures": [
+    {
+     "receiver": "shell",
+     "signature": "line(command)",
+     "answers": "Trailing newlines removed, which is what a command's one-line answer wants: `git rev-parse HEAD` answers a hash and a newline, and the newline is the shell's way of ending a line rather than part of the hash",
+     "source": "lib/shell.sol"
+    }
+   ]
+  },
+  {
+   "name": "load",
+   "signatures": [
+    {
+     "receiver": "system",
+     "signature": "load(path)",
+     "answers": "**true** having run a compiled `.sob` here, **false** if it was already loaded",
+     "source": "REFERENCE.md#system"
+    }
+   ]
+  },
+  {
+   "name": "log",
+   "signatures": [
+    {
+     "receiver": "float",
+     "signature": "log",
+     "answers": "e to the self, and the **natural** logarithm",
+     "source": "REFERENCE.md#float"
+    }
+   ]
+  },
+  {
+   "name": "looksLike",
+   "signatures": [
+    {
+     "receiver": "scan",
+     "signature": "looksLike(what)",
+     "answers": "Whether the text from here starts with `what`, without moving",
+     "source": "lib/scan.sol"
+    }
+   ]
+  },
+  {
+   "name": "loop",
+   "signatures": [
+    {
+     "receiver": "array",
+     "signature": "loop(block)",
+     "answers": "nil; a *counted loop* over `[#a, #b]` or `[#a, #b, #step]` — the bounds, not the elements, both ends included",
+     "source": "REFERENCE.md#array"
+    }
+   ]
+  },
+  {
+   "name": "makeDirectory",
+   "signatures": [
+    {
+     "receiver": "system",
+     "signature": "makeDirectory(path)",
+     "answers": "**true** if it made one, **false** if a directory was there; the parent must exist",
+     "source": "REFERENCE.md#system"
+    }
+   ]
+  },
+  {
+   "name": "match",
+   "signatures": [
+    {
+     "receiver": "scan",
+     "signature": "match(what)",
+     "answers": "Consume `what` if it is here, and say whether it was",
+     "source": "lib/scan.sol"
+    }
+   ]
+  },
+  {
+   "name": "matches",
+   "signatures": [
+    {
+     "receiver": "re",
+     "signature": "matches(text)",
+     "answers": "",
+     "source": "lib/re.sol"
+    }
+   ]
+  },
+  {
+   "name": "max",
+   "signatures": [
+    {
+     "receiver": "integer",
+     "signature": "max(other)",
+     "answers": "",
+     "source": "lib/math.sol"
+    },
+    {
+     "receiver": "float",
+     "signature": "max(other)",
+     "answers": "",
+     "source": "lib/math.sol"
+    },
+    {
+     "receiver": "array",
+     "signature": "max",
+     "answers": "",
+     "source": "lib/math.sol"
+    }
+   ]
+  },
+  {
+   "name": "min",
+   "signatures": [
+    {
+     "receiver": "integer",
+     "signature": "min(other)",
+     "answers": "`min` and `max` answer the receiver when the two are equal, which matters only for telling them apart and cannot here, both being values",
+     "source": "lib/math.sol"
+    },
+    {
+     "receiver": "float",
+     "signature": "min(other)",
+     "answers": "`min` and `max` answer the receiver when the two are equal, which matters only",
+     "source": "lib/math.sol"
+    },
+    {
+     "receiver": "array",
+     "signature": "min",
+     "answers": "An empty array raises rather than answering nil",
+     "source": "lib/math.sol"
+    }
+   ]
+  },
+  {
+   "name": "minute",
+   "signatures": [
+    {
+     "receiver": "time",
+     "signature": "minute",
+     "answers": "integers",
+     "source": "REFERENCE.md#time"
+    }
+   ]
+  },
+  {
+   "name": "mod",
+   "signatures": [
+    {
+     "receiver": "float",
+     "signature": "mod(n)",
+     "answers": "as integer",
+     "source": "REFERENCE.md#float"
+    },
+    {
+     "receiver": "integer",
+     "signature": "mod(n)",
+     "answers": "**floored**; traps on zero and on `INT64_MIN div #-1`",
+     "source": "REFERENCE.md#integer"
+    }
+   ]
+  },
+  {
+   "name": "modeOf",
+   "signatures": [
+    {
+     "receiver": "system",
+     "signature": "modeOf(path)",
+     "answers": "the permission bits, as an integer",
+     "source": "REFERENCE.md#system"
+    }
+   ]
+  },
+  {
+   "name": "modifiedAt",
+   "signatures": [
+    {
+     "receiver": "system",
+     "signature": "modifiedAt(path)",
+     "answers": "when a file was last written, as a time; sub-second; **nil** if nothing is there",
+     "source": "REFERENCE.md#system"
+    }
+   ]
+  },
+  {
+   "name": "month",
+   "signatures": [
+    {
+     "receiver": "time",
+     "signature": "month",
+     "answers": "integers; **January is `#1`**",
+     "source": "REFERENCE.md#time"
+    }
+   ]
+  },
+  {
+   "name": "mul",
+   "signatures": [
+    {
+     "receiver": "float",
+     "signature": "mul(n)",
+     "answers": "as integer",
+     "source": "REFERENCE.md#float"
+    },
+    {
+     "receiver": "integer",
+     "signature": "mul(n)",
+     "answers": "an integer; traps on overflow",
+     "source": "REFERENCE.md#integer"
+    }
+   ]
+  },
+  {
+   "name": "negated",
+   "signatures": [
+    {
+     "receiver": "float",
+     "signature": "negated",
+     "answers": "as integer",
+     "source": "REFERENCE.md#float"
+    },
+    {
+     "receiver": "integer",
+     "signature": "negated",
+     "answers": "an integer; traps on the most negative",
+     "source": "REFERENCE.md#integer"
+    }
+   ]
+  },
+  {
+   "name": "new",
+   "signatures": [
+    {
+     "receiver": "object",
+     "signature": "new",
+     "answers": "a fresh object delegating to the receiver",
+     "source": "REFERENCE.md#object"
+    },
+    {
+     "receiver": "array",
+     "signature": "new",
+     "answers": "an empty array",
+     "source": "REFERENCE.md#array"
+    },
+    {
+     "receiver": "dictionary",
+     "signature": "new",
+     "answers": "an empty dictionary",
+     "source": "REFERENCE.md#dictionary"
+    },
+    {
+     "receiver": "random",
+     "signature": "new",
+     "answers": "a generator, seeded by the machine",
+     "source": "REFERENCE.md#random"
+    },
+    {
+     "receiver": "random",
+     "signature": "new(#seed)",
+     "answers": "a generator seeded by you, which repeats exactly",
+     "source": "REFERENCE.md#random"
+    }
+   ]
+  },
+  {
+   "name": "next",
+   "signatures": [
+    {
+     "receiver": "scan",
+     "signature": "next",
+     "answers": "Answers the character it passed, or nil at the end",
+     "source": "lib/scan.sol"
+    }
+   ]
+  },
+  {
+   "name": "not",
+   "signatures": [
+    {
+     "receiver": "boolean",
+     "signature": "not",
+     "answers": "a boolean",
+     "source": "REFERENCE.md#boolean"
+    }
+   ]
+  },
+  {
+   "name": "notEquals",
+   "signatures": [
+    {
+     "receiver": "every type",
+     "signature": "notEquals",
+     "answers": "",
+     "source": "REFERENCE.md#every-type"
+    }
+   ]
+  },
+  {
+   "name": "notNil",
+   "signatures": [
+    {
+     "receiver": "every type",
+     "signature": "notNil",
+     "answers": "",
+     "source": "REFERENCE.md#every-type"
+    }
+   ]
+  },
+  {
+   "name": "of",
+   "signatures": [
+    {
+     "receiver": "array",
+     "signature": "of(...)",
+     "answers": "an array of the arguments — what `[...]` compiles to",
+     "source": "REFERENCE.md#array"
+    },
+    {
+     "receiver": "dictionary",
+     "signature": "of(...)",
+     "answers": "a dictionary of the arguments, **key then value**; an odd count is an error",
+     "source": "REFERENCE.md#dictionary"
+    }
+   ]
+  },
+  {
+   "name": "on",
+   "signatures": [
+    {
+     "receiver": "re",
+     "signature": "on(source)",
+     "answers": "`on` is BRE, which is what sed and vi mean by a regular expression and what every caller here wanted first",
+     "source": "lib/re.sol"
+    },
+    {
+     "receiver": "scan",
+     "signature": "on(source)",
+     "answers": "A cursor of its own, so two scans can be in flight at once",
+     "source": "lib/scan.sol"
+    }
+   ]
+  },
+  {
+   "name": "onError",
+   "signatures": [
+    {
+     "receiver": "block",
+     "signature": "onError(handler)",
+     "answers": "the block's answer, or the handler's if it failed",
+     "source": "REFERENCE.md#block"
+    }
+   ]
+  },
+  {
+   "name": "or",
+   "signatures": [
+    {
+     "receiver": "boolean",
+     "signature": "or(block)",
+     "answers": "short-circuit; the block runs only if needed",
+     "source": "REFERENCE.md#boolean"
+    }
+   ]
+  },
+  {
+   "name": "parent",
+   "signatures": [
+    {
+     "receiver": "object",
+     "signature": "parent",
+     "answers": "the prototype, or nil at the root; read-only — assigning it shadows the message rather than re-parenting",
+     "source": "REFERENCE.md#object"
+    }
+   ]
+  },
+  {
+   "name": "peek",
+   "signatures": [
+    {
+     "receiver": "scan",
+     "signature": "peek",
+     "answers": "nil at the end rather than an error, because running out is how a loop finishes and not a fault",
+     "source": "lib/scan.sol"
+    }
+   ]
+  },
+  {
+   "name": "peekAt",
+   "signatures": [
+    {
+     "receiver": "scan",
+     "signature": "peekAt(n)",
+     "answers": "`peekAt(#0)` is `peek`; `peekAt(#1)` is the one after it",
+     "source": "lib/scan.sol"
+    }
+   ]
+  },
+  {
+   "name": "perform",
+   "signatures": [
+    {
+     "receiver": "reflection",
+     "signature": "perform(name, ...)",
+     "answers": "the answer to a send whose name is decided at run time",
+     "source": "REFERENCE.md#reflection"
+    }
+   ]
+  },
+  {
+   "name": "pi",
+   "signatures": [
+    {
+     "receiver": "float",
+     "signature": "pi",
+     "answers": "3.141592653589793",
+     "source": "REFERENCE.md#float"
+    }
+   ]
+  },
+  {
+   "name": "plusSeconds",
+   "signatures": [
+    {
+     "receiver": "time",
+     "signature": "plusSeconds(f)",
+     "answers": "another instant, `f` seconds along",
+     "source": "REFERENCE.md#time"
+    }
+   ]
+  },
+  {
+   "name": "pow",
+   "signatures": [
+    {
+     "receiver": "float",
+     "signature": "pow(other)",
+     "answers": "self raised to `other`",
+     "source": "REFERENCE.md#float"
+    }
+   ]
+  },
+  {
+   "name": "print",
+   "signatures": [
+    {
+     "receiver": "every type",
+     "signature": "print",
+     "answers": "",
+     "source": "REFERENCE.md#every-type"
+    }
+   ]
+  },
+  {
+   "name": "quote",
+   "signatures": [
+    {
+     "receiver": "json",
+     "signature": "quote(text)",
+     "answers": "",
+     "source": "lib/json.sol"
+    }
+   ]
+  },
+  {
+   "name": "raise",
+   "signatures": [
+    {
+     "receiver": "errors",
+     "signature": "raise",
+     "answers": "",
+     "source": "REFERENCE.md#errors"
+    }
+   ]
+  },
+  {
+   "name": "read",
+   "signatures": [
+    {
+     "receiver": "html",
+     "signature": "read(source)",
+     "answers": "",
+     "source": "lib/html.sol"
+    },
+    {
+     "receiver": "json",
+     "signature": "read(text)",
+     "answers": "`read` and `write` are the API as documented",
+     "source": "lib/json.sol"
+    },
+    {
+     "receiver": "shell",
+     "signature": "read(command)",
+     "answers": "The output alone, for the common case of a command that cannot fail in any way the program means to notice",
+     "source": "lib/shell.sol"
+    }
+   ]
+  },
+  {
+   "name": "readFile",
+   "signatures": [
+    {
+     "receiver": "system",
+     "signature": "readFile(path)",
+     "answers": "the whole file as a string; an error if it is not there",
+     "source": "REFERENCE.md#system"
+    }
+   ]
+  },
+  {
+   "name": "readKey",
+   "signatures": [
+    {
+     "receiver": "system",
+     "signature": "readKey",
+     "answers": "one byte as a one-character string, or nil at the end; no wait for return",
+     "source": "REFERENCE.md#system"
+    }
+   ]
+  },
+  {
+   "name": "readLine",
+   "signatures": [
+    {
+     "receiver": "system",
+     "signature": "readLine",
+     "answers": "one line of standard input without its terminator, or nil at the end",
+     "source": "REFERENCE.md#system"
+    }
+   ]
+  },
+  {
+   "name": "readUpTo",
+   "signatures": [
+    {
+     "receiver": "system",
+     "signature": "readUpTo(#n)",
+     "answers": "up to `n` bytes of standard input as they were sent, or nil at the end",
+     "source": "REFERENCE.md#system"
+    }
+   ]
+  },
+  {
+   "name": "remove",
+   "signatures": [
+    {
+     "receiver": "dictionary",
+     "signature": "remove(key)",
+     "answers": "the value removed; an error when the key is not there",
+     "source": "REFERENCE.md#dictionary"
+    },
+    {
+     "receiver": "system",
+     "signature": "remove(path)",
+     "answers": "nil, having deleted a file or an **empty** directory",
+     "source": "REFERENCE.md#system"
+    }
+   ]
+  },
+  {
+   "name": "removeLast",
+   "signatures": [
+    {
+     "receiver": "array",
+     "signature": "removeLast",
+     "answers": "the last element, taken off; **an error** when empty",
+     "source": "REFERENCE.md#array"
+    }
+   ]
+  },
+  {
+   "name": "rename",
+   "signatures": [
+    {
+     "receiver": "system",
+     "signature": "rename(from, to)",
+     "answers": "nil, having moved it; **replaces** an existing `to`",
+     "source": "REFERENCE.md#system"
+    }
+   ]
+  },
+  {
+   "name": "repeat",
+   "signatures": [
+    {
+     "receiver": "block",
+     "signature": "repeat(#n)",
+     "answers": "nil, having run the receiver `n` times",
+     "source": "REFERENCE.md#block"
+    },
+    {
+     "receiver": "integer",
+     "signature": "repeat(block)",
+     "answers": "nil, having run the block that many times",
+     "source": "REFERENCE.md#integer"
+    }
+   ]
+  },
+  {
+   "name": "replace",
+   "signatures": [
+    {
+     "receiver": "string",
+     "signature": "replace(s, t)",
+     "answers": "a new string with **every** `s` replaced by `t`",
+     "source": "REFERENCE.md#string"
+    }
+   ]
+  },
+  {
+   "name": "replaceAllIn",
+   "signatures": [
+    {
+     "receiver": "re",
+     "signature": "replaceAllIn(text, replacement)",
+     "answers": "",
+     "source": "lib/re.sol"
+    }
+   ]
+  },
+  {
+   "name": "replaceIn",
+   "signatures": [
+    {
+     "receiver": "re",
+     "signature": "replaceIn(text, replacement)",
+     "answers": "",
+     "source": "lib/re.sol"
+    }
+   ]
+  },
+  {
+   "name": "respondsTo",
+   "signatures": [
+    {
+     "receiver": "reflection",
+     "signature": "respondsTo(name)",
+     "answers": "whether a send of that name would find anything",
+     "source": "REFERENCE.md#reflection"
+    }
+   ]
+  },
+  {
+   "name": "rest",
+   "signatures": [
+    {
+     "receiver": "scan",
+     "signature": "rest",
+     "answers": "Everything from here to the end, leaving the cursor there",
+     "source": "lib/scan.sol"
+    }
+   ]
+  },
+  {
+   "name": "rounded",
+   "signatures": [
+    {
+     "receiver": "float",
+     "signature": "rounded",
+     "answers": "an **integer**; errors on infinity, not-a-number, or out of range",
+     "source": "REFERENCE.md#float"
+    }
+   ]
+  },
+  {
+   "name": "run",
+   "signatures": [
+    {
+     "receiver": "system",
+     "signature": "run(argv)",
+     "answers": "the exit status of another program; `argv` is an array",
+     "source": "REFERENCE.md#system"
+    },
+    {
+     "receiver": "system",
+     "signature": "run(argv, streams)",
+     "answers": "the exit status of another program; `argv` is an array",
+     "source": "REFERENCE.md#system"
+    },
+    {
+     "receiver": "shell",
+     "signature": "run(command)",
+     "answers": "The command, run with its output going wherever this program's does",
+     "source": "lib/shell.sol"
+    }
+   ]
+  },
+  {
+   "name": "second",
+   "signatures": [
+    {
+     "receiver": "time",
+     "signature": "second",
+     "answers": "integers",
+     "source": "REFERENCE.md#time"
+    }
+   ]
+  },
+  {
+   "name": "secondsSince",
+   "signatures": [
+    {
+     "receiver": "time",
+     "signature": "secondsSince(other)",
+     "answers": "a float; negative when `other` is later",
+     "source": "REFERENCE.md#time"
+    }
+   ]
+  },
+  {
+   "name": "select",
+   "signatures": [
+    {
+     "receiver": "array",
+     "signature": "select(block)",
+     "answers": "a new array of the elements the block accepted",
+     "source": "REFERENCE.md#array"
+    }
+   ]
+  },
+  {
+   "name": "setMode",
+   "signatures": [
+    {
+     "receiver": "system",
+     "signature": "setMode(path, #mode)",
+     "answers": "nil, having set them; `#0` to `#4095`",
+     "source": "REFERENCE.md#system"
+    }
+   ]
+  },
+  {
+   "name": "setModifiedAt",
+   "signatures": [
+    {
+     "receiver": "system",
+     "signature": "setModifiedAt(path, time)",
+     "answers": "nil, having set it",
+     "source": "REFERENCE.md#system"
+    }
+   ]
+  },
+  {
+   "name": "shiftLeft",
+   "signatures": [
+    {
+     "receiver": "integer",
+     "signature": "shiftLeft(#n)",
+     "answers": "an integer; `#0` to `#63`, and see below",
+     "source": "REFERENCE.md#integer"
+    }
+   ]
+  },
+  {
+   "name": "shiftRight",
+   "signatures": [
+    {
+     "receiver": "integer",
+     "signature": "shiftRight(#n)",
+     "answers": "an integer; `#0` to `#63`, and see below",
+     "source": "REFERENCE.md#integer"
+    }
+   ]
+  },
+  {
+   "name": "sin",
+   "signatures": [
+    {
+     "receiver": "float",
+     "signature": "sin",
+     "answers": "**radians**",
+     "source": "REFERENCE.md#float"
+    }
+   ]
+  },
+  {
+   "name": "since",
+   "signatures": [
+    {
+     "receiver": "scan",
+     "signature": "since(start)",
+     "answers": "`pos` is the mark",
+     "source": "lib/scan.sol"
+    }
+   ]
+  },
+  {
+   "name": "size",
+   "signatures": [
+    {
+     "receiver": "array",
+     "signature": "size",
+     "answers": "an integer",
+     "source": "REFERENCE.md#array"
+    },
+    {
+     "receiver": "dictionary",
+     "signature": "size",
+     "answers": "an integer",
+     "source": "REFERENCE.md#dictionary"
+    },
+    {
+     "receiver": "string",
+     "signature": "size",
+     "answers": "an integer",
+     "source": "REFERENCE.md#string"
+    },
+    {
+     "receiver": "symbol",
+     "signature": "size",
+     "answers": "an integer",
+     "source": "REFERENCE.md#symbol"
+    }
+   ]
+  },
+  {
+   "name": "skipWhile",
+   "signatures": [
+    {
+     "receiver": "scan",
+     "signature": "skipWhile(block)",
+     "answers": "**The block is never handed nil.** Every one of the fifteen hand-written versions of this loop opens `self:peek:notNil:and({",
+     "source": "lib/scan.sol"
+    }
+   ]
+  },
+  {
+   "name": "sleep",
+   "signatures": [
+    {
+     "receiver": "system",
+     "signature": "sleep(seconds)",
+     "answers": "nil, having waited that long; a float, and a negative one or `nan` is refused",
+     "source": "REFERENCE.md#system"
+    }
+   ]
+  },
+  {
+   "name": "slotAt",
+   "signatures": [
+    {
+     "receiver": "reflection",
+     "signature": "slotAt(name)",
+     "answers": "the value in that slot, searching the chain like a send",
+     "source": "REFERENCE.md#reflection"
+    }
+   ]
+  },
+  {
+   "name": "slots",
+   "signatures": [
+    {
+     "receiver": "reflection",
+     "signature": "slots",
+     "answers": "an array of symbols naming the receiver's **own** slots",
+     "source": "REFERENCE.md#reflection"
+    }
+   ]
+  },
+  {
+   "name": "sorted",
+   "signatures": [
+    {
+     "receiver": "array",
+     "signature": "sorted",
+     "answers": "a new array in ascending order",
+     "source": "REFERENCE.md#array"
+    },
+    {
+     "receiver": "array",
+     "signature": "sorted(block)",
+     "answers": "a new array ordered by the block",
+     "source": "REFERENCE.md#array"
+    }
+   ]
+  },
+  {
+   "name": "split",
+   "signatures": [
+    {
+     "receiver": "string",
+     "signature": "split(s)",
+     "answers": "an array of the pieces between occurrences of `s`",
+     "source": "REFERENCE.md#string"
+    }
+   ]
+  },
+  {
+   "name": "sqrt",
+   "signatures": [
+    {
+     "receiver": "float",
+     "signature": "sqrt",
+     "answers": "a float; `nan` for a negative",
+     "source": "REFERENCE.md#float"
+    }
+   ]
+  },
+  {
+   "name": "startsWith",
+   "signatures": [
+    {
+     "receiver": "string",
+     "signature": "startsWith(prefix)",
+     "answers": "**The size test is not an optimisation, it is what makes these total.** `copyFrom` answers `\"\"` for an empty range and for a start past the end, but refuses an end past it",
+     "source": "lib/text.sol"
+    }
+   ]
+  },
+  {
+   "name": "step",
+   "signatures": [
+    {
+     "receiver": "scan",
+     "signature": "step",
+     "answers": "Answers the cursor, so it chains",
+     "source": "lib/scan.sol"
+    }
+   ]
+  },
+  {
+   "name": "sub",
+   "signatures": [
+    {
+     "receiver": "float",
+     "signature": "sub(n)",
+     "answers": "as integer",
+     "source": "REFERENCE.md#float"
+    },
+    {
+     "receiver": "integer",
+     "signature": "sub(n)",
+     "answers": "an integer; traps on overflow",
+     "source": "REFERENCE.md#integer"
+    }
+   ]
+  },
+  {
+   "name": "substitutionIn",
+   "signatures": [
+    {
+     "receiver": "re",
+     "signature": "substitutionIn(text, replacement, all)",
+     "answers": "**The empty-match rule is the one that has to be got exactly right**, and it is lib/pattern.sol's, unchanged: a zero-width match where the last one ended is not a match, or `s/x*/-/g` would loop for ever on the same position",
+     "source": "lib/re.sol"
+    }
+   ]
+  },
+  {
+   "name": "take",
+   "signatures": [
+    {
+     "receiver": "scan",
+     "signature": "take(n)",
+     "answers": "The next `n` characters, or fewer if the text runs out first",
+     "source": "lib/scan.sol"
+    }
+   ]
+  },
+  {
+   "name": "takeUntil",
+   "signatures": [
+    {
+     "receiver": "scan",
+     "signature": "takeUntil(block)",
+     "answers": "The other way round, and it stops at the end of the text as well as at the block",
+     "source": "lib/scan.sol"
+    }
+   ]
+  },
+  {
+   "name": "takeWhile",
+   "signatures": [
+    {
+     "receiver": "scan",
+     "signature": "takeWhile(block)",
+     "answers": "The text consumed, which is empty when the first character already fails",
+     "source": "lib/scan.sol"
+    }
+   ]
+  },
+  {
+   "name": "tan",
+   "signatures": [
+    {
+     "receiver": "float",
+     "signature": "tan",
+     "answers": "**radians**",
+     "source": "REFERENCE.md#float"
+    }
+   ]
+  },
+  {
+   "name": "terminalSize",
+   "signatures": [
+    {
+     "receiver": "system",
+     "signature": "terminalSize",
+     "answers": "a dictionary of `\"rows\"` and `\"columns\"`, or **nil** when the output is not a terminal",
+     "source": "REFERENCE.md#system"
+    }
+   ]
+  },
+  {
+   "name": "time",
+   "signatures": [
+    {
+     "receiver": "system",
+     "signature": "time",
+     "answers": "the current instant, as a time",
+     "source": "REFERENCE.md#system"
+    }
+   ]
+  },
+  {
+   "name": "timeToRun",
+   "signatures": [
+    {
+     "receiver": "block",
+     "signature": "timeToRun",
+     "answers": "seconds the block took, as a float",
+     "source": "REFERENCE.md#block"
+    },
+    {
+     "receiver": "block",
+     "signature": "timeToRun(#n)",
+     "answers": "seconds `n` runs took, as a float",
+     "source": "REFERENCE.md#block"
+    }
+   ]
+  },
+  {
+   "name": "timesCollect",
+   "signatures": [
+    {
+     "receiver": "integer",
+     "signature": "timesCollect(body)",
+     "answers": "n results, gathered",
+     "source": "lib/control.sol"
+    }
+   ]
+  },
+  {
+   "name": "trim",
+   "signatures": [
+    {
+     "receiver": "string",
+     "signature": "trim",
+     "answers": "the same text without the space around it",
+     "source": "REFERENCE.md#string"
+    }
+   ]
+  },
+  {
+   "name": "truncated",
+   "signatures": [
+    {
+     "receiver": "float",
+     "signature": "truncated",
+     "answers": "an **integer**; errors on infinity, not-a-number, or out of range",
+     "source": "REFERENCE.md#float"
+    }
+   ]
+  },
+  {
+   "name": "upTo",
+   "signatures": [
+    {
+     "receiver": "random",
+     "signature": "upTo(#n)",
+     "answers": "an integer from `#1` to `#n`, both included",
+     "source": "REFERENCE.md#random"
+    }
+   ]
+  },
+  {
+   "name": "utcOffset",
+   "signatures": [
+    {
+     "receiver": "system",
+     "signature": "utcOffset(t)",
+     "answers": "seconds this machine's clock is ahead of UTC at instant `t`, as a float; negative west of Greenwich",
+     "source": "REFERENCE.md#system"
+    }
+   ]
+  },
+  {
+   "name": "utf8Tail",
+   "signatures": [
+    {
+     "receiver": "integer",
+     "signature": "utf8Tail(at)",
+     "answers": "The continuation bytes are all the same shape: the tag 10xxxxxx over six bits of the code point, taken `at` bits from the bottom",
+     "source": "lib/text.sol"
+    }
+   ]
+  },
+  {
+   "name": "value",
+   "signatures": [
+    {
+     "receiver": "block",
+     "signature": "value(...)",
+     "answers": "the block's answer; the count must match its parameters",
+     "source": "REFERENCE.md#block"
+    }
+   ]
+  },
+  {
+   "name": "values",
+   "signatures": [
+    {
+     "receiver": "dictionary",
+     "signature": "values",
+     "answers": "an array, in **no order worth relying on**",
+     "source": "REFERENCE.md#dictionary"
+    }
+   ]
+  },
+  {
+   "name": "via",
+   "signatures": [
+    {
+     "receiver": "object",
+     "signature": "via(ancestor)",
+     "answers": "a delegating view: lookup starts there, `self` stays",
+     "source": "REFERENCE.md#object"
+    }
+   ]
+  },
+  {
+   "name": "weekday",
+   "signatures": [
+    {
+     "receiver": "time",
+     "signature": "weekday",
+     "answers": "an integer; **Monday is `#1`**, Sunday `#7`",
+     "source": "REFERENCE.md#time"
+    }
+   ]
+  },
+  {
+   "name": "whileTrue",
+   "signatures": [
+    {
+     "receiver": "block",
+     "signature": "whileTrue(body)",
+     "answers": "nil, having run `body` while the receiver answers true",
+     "source": "REFERENCE.md#block"
+    }
+   ]
+  },
+  {
+   "name": "write",
+   "signatures": [
+    {
+     "receiver": "system",
+     "signature": "write(text)",
+     "answers": "writes `text` to standard output and adds nothing — no newline, no rendering",
+     "source": "REFERENCE.md#system"
+    },
+    {
+     "receiver": "json",
+     "signature": "write(v)",
+     "answers": "",
+     "source": "lib/json.sol"
+    }
+   ]
+  },
+  {
+   "name": "writeError",
+   "signatures": [
+    {
+     "receiver": "system",
+     "signature": "writeError(text)",
+     "answers": "the same, to standard **error**",
+     "source": "REFERENCE.md#system"
+    }
+   ]
+  },
+  {
+   "name": "writeFile",
+   "signatures": [
+    {
+     "receiver": "system",
+     "signature": "writeFile(path, text)",
+     "answers": "nil, having replaced the file's contents",
+     "source": "REFERENCE.md#system"
+    }
+   ]
+  },
+  {
+   "name": "year",
+   "signatures": [
+    {
+     "receiver": "time",
+     "signature": "year",
+     "answers": "integers; **January is `#1`**",
+     "source": "REFERENCE.md#time"
+    }
+   ]
+  }
+ ]
+}

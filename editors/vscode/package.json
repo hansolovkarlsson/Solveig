@@ -1,7 +1,7 @@
 {
   "name": "solveig",
   "displayName": "Solveig",
-  "description": "Syntax colouring, bracket matching and comment toggling for Solveig .sol files",
+  "description": "Syntax colouring, bracket matching, comment toggling and selector completion for Solveig .sol files",
   "version": "0.1.0",
   "publisher": "hansolovkarlsson",
   "license": "MIT",
@@ -15,6 +15,10 @@
   },
   "categories": [
     "Programming Languages"
+  ],
+  "main": "./extension.js",
+  "activationEvents": [
+    "onLanguage:solveig"
   ],
   "contributes": {
     "languages": [
@@ -35,6 +39,12 @@
         "language": "solveig",
         "scopeName": "source.solveig",
         "path": "./syntaxes/solveig.tmLanguage.json"
+      }
+    ],
+    "snippets": [
+      {
+        "language": "solveig",
+        "path": "./snippets/solveig.json"
       }
     ]
   }

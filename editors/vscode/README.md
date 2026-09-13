@@ -1,15 +1,11 @@
 # Solveig for VS Code
 
 Syntax colouring, bracket matching and comment toggling for `.sol` files, and
-nothing else. Completion is the editor's own word-based kind, which VS Code
-gives every registered language for free: it offers the words already in the
-buffer, and `wordPattern` in `language-configuration.json` is what makes a
-selector one word and `#10` none.
-
-There is no language server. Solveig is prototype-based and every send is
-dynamic, so what a receiver can answer is a run-time question, and a tool
-that guessed would be wrong often enough to be worse than none. What a server
-could honestly do is listed at the end.
+completion of the selector after a colon: every message the reference
+documents and every selector the shipped libraries export, each with what it
+answers. Type `#3:` and `add` is at the top of the list; type `a:` and the
+whole list is offered, because what `a` is cannot be known without running
+the program, which is the boundary the last section is about.
 
 ## Installing
 
@@ -81,14 +77,52 @@ follow, or, for temporaries, at the start of the next line, which is where
 lines, or a temporaries list wrapped across three, is left plain rather than
 coloured wrong.
 
-`test.py` runs the grammar over every `.sol` file in the repository with a
-small TextMate engine of its own and checks the tokens it expects. It is not
-in `make test`; run it by hand after changing the grammar.
+## What completion knows
+
+`selectors.json` is written by `messages.py` from two places and typed in
+from none:
+
+- **The Message index** in [REFERENCE.md](../../docs/REFERENCE.md#message-index),
+  which the build holds to `builtins.c`, gives the list; the per-type tables
+  give each message its signature and its *Answers* cell. Where a type's own
+  table lacks a row (`float` says *everything integer has*), the row is
+  borrowed and marked as such.
+- **`lib/*.sol`**, for every `receiver:name := { params |` a library binds,
+  less any name its object's `exports` leaves out, with the one line the
+  comment above it says.
+
+The provider offers after a colon and nowhere else, not inside a string or a
+comment, and not at the `:=` of a binding. When the text before the colon is
+a literal, `#3`, `"a"`, `[...]`, `{...}`, or a prototype's name, `integer`,
+`re`, the selectors that receiver answers sort first and the rest follow;
+anything else, `a:` or `x:size:`, is unknown and the list is offered in one
+order. A selector whose every signature takes arguments inserts as `name($1)`
+with the cursor inside the parentheses. Snippets in `snippets/` give the
+shapes: `block`, `temps`, `method`, `object`, `exports`, `while`, `dict`,
+`include`, `expr`.
+
+The list is a generated file, so `messages.py --check` says when the
+documents have moved past it, and `test.py` runs that check. Regenerate with
+`python3 editors/vscode/messages.py` after a message is added to the
+reference or a library.
+
+## Checking it
+
+`test.py` runs three things and is not in `make test`, which stays C11 and
+`make`; run it by hand after changing anything here:
+
+- the grammar over every `.sol` file in the repository with a small TextMate
+  engine of its own, and over a fixture of lines tokenised by hand;
+- `messages.py --check`, that `selectors.json` is current;
+- `completion.js` under `osascript`, the JavaScript engine every Mac has,
+  against cases written from the reference. No `node` is needed, here or to
+  install.
 
 ## What a language server could add
 
 Not built, and not on the roadmap. Listed so that the boundary is recorded:
 go-to-definition and completion for selectors bound with `:=` in the open
-files and `lib/`, hover on such a definition, and diagnostics by running
-`solas` on save and mapping its errors to lines. What it could not add is
-completion by receiver, because there is no receiver type to read.
+files, hover on such a definition, and diagnostics by running `solas` on save
+and mapping its errors to lines. What it could not add is completion by
+receiver beyond the literal in front of the colon, because there is no
+receiver type to read.

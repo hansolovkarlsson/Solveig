@@ -1,16 +1,23 @@
 #!/usr/bin/env python3
-"""Run the grammar over every .sol file in the repository and over a fixture.
+"""Check the grammar, the selector list and the completion logic.
 
-A TextMate engine small enough to read: match, begin/end, include, captures
-with patterns. It is not vscode-textmate, so a difference between the two is
-possible, but Oniguruma and Python's re agree on everything this grammar
-writes. Two checks: every file leaves the bracket stack empty and produces no
-invalid.illegal token outside conformance/refused/, and each fixture line
-tokenises exactly as written.
+The grammar: a TextMate engine small enough to read, match, begin/end,
+include and captures with patterns, run over every .sol file in the
+repository and over a fixture. It is not vscode-textmate, so a difference
+between the two is possible, but Oniguruma and Python's re agree on
+everything this grammar writes. Every file must leave the bracket stack empty
+and produce no invalid.illegal token outside conformance/refused/, and each
+fixture line must tokenise exactly as written.
+
+The selector list: selectors.json must be what messages.py would write now.
+
+The completion logic: completion.js is run under osascript, the JavaScript
+engine every Mac has, against cases written from the reference. There is no
+node here and none is needed.
 
     python3 editors/vscode/test.py
 """
-import json, os, re, subprocess, sys
+import json, os, re, subprocess, sys, tempfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.abspath(os.path.join(HERE, '..', '..'))
@@ -262,9 +269,81 @@ def run_corpus():
                 bad += 1; print(f'CORPUS   {f}:{ln}: {sc}')
     return bad, len(files), counts
 
+def run_messages():
+    r = subprocess.run([sys.executable, os.path.join(HERE, 'messages.py'), '--check'], capture_output=True, text=True)
+    if r.returncode:
+        print('MESSAGES ' + r.stdout.strip())
+    return 1 if r.returncode else 0
+
+# The completion cases: what the cursor sees, and what the logic must answer.
+JS_CASES = r"""
+function ctx(before) { return C.context(before, data); }
+function receivers(before) { var c = ctx(before); return c && c.receivers; }
+function item(before, name) {
+  var list = C.items(data, ctx(before));
+  for (var i = 0; i < list.length; i++) if (list[i].label === name) return list[i];
+  return null;
+}
+eq('not after a colon', ctx('a := b'), null);
+eq('a binding is not a send', ctx('a :='), null);
+eq('inside a comment', ctx('; a:'), null);
+eq('inside a string', ctx('"a:'), null);
+eq('after a colon', ctx('a:').partial, '');
+eq('partial selector', ctx('a:pr').partial, 'pr');
+eq('unknown receiver', receivers('a:'), []);
+eq('a chain is unknown', receivers('a:size:'), []);
+eq('self is unknown', receivers('self:'), []);
+eq('tagged integer', receivers('#3:'), ['integer']);
+eq('hex', receivers('x := $FF:'), ['integer']);
+eq('binary', receivers('%101:'), ['integer']);
+eq('float', receivers('1.5:'), ['float']);
+eq('float, whole', receivers('45:'), ['float']);
+eq('string', receivers('"a":'), ['string']);
+eq('string, closed after a colon', receivers('"a:b":'), ['string']);
+eq('symbol', receivers("'s:"), ['symbol']);
+eq('array or dictionary', receivers('[#1]:'), ['array', 'dictionary']);
+eq('block', receivers('{ x | x }:'), ['block']);
+eq('prototype by name', receivers('integer:'), ['integer']);
+eq('boolean by name', receivers('true:'), ['boolean']);
+eq('library object', receivers('re:'), ['re']);
+eq('system', receivers('system:'), ['system']);
+eq('own receiver sorts first', item('#3:', 'add').sortText, '0add');
+eq('other receiver sorts after', item('#3:', 'find').sortText, '1find');
+eq('unknown receiver sorts all alike', item('a:', 'add').sortText, '1add');
+eq('arguments become a snippet', item('#3:', 'add').insertText, 'add($1)');
+eq('and are marked as one', item('#3:', 'add').snippet, true);
+eq('no arguments, no snippet', item('a:', 'print').insertText, 'print');
+eq('an optional argument is left out', item('a:', 'asString').insertText, 'asString');
+eq('the detail names the receivers', item('a:', 'add').detail, 'array, float, integer');
+eq('the documentation has one line per signature', item('a:', 'add').documentation.split('\n').length, 3);
+eq('a library selector says where it lives', item('a:', 'timesCollect').documentation.indexOf('lib/control.sol') > 0, true);
+eq('every selector is offered', C.items(data, ctx('a:')).length, data.selectors.length);
+"""
+
+def run_js():
+    src = open(os.path.join(HERE, 'completion.js'), encoding='utf-8').read()
+    data = open(os.path.join(HERE, 'selectors.json'), encoding='utf-8').read()
+    harness = ('var module = { exports: {} };\n' + src + '\nvar C = module.exports;\nvar data = ' + data + ';\n'
+               'var failures = [];\n'
+               'function eq(name, got, want) { var g = JSON.stringify(got), w = JSON.stringify(want);'
+               ' if (g !== w) failures.push(name + ": got " + g + " want " + w); }\n'
+               + JS_CASES + '\nfailures.length ? failures.join("\\n") : "ok";\n')
+    with tempfile.NamedTemporaryFile('w', suffix='.js', delete=False) as f:
+        f.write(harness); path = f.name
+    r = subprocess.run(['osascript', '-l', 'JavaScript', path], capture_output=True, text=True)
+    os.unlink(path)
+    out = (r.stdout + r.stderr).strip()
+    if r.returncode or out != 'ok':
+        for line in out.split('\n'): print('JS       ' + line)
+        return 1
+    return 0
+
 if __name__ == '__main__':
     bad = run_fixture()
     cbad, n, counts = run_corpus()
     for k in sorted(counts): print(f'{counts[k]:8d}  {k}')
-    print(f'{len(FIXTURE)} fixture lines, {n} files; {bad + cbad} problem(s)')
-    sys.exit(1 if bad + cbad else 0)
+    mbad = run_messages()
+    jbad = run_js()
+    cases = JS_CASES.count("\neq(")
+    print(f'{len(FIXTURE)} fixture lines, {n} files, {cases} completion cases; {bad + cbad + mbad + jbad} problem(s)')
+    sys.exit(1 if bad + cbad + mbad + jbad else 0)
