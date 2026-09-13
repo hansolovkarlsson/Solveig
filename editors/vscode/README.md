@@ -110,7 +110,32 @@ cannot read another file. It is coloured as a form used, since a name before
 a parenthesis is that in either shape, `swap(a, b)` or `while (c)`; a
 syntax word with no parenthesis after it, `then`, `do`, `else`, is coloured as
 an object. In the file that declares it, `@syntax while ...`, the word is
-coloured as syntax.
+coloured as syntax. What the grammar cannot read, the next section can.
+
+## What the dialect gives
+
+`dialect.js` reads the header of the open module and of everything it
+`@use`s, resolved the way Proto resolves it: beside the file using it, then
+each entry of `PROTO_PATH`. The command line's `-I` has no counterpart here.
+A file is read once, so a diamond costs nothing and a cycle is not followed;
+a `@use` that cannot be found is skipped, and the header ends at the first
+statement, as Proto's does. From that, in a `.pro` file:
+
+- **A bare word offers the dialect's forms**, each as a snippet built from
+  its declaration: `while <c> <b: block>` inserts `while c { }` with the
+  hole a tab stop and the block its braces; `swap(a, b)` inserts
+  `swap(a, b)` with a stop per parameter. The detail is the declaration's
+  head, and the documentation is the declaration as written, with the file
+  that said it.
+- **Hover on an operator or a syntax word** shows the declaration that gave
+  it its meaning and the file it came from: which file said `*` is 70, and
+  against what. An operator nothing declared shows nothing, which is what
+  the compiler would then refuse.
+
+`test.py` parses every `.pro` file's header with it, checks that it found as
+many declarations as the file has directive lines and that every `@use`
+resolves beside the file, and runs its cases against `lib/clike.pro` through
+the example that uses it.
 
 ## What completion knows
 
@@ -156,15 +181,18 @@ reference or a library.
   small TextMate engine of its own, and over fixtures of lines tokenised by
   hand;
 - `messages.py --check`, that `selectors.json` is current;
-- `completion.js` under `osascript`, the JavaScript engine every Mac has,
-  against cases written from the reference. No `node` is needed, here or to
+- `completion.js` and `dialect.js` under `osascript`, the JavaScript engine
+  every Mac has, against cases written from the two references, and the
+  dialect reader over every `.pro` header. No `node` is needed, here or to
   install.
 
 ## What a language server could add
 
 Not built, and not on the roadmap. Listed so that the boundary is recorded:
 go-to-definition and completion for selectors bound with `:=` in the open
-files, hover on such a definition, and diagnostics by running `solas` on save
-and mapping its errors to lines. What it could not add is completion by
-receiver beyond the literal in front of the colon, because there is no
-receiver type to read.
+files, hover on such a definition, and diagnostics by running `solas` or
+`proto` on save and mapping their errors to lines. What it could not add is
+completion by receiver beyond the literal in front of the colon, because
+there is no receiver type to read. The dialect reader above is the one piece
+of a server's work that needed no server: a header is small, declarative and
+read whole.

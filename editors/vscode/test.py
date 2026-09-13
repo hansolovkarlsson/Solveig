@@ -434,14 +434,102 @@ eq('solveig: an @ offers nothing', ctx('@'), null);
 eq('solveig: a hole colon is a send', ctx('<t:').kind, 'selector');
 """
 
+# The dialect cases run against the real files: lib/clike.pro through the
+# example that uses it, with a reader that resolves a @use beside the file.
+DIALECT_CASES = r"""
+ObjC.import('Foundation');
+function readFile(p) {
+  var s = $.NSString.stringWithContentsOfFileEncodingError($(p), 4, null);
+  return s.isNil() ? null : ObjC.unwrap(s);
+}
+function dirname(p) { return p.replace(/\/[^\/]*$/, ''); }
+function reader(from, use) {
+  var candidate = dirname(from) + '/' + use;
+  var text = readFile(candidate);
+  return text === null ? null : { path: candidate, text: text };
+}
+var clike = ROOT + '/proto/examples/clike.pro';
+var D = DIALECT.parse(readFile(clike), clike, reader);
+eq('dialect: no errors', D.errors, []);
+eq('dialect: one @use, resolved beside the file', D.uses, [ROOT + '/proto/examples/../lib/clike.pro']);
+eq('dialect: clike declares fifteen operators', D.operators.length, 15);
+eq('dialect: and four forms', D.forms.map(function (f) { return f.form; }), ['if', 'while', 'do', 'if']);
+eq('dialect: an infix by message', DIALECT.lookup(D, '+')[0].message, 'add');
+eq('dialect: its precedence', DIALECT.lookup(D, '+')[0].precedence, 60);
+eq('dialect: an infix by template', DIALECT.lookup(D, '&&')[0].template, 'left:and({ right })');
+eq('dialect: a prefix', DIALECT.lookup(D, '!')[0].kind, 'prefix');
+eq('dialect: a declaration keeps its text', DIALECT.lookup(D, '&&')[0].text, '@infix  &&  30 => left:and({ right }).');
+eq('dialect: and says where it came from', DIALECT.lookup(D, '&&')[0].from, ROOT + '/proto/examples/../lib/clike.pro');
+eq('dialect: a pattern form has parts', D.forms[2].parts, [{ hole: 'b', kind: 'block' }, { word: 'while' }, { hole: 'c', kind: 'expression' }]);
+eq('dialect: its head', DIALECT.formHead(D.forms[2]), 'do <b: block> while <c>');
+eq('dialect: its snippet gives a block hole braces', DIALECT.formSnippet(D.forms[2]), 'do { $1 } while ${2:c}');
+eq('dialect: an if with an else', DIALECT.formHead(D.forms[3]), 'if <c> <t: block> else <e: block>');
+eq('dialect: a call form', DIALECT.declaration('@syntax swap(a, b) => { | t | t := a. a := b. b := t }:value', 'x').params, ['a', 'b']);
+eq('dialect: its snippet', DIALECT.formSnippet(DIALECT.declaration('@syntax swap(a, b) => x', 'x')), 'swap(${1:a}, ${2:b})');
+eq('dialect: a header stops at the first statement', DIALECT.headerStatements('@infix + 60 add.\nn := #1.\n@infix - 60 sub.').length, 1);
+eq('dialect: and at an @include', DIALECT.headerStatements('@include "a.sol".\n@infix + 60 add.').length, 0);
+eq('dialect: a full stop inside a template belongs to it', DIALECT.headerStatements('@syntax do <b: block> while <c> => (b:value. { c }:whileTrue(b)).').length, 1);
+eq('dialect: a float keeps its point', DIALECT.headerStatements('@infix + 60 => left:add(1.5).').length, 1);
+eq('dialect: a comment is not a declaration', DIALECT.headerStatements('; @infix + 60 add.\n@prefix ! not.')[0], '@prefix ! not');
+eq('dialect: a bar can be declared', DIALECT.declaration('@infix | 50 bitOr', 'x').operator, '|');
+eq('dialect: a missing @use is an error, not a crash', DIALECT.parse('@use "nowhere.pro".', clike, reader).errors.length, 1);
+eq('dialect: a cycle is read once', DIALECT.parse('@use "clike.pro".', clike, function () { return { path: clike, text: '@use "clike.pro".' }; }).uses.length, 1);
+eq('dialect: what a reader cannot read is an error', DIALECT.declaration('@infix', 'x').error.indexOf('not a declaration'), 0);
+var wctx = C.context('n = #1.\nwh', data, 'proto');
+eq('completion: a bare word in proto is a word context', wctx.kind, 'word');
+eq('completion: with the partial', wctx.partial, 'wh');
+eq('completion: a word after a colon is a send', C.context('a:wh', data, 'proto').kind, 'selector');
+eq('completion: the forms come as snippets', C.items(data, wctx, D, DIALECT).map(function (i) { return i.insertText; }),
+   ['if ${1:c} { $2 }', 'while ${1:c} { $2 }', 'do { $1 } while ${2:c}', 'if ${1:c} { $2 } else { $3 }']);
+eq('completion: with the declaration as detail', C.items(data, wctx, D, DIALECT)[1].detail, 'while <c> <b: block>');
+eq('completion: and no dialect, no forms', C.items(data, wctx, null, DIALECT), []);
+"""
+
+def run_dialect_corpus():
+    """Every .pro file's header, read by dialect.js: no errors, every @use found
+    beside the file, and as many declarations as the file has directive lines."""
+    files = subprocess.run(['git', 'ls-files', '*.pro'], cwd=ROOT, capture_output=True, text=True).stdout.split()
+    want = {}
+    for f in files:
+        text = open(os.path.join(ROOT, f), encoding='utf-8').read()
+        want[f] = [len(re.findall(r'^@(?:infixr?|prefix)\b', text, re.M)), len(re.findall(r'^@syntax\b', text, re.M))]
+    dsrc = open(os.path.join(HERE, 'dialect.js'), encoding='utf-8').read()
+    harness = ('var module = { exports: {} };\n' + dsrc + '\nvar DIALECT = module.exports;\n'
+               'var ROOT = ' + json.dumps(ROOT) + ';\nvar want = ' + json.dumps(want) + ';\n'
+               + DIALECT_CASES.split('var clike =')[0] +
+               """
+var out = [];
+Object.keys(want).forEach(function (f) {
+  var p = ROOT + '/' + f, text = readFile(p);
+  var own = DIALECT.headerStatements(text).map(function (s) { return DIALECT.declaration(s, p); });
+  var got = [own.filter(function (d) { return d.operator; }).length, own.filter(function (d) { return d.form; }).length];
+  own.filter(function (d) { return d.error; }).forEach(function (d) { out.push(f + ': ' + d.error); });
+  if (JSON.stringify(got) !== JSON.stringify(want[f])) out.push(f + ': declarations ' + JSON.stringify(got) + ' want ' + JSON.stringify(want[f]));
+  DIALECT.parse(text, p, reader).errors.forEach(function (d) { out.push(f + ': ' + d.error); });
+});
+out.length ? out.join('\\n') : 'ok';
+""")
+    with tempfile.NamedTemporaryFile('w', suffix='.js', delete=False) as f:
+        f.write(harness); path = f.name
+    r = subprocess.run(['osascript', '-l', 'JavaScript', path], capture_output=True, text=True)
+    os.unlink(path)
+    out = (r.stdout + r.stderr).strip()
+    if r.returncode or out != 'ok':
+        for line in out.split('\n'): print('DIALECT  ' + line)
+        return 1, len(files)
+    return 0, len(files)
+
 def run_js():
     src = open(os.path.join(HERE, 'completion.js'), encoding='utf-8').read()
+    dsrc = open(os.path.join(HERE, 'dialect.js'), encoding='utf-8').read()
     data = open(os.path.join(HERE, 'selectors.json'), encoding='utf-8').read()
-    harness = ('var module = { exports: {} };\n' + src + '\nvar C = module.exports;\nvar data = ' + data + ';\n'
+    harness = ('var module = { exports: {} };\n' + src + '\nvar C = module.exports;\n'
+               'module = { exports: {} };\n' + dsrc + '\nvar DIALECT = module.exports;\n'
+               'var ROOT = ' + json.dumps(ROOT) + ';\nvar data = ' + data + ';\n'
                'var failures = [];\n'
                'function eq(name, got, want) { var g = JSON.stringify(got), w = JSON.stringify(want);'
                ' if (g !== w) failures.push(name + ": got " + g + " want " + w); }\n'
-               + JS_CASES + '\nfailures.length ? failures.join("\\n") : "ok";\n')
+               + JS_CASES + DIALECT_CASES + '\nfailures.length ? failures.join("\\n") : "ok";\n')
     with tempfile.NamedTemporaryFile('w', suffix='.js', delete=False) as f:
         f.write(harness); path = f.name
     r = subprocess.run(['osascript', '-l', 'JavaScript', path], capture_output=True, text=True)
@@ -460,7 +548,9 @@ if __name__ == '__main__':
     for k in sorted(pcounts): print(f'{pcounts[k]:8d}  {k}')
     mbad = run_messages()
     jbad = run_js()
-    cases = JS_CASES.count("\neq(")
-    total = bad + cbad + pbad + mbad + jbad
-    print(f'{len(FIXTURE)} + {len(PROTO_FIXTURE)} fixture lines, {n} .sol and {pn} .pro files, {cases} completion cases; {total} problem(s)')
+    dbad, dn = run_dialect_corpus()
+    cases = (JS_CASES + DIALECT_CASES).count("\neq(")
+    total = bad + cbad + pbad + mbad + jbad + dbad
+    print(f'{len(FIXTURE)} + {len(PROTO_FIXTURE)} fixture lines, {n} .sol and {pn} .pro files, '
+          f'{cases} completion and dialect cases, {dn} headers read; {total} problem(s)')
     sys.exit(1 if total else 0)

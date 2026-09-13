@@ -55,6 +55,9 @@
       if (d && !inTextOrComment(before.slice(0, d.index))) return { kind: 'directive', partial: d[1] || '' };
       var h = new RegExp('<' + ID + '\\s*:\\s*(' + ID + ')?$').exec(before);
       if (h && !inTextOrComment(before.slice(0, h.index))) return { kind: 'kind', partial: h[1] || '' };
+      // a bare word, where a form the dialect declares may be wanted
+      var w = new RegExp('(?:^|[^A-Za-z0-9_:@<\'#$%])(' + ID + ')?$').exec(before);
+      if (w && !/:\s*$/.test(before) && !inTextOrComment(before)) return { kind: 'word', partial: w[1] || '' };
     }
     var m = new RegExp('^(.*?)(:)(' + ID + ')?$').exec(before);
     if (!m || inTextOrComment(m[1])) return null;
@@ -105,9 +108,27 @@
   // One item per selector. A selector the guessed receiver answers sorts
   // first; the rest follow, because a chain's receiver is not knowable and
   // hiding them would hide the right answer as often as not.
-  function items(data, ctx) {
+  // The forms a dialect declares, as snippets built from their declarations.
+  // `dialect` is what dialect.js parsed for the open module; its helpers
+  // come with it so that this file needs nothing from that one.
+  function formItems(dialect, helpers) {
+    if (!dialect) return [];
+    return dialect.forms.map(function (f) {
+      return {
+        label: f.form,
+        detail: helpers.formHead(f),
+        documentation: '```proto\n' + f.text + '\n```\n*' + f.from + '*',
+        insertText: helpers.formSnippet(f),
+        snippet: true,
+        sortText: '0' + f.form
+      };
+    });
+  }
+
+  function items(data, ctx, dialect, helpers) {
     if (ctx.kind === 'directive') return directiveItems(data);
     if (ctx.kind === 'kind') return kindItems(data);
+    if (ctx.kind === 'word') return formItems(dialect, helpers);
     return data.selectors.map(function (s) {
       var mine = s.signatures.filter(function (sig) { return ctx.receivers.indexOf(sig.receiver) >= 0; });
       var shown = mine.length ? mine : s.signatures;
