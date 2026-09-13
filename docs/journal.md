@@ -11,6 +11,45 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-09-13, afternoon: the second tier, and the list came from where the build already looks
+
+**Hans asked for the selector list**, the second of the three rungs scoped
+in the morning. The question it opens with is where the list comes from,
+because a list typed in is a list that drifts. The reference has a Message
+index, 146 messages across 249 registrations, and the build fails when
+`builtins.c` registers one the index lacks, so the index is already the
+tree's own answer to *what messages are there*. `messages.py` reads it, then
+the per-type tables for each message's signature and *Answers* cell, then
+`lib/*.sol` for every `receiver:name := { params |` a library binds, filtered
+by the object's `exports` list, since a library that has drawn a boundary
+has said which names are anybody's business. 186 selectors, 262 signatures,
+and `--check` fails when the documents have moved past the file.
+
+**Two places the documents made the generator work for its answer.** `float`
+has no `add` row, because its section opens *everything integer has, minus
+`asFloat`, `asBase`, and the overflow traps*; the generator borrows integer's
+row under float's name and says *as integer* where the answer would go,
+rather than claiming float traps on overflow. And the library's one-line
+summaries are wherever the comment above a definition put them: a `name --
+summary` header in `control.sol`, a paragraph that opens by naming the
+selector in `math.sol`, the last prose paragraph in `scan.sol`. The reader
+takes those in that order and leaves twenty-eight blank rather than guess.
+
+**What the receiver can be.** The morning's answer was that completion by
+receiver has nothing to read, and that is still true of `a:`. But `#3:` is an
+integer, `"a":` is a string, `[#1]:` is an array or a dictionary and
+`integer:` names itself, so the provider reads the literal or the name in
+front of the colon and puts that receiver's selectors first. It ranks rather
+than filters: `x:size:` is unknown, and hiding the rest would hide the right
+answer as often as show it. The logic is in `completion.js` with nothing
+from `vscode` in it, so that `test.py` can run it under `osascript`, which
+every Mac has where this one has no `node`. Thirty-four cases, written from
+the reference before the harness ran, and one broken on purpose to see it
+reported.
+
+**Not looked at.** As in the morning, the tokens and the items are checked
+and the picture is not; whether the popup reads well is for the editor.
+
 ## 2026-09-13, later: the editor gets colour, and the boundary that stops it getting more
 
 **Hans wanted VS Code to colour a `.sol` file and complete what he types.**

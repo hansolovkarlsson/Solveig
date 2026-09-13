@@ -5,6 +5,22 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### VS Code completes the selector after a colon — `dbbd530`, 2026-09-13
+
+**[editors/vscode](../editors/vscode/README.md) offers every message the
+reference documents and every selector the libraries export**, each with its
+signature and what it answers. The list is `selectors.json`, written by
+`messages.py` from the reference's Message index, which the build already
+holds to `builtins.c`, from the per-type tables, and from every
+`receiver:name := {` in `lib/` that its object's `exports` does not leave
+out: 186 selectors, 262 signatures, 61 of them from the libraries, none typed
+in. A literal or a prototype's name in front of the colon puts that
+receiver's selectors first; anything else is unknown and the list comes in
+one order, because a chain's receiver cannot be read without running the
+program. `messages.py --check` says when the documents move past the list,
+and `test.py` runs the completion logic under `osascript` against 34 cases,
+so there is still no `node` in the picture. Nine snippets give the shapes.
+
 ### VS Code colours a `.sol` file — `caa292a`, 2026-09-13
 
 **[editors/vscode](../editors/vscode/README.md)** is a TextMate grammar

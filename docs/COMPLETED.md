@@ -1986,6 +1986,16 @@ bracket rules for use inside one. The one thing it was measured against
 before it existed was the corpus: every tracked `.sol` file, balanced and
 free of `invalid` tokens outside the folder of files the compiler refuses.
 
+**The second tier followed the same afternoon** (`dbbd530`), once the first
+had been looked at. The case for it was the case against typing anything
+in: the reference's Message index is already held to `builtins.c` by the
+build, so a list generated from it and from the libraries' exported
+definitions is one the documents keep honest, and a check that the file is
+current is what stops it drifting. The morning's *cannot know the receiver*
+was narrowed rather than overturned: a literal or a prototype's name before
+the colon is known, and its selectors go first; everything else is offered
+in one order.
+
 ### 5.1a Error recovery could loop forever — **fixed**
 
 `synchronise` tested whether the previous token was a `.` before advancing, so a
