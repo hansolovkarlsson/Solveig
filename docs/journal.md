@@ -11,7 +11,7 @@ that a document was still true. That is what this is for.
 
 ---
 
-## 2026-09-13, evening: Proto in the editor, and the line a grammar cannot cross
+## 2026-09-13, mid-afternoon: Proto in the editor, and the line a grammar cannot cross
 
 **Hans asked for the same for `.pro` files**, and the answer turned on one
 sentence in Proto's reference: a dialect declares operators, precedence and
@@ -32,7 +32,7 @@ temporaries open with one. The declaration head takes a lone bar; in code a
 bar no block or group header claimed colours as an operator. And
 `while (n < #20)` is lexically `swap(a, b)`: a name before a parenthesis is a
 form used in either shape, and nothing else in Proto puts one there, so the
-call colour is right for both, which is more than the morning's grammar
+call colour is right for both, which is more than the first grammar
 could say about `sin(x)`.
 
 **The reader is the one piece of a language server that needed no server.**
@@ -54,7 +54,7 @@ working, hover included, which is the one part `osascript` could not run:
 ## 2026-09-13, afternoon: the second tier, and the list came from where the build already looks
 
 **Hans asked for the selector list**, the second of the three rungs scoped
-in the morning. The question it opens with is where the list comes from,
+an hour earlier. The question it opens with is where the list comes from,
 because a list typed in is a list that drifts. The reference has a Message
 index, 146 messages across 249 registrations, and the build fails when
 `builtins.c` registers one the index lacks, so the index is already the
@@ -63,7 +63,9 @@ the per-type tables for each message's signature and *Answers* cell, then
 `lib/*.sol` for every `receiver:name := { params |` a library binds, filtered
 by the object's `exports` list, since a library that has drawn a boundary
 has said which names are anybody's business. 186 selectors, 262 signatures,
-and `--check` fails when the documents have moved past the file.
+and `--check` fails when the documents have moved past the file. The
+generator was first named `selectors.py`, which shadowed the standard
+library's `selectors` and broke `subprocess` on import; it is `messages.py`.
 
 **Two places the documents made the generator work for its answer.** `float`
 has no `add` row, because its section opens *everything integer has, minus
@@ -75,7 +77,7 @@ summary` header in `control.sol`, a paragraph that opens by naming the
 selector in `math.sol`, the last prose paragraph in `scan.sol`. The reader
 takes those in that order and leaves twenty-eight blank rather than guess.
 
-**What the receiver can be.** The morning's answer was that completion by
+**What the receiver can be.** The first answer was that completion by
 receiver has nothing to read, and that is still true of `a:`. But `#3:` is an
 integer, `"a":` is a string, `[#1]:` is an array or a dictionary and
 `integer:` names itself, so the provider reads the literal or the name in
@@ -87,10 +89,10 @@ every Mac has where this one has no `node`. Thirty-four cases, written from
 the reference before the harness ran, and one broken on purpose to see it
 reported.
 
-**Not looked at.** As in the morning, the tokens and the items are checked
+**Not looked at.** As with the grammar, the tokens and the items are checked
 and the picture is not; whether the popup reads well is for the editor.
 
-## 2026-09-13, later: the editor gets colour, and the boundary that stops it getting more
+## 2026-09-13, early afternoon: the editor gets colour, and the boundary that stops it getting more
 
 **Hans wanted VS Code to colour a `.sol` file and complete what he types.**
 The answer split in two before anything was built, because the two halves
@@ -144,7 +146,7 @@ colour. What the tokeniser could not have found: it checks what a token is,
 not what it looks like, and *unscoped* was correct by the first measure and
 invisible by the second.
 
-## 2026-09-13, evening: three questions about where a capability should live, and no code
+## 2026-09-13, midday: three questions about where a capability should live, and no code
 
 **Hans asked three design questions in a row after the bignum landed**, each
 about the same boundary from a different side, and each was answered from the

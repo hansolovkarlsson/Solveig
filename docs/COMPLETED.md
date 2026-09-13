@@ -1986,17 +1986,17 @@ bracket rules for use inside one. The one thing it was measured against
 before it existed was the corpus: every tracked `.sol` file, balanced and
 free of `invalid` tokens outside the folder of files the compiler refuses.
 
-**The second tier followed the same afternoon** (`25b2dba`), once the first
+**The second tier followed within the hour** (`25b2dba`), once the first
 had been looked at. The case for it was the case against typing anything
 in: the reference's Message index is already held to `builtins.c` by the
 build, so a list generated from it and from the libraries' exported
 definitions is one the documents keep honest, and a check that the file is
-current is what stops it drifting. The morning's *cannot know the receiver*
+current is what stops it drifting. The first answer's *cannot know the receiver*
 was narrowed rather than overturned: a literal or a prototype's name before
 the colon is known, and its selectors go first; everything else is offered
 in one order.
 
-**Proto followed in the evening** (`cb04b91`, `6b490af`), and the case was
+**Proto followed the same afternoon** (`cb04b91`, `6b490af`), and the case was
 argued from its reference before either half was built: a dialect cannot
 declare tokens, so a grammar can colour a `.pro` file to the token and no
 further, and what a dialect does declare is read by the extension, which
