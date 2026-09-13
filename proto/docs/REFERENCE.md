@@ -37,12 +37,12 @@ solvm examples/vectors.sob
 
 | | |
 | --- | --- |
-| `make` | `bin/proto`. A C11 compiler and `make`, and nothing else. |
+| `make` | `../bin/proto`, beside Solveig's four binaries. A C11 compiler and `make`, and nothing else. |
 | `make test` | the unit tests, plus every example and program through `solas` and `solvm` |
 | `make sanitize` | the same under AddressSanitizer and UBSan, from a clean build. **Worth doing before a release** — see [POSTMORTEM.md](POSTMORTEM.md) 15. It leaves an instrumented `bin/proto`; `make clean` restores a normal one. |
 | `make run` | `examples/vectors.pro`, compiled and executed |
 | `make examples` / `ember` / `grammar` / `digest` | one group at a time |
-| `make install` | `bin/proto` to `$PREFIX/bin`, `lib/*.pro` to `$PREFIX/lib/proto`; it prints the `PROTO_PATH` to export |
+| `make install` | `../bin/proto` to `$PREFIX/bin`, `lib/*.pro` to `$PREFIX/lib/proto`; it prints the `PROTO_PATH` to export |
 | `make check` | that `$SOLVEIG` has a built `bin/solas` |
 | `make clean` | remove `build/`, `bin/` and everything generated |
 

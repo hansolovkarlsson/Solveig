@@ -16,7 +16,7 @@ a:print.                          ; #14
 
 ```sh
 make                                      # from Solveig's root builds this too
-bin/proto --map examples/vectors.pro      # -> examples/vectors.sol + .sol.map
+../bin/proto --map examples/vectors.pro   # -> examples/vectors.sol + .sol.map
 ../bin/solas examples/vectors.sol
 ../bin/solvm examples/vectors.sob
 ```
@@ -593,7 +593,7 @@ impossible to add.
 ## Building
 
 ```sh
-make            # -> bin/proto. Needs a C11 compiler and make, and nothing else.
+make            # -> ../bin/proto, beside Solveig's four. Needs a C11 compiler and make, and nothing else.
 make test       # the unit tests, and every example run through solas and solvm
 make run        # examples/vectors.pro, compiled and executed
 ```

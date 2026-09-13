@@ -1,6 +1,6 @@
 # Proto -- a compiler whose syntax arrives with the file it is compiling.
 #
-#   make            build bin/proto
+#   make            build ../bin/proto, beside Solveig's four
 #   make test       build and run the test suite, through the real pipeline
 #   make run        compile and run examples/vectors.pro
 #   make examples   every examples/*.pro, to .sol and then to .sob
@@ -17,12 +17,14 @@
 # not get to change.
 #
 # Since 2026-09-12 that arrangement holds inside Solveig's own tree, as
-# `proto/`. The parent's `make` builds bin/proto and its `make test` runs this
-# suite, so a change to the substrate that breaks a dialect goes red in the
-# same run. Nothing about the boundary moved: this Makefile still reaches
-# Solveig only through the binaries under $(SOLVEIG)/bin, and only from `run`,
-# `examples` and `test`, which hand them a file. The journal has the reasons
-# for both the original placement and the move.
+# `proto/`. The parent's `make` builds the compiler and its `make test` runs
+# this suite, so a change to the substrate that breaks a dialect goes red in
+# the same run. Since 2026-09-13 the compiler is written to $(SOLVEIG)/bin,
+# beside the four binaries, so that one directory holds the whole toolkit.
+# Nothing about the boundary moved: this Makefile still reaches Solveig only
+# through the binaries under $(SOLVEIG)/bin, reading four and writing one,
+# and only from `run`, `examples` and `test`, which hand them a file. The
+# journal has the reasons for both the original placement and the move.
 
 SOLVEIG ?= ..
 
@@ -45,7 +47,9 @@ endif
 SANITIZE =
 
 BUILD = build
-BIN   = bin
+# Solveig's bin/, so `clean` below removes the one file this puts there and
+# never the directory: Solveig's four binaries are not this Makefile's to take.
+BIN   ?= $(SOLVEIG)/bin
 DIST  = dist
 
 PREFIX ?= /usr/local
@@ -239,7 +243,7 @@ sanitize:
 	@$(MAKE) --no-print-directory clean
 	@$(MAKE) --no-print-directory test SANITIZE="-fsanitize=address,undefined"
 	@echo "clean under -fsanitize=address,undefined"
-	@echo "  bin/proto is instrumented now -- 'make clean' restores a normal build"
+	@echo "  $(BIN)/proto is instrumented now -- 'make clean' restores a normal build"
 
 $(LEDGER)/ledger.sol: $(LEDGER)/ledger.pro $(LEDGER)/money.pro $(BIN)/proto
 	@$(BIN)/proto --map $< -o $@
@@ -318,7 +322,8 @@ dist:
 	@echo "$(DIST)/proto-$(VERSION).tar.gz"
 
 clean:
-	rm -rf $(BUILD) $(BIN)
+	rm -rf $(BUILD) $(BIN)/proto.dSYM
+	rm -f $(BIN)/proto
 	rm -f $(EXAMPLE_SOLS) $(EXAMPLE_SOLS:.sol=.sol.map) $(EXAMPLE_SOBS)
 	rm -f $(EMBER)/emberc.sol $(EMBER)/emberc.sol.map $(EMBER)/emberc.sob
 	rm -f $(EMBER_ASM) $(EMBER_BINS)

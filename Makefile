@@ -1,6 +1,6 @@
 # Solum -- build for all three components.
 #
-#   make            build bin/solas, bin/solvm, bin/solis, bin/solid, proto/bin/proto
+#   make            build bin/solas, bin/solvm, bin/solis, bin/solid, bin/proto
 #   make test       build and run the test suite, then Proto's
 #   make embed      build bin/solhost -- see solum/include/solum/embed.h
 #   make install    install to $(PREFIX), default /usr/local
@@ -147,8 +147,9 @@ EXTENSIONS = $(BUILD)/extensions/net.so
 # Proto is a second compiler that targets this language and lives in this tree
 # as proto/, with its own Makefile, records and version. It is built by `all`
 # and tested by `test` so that a change here which breaks a dialect goes red
-# in the same run; it reaches this tree only through bin/, never through the
-# headers, and its Makefile explains why. Recursed into rather than absorbed,
+# in the same run; it reaches this tree only through bin/, where it reads the
+# four binaries and writes its own, never through the headers, and its
+# Makefile explains why. Recursed into rather than absorbed,
 # because its build is its own and a list of its sources here would go stale.
 .PHONY: all test embed install uninstall dist clean proto FORCE
 all: $(BINARIES) $(EXTENSIONS) proto
