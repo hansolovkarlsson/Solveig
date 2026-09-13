@@ -1,0 +1,41 @@
+{
+  "name": "solveig",
+  "displayName": "Solveig",
+  "description": "Syntax colouring, bracket matching and comment toggling for Solveig .sol files",
+  "version": "0.1.0",
+  "publisher": "hansolovkarlsson",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/hansolovkarlsson/Solveig",
+    "directory": "editors/vscode"
+  },
+  "engines": {
+    "vscode": "^1.75.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "solveig",
+        "aliases": [
+          "Solveig",
+          "solveig"
+        ],
+        "extensions": [
+          ".sol"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "solveig",
+        "scopeName": "source.solveig",
+        "path": "./syntaxes/solveig.tmLanguage.json"
+      }
+    ]
+  }
+}

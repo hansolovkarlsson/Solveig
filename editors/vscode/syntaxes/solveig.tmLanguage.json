@@ -1,0 +1,604 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Solveig",
+  "scopeName": "source.solveig",
+  "patterns": [
+    {
+      "include": "#statement"
+    }
+  ],
+  "repository": {
+    "statement": {
+      "comment": "Everything that can appear outside an @expr region. There are no keywords and no operators here: docs/GRAMMAR.md, 'What is not here'.",
+      "patterns": [
+        {
+          "include": "#temporaries-line"
+        },
+        {
+          "include": "#atoms"
+        },
+        {
+          "include": "#block"
+        },
+        {
+          "include": "#group"
+        },
+        {
+          "include": "#array"
+        },
+        {
+          "include": "#dictionary"
+        }
+      ]
+    },
+    "temporaries-line": {
+      "comment": "Temporaries on the line after the brace: { n, p, q | then | it |. Outside a region nothing else can start a line with a bar; inside one it could be a continued disjunction, so this is not in #infix.",
+      "match": "^\\s*(\\|)\\s*([A-Za-z_][A-Za-z0-9_]*(?:\\s*,\\s*[A-Za-z_][A-Za-z0-9_]*)*)\\s*(\\|)",
+      "captures": {
+        "1": {
+          "name": "punctuation.separator.temporaries.solveig"
+        },
+        "2": {
+          "patterns": [
+            {
+              "name": "variable.other.temporary.solveig",
+              "match": "[A-Za-z_][A-Za-z0-9_]*"
+            }
+          ]
+        },
+        "3": {
+          "name": "punctuation.separator.temporaries.solveig"
+        }
+      }
+    },
+    "infix": {
+      "comment": "Everything that can appear inside an @expr region: the same atoms, plus the operator ladder and prefix application. A region is lexical, so every bracket opened inside one is still inside it.",
+      "patterns": [
+        {
+          "include": "#operators"
+        },
+        {
+          "include": "#call"
+        },
+        {
+          "include": "#atoms"
+        },
+        {
+          "include": "#infix-block"
+        },
+        {
+          "include": "#infix-group"
+        },
+        {
+          "include": "#infix-array"
+        },
+        {
+          "include": "#infix-dictionary"
+        }
+      ]
+    },
+    "atoms": {
+      "patterns": [
+        {
+          "include": "#comment"
+        },
+        {
+          "include": "#string"
+        },
+        {
+          "include": "#include"
+        },
+        {
+          "include": "#region-group"
+        },
+        {
+          "include": "#region-block"
+        },
+        {
+          "include": "#directive-unknown"
+        },
+        {
+          "include": "#number"
+        },
+        {
+          "include": "#symbol"
+        },
+        {
+          "include": "#definition"
+        },
+        {
+          "include": "#assignment"
+        },
+        {
+          "include": "#send"
+        },
+        {
+          "include": "#language"
+        },
+        {
+          "include": "#identifier"
+        },
+        {
+          "include": "#separator"
+        }
+      ]
+    },
+    "comment": {
+      "name": "comment.line.semicolon.solveig",
+      "begin": ";",
+      "beginCaptures": {
+        "0": {
+          "name": "punctuation.definition.comment.solveig"
+        }
+      },
+      "end": "$"
+    },
+    "string": {
+      "name": "string.quoted.double.solveig",
+      "begin": "\"",
+      "beginCaptures": {
+        "0": {
+          "name": "punctuation.definition.string.begin.solveig"
+        }
+      },
+      "end": "\"",
+      "endCaptures": {
+        "0": {
+          "name": "punctuation.definition.string.end.solveig"
+        }
+      },
+      "patterns": [
+        {
+          "name": "constant.character.escape.solveig",
+          "match": "\\\\[\"\\\\ntr]"
+        },
+        {
+          "name": "invalid.illegal.escape.solveig",
+          "match": "\\\\."
+        }
+      ]
+    },
+    "include": {
+      "name": "keyword.control.directive.include.solveig",
+      "match": "@include\\b"
+    },
+    "region-group": {
+      "comment": "@expr( ... ) answers the expression's value.",
+      "name": "meta.region.group.solveig",
+      "begin": "(@expr)\\s*(\\()\\s*(?:(\\|)\\s*([A-Za-z_][A-Za-z0-9_]*(?:\\s*,\\s*[A-Za-z_][A-Za-z0-9_]*)*)\\s*(\\|))?",
+      "beginCaptures": {
+        "1": {
+          "name": "keyword.control.directive.expr.solveig"
+        },
+        "2": {
+          "name": "punctuation.section.group.begin.solveig"
+        },
+        "3": {
+          "name": "punctuation.separator.temporaries.solveig"
+        },
+        "4": {
+          "patterns": [
+            {
+              "name": "variable.other.temporary.solveig",
+              "match": "[A-Za-z_][A-Za-z0-9_]*"
+            }
+          ]
+        },
+        "5": {
+          "name": "punctuation.separator.temporaries.solveig"
+        }
+      },
+      "end": "\\)",
+      "endCaptures": {
+        "0": {
+          "name": "punctuation.section.group.end.solveig"
+        }
+      },
+      "patterns": [
+        {
+          "include": "#infix"
+        }
+      ]
+    },
+    "region-block": {
+      "comment": "@expr{ ... } answers a block whose body is infix. A region is lexical: every bracket opened inside it is still inside it.",
+      "name": "meta.region.block.solveig",
+      "begin": "(@expr)\\s*(\\{)\\s*(?:([A-Za-z_][A-Za-z0-9_]*(?:\\s*,\\s*[A-Za-z_][A-Za-z0-9_]*)*)\\s*(\\|))?(?:\\s*(\\|)\\s*([A-Za-z_][A-Za-z0-9_]*(?:\\s*,\\s*[A-Za-z_][A-Za-z0-9_]*)*)\\s*(\\|))?",
+      "beginCaptures": {
+        "1": {
+          "name": "keyword.control.directive.expr.solveig"
+        },
+        "2": {
+          "name": "punctuation.section.block.begin.solveig"
+        },
+        "3": {
+          "patterns": [
+            {
+              "name": "variable.parameter.solveig",
+              "match": "[A-Za-z_][A-Za-z0-9_]*"
+            }
+          ]
+        },
+        "4": {
+          "name": "punctuation.separator.parameters.solveig"
+        },
+        "5": {
+          "name": "punctuation.separator.temporaries.solveig"
+        },
+        "6": {
+          "patterns": [
+            {
+              "name": "variable.other.temporary.solveig",
+              "match": "[A-Za-z_][A-Za-z0-9_]*"
+            }
+          ]
+        },
+        "7": {
+          "name": "punctuation.separator.temporaries.solveig"
+        }
+      },
+      "end": "\\}",
+      "endCaptures": {
+        "0": {
+          "name": "punctuation.section.block.end.solveig"
+        }
+      },
+      "patterns": [
+        {
+          "include": "#infix"
+        }
+      ]
+    },
+    "directive-unknown": {
+      "comment": "@include and @expr are the only directives.",
+      "name": "invalid.illegal.directive.solveig",
+      "match": "@[A-Za-z_][A-Za-z0-9_]*"
+    },
+    "number": {
+      "comment": "Tagged integers first, so that #10 is one token and not a tag then a float. The lookbehind keeps the digits of a1 from being a number.",
+      "patterns": [
+        {
+          "name": "constant.numeric.integer.solveig",
+          "match": "#-?[0-9]+"
+        },
+        {
+          "name": "constant.numeric.hex.solveig",
+          "match": "\\$[0-9A-Fa-f]+"
+        },
+        {
+          "name": "constant.numeric.binary.solveig",
+          "match": "%[01]+"
+        },
+        {
+          "name": "constant.numeric.float.solveig",
+          "match": "(?<![A-Za-z0-9_#$%])-?[0-9]+(?:\\.[0-9]+)?(?:[eE][+-]?[0-9]+)?"
+        }
+      ]
+    },
+    "symbol": {
+      "name": "constant.other.symbol.solveig",
+      "match": "'[A-Za-z_][A-Za-z0-9_]*"
+    },
+    "definition": {
+      "comment": "A send that took no arguments, then :=, binds a slot; when the value is a block that is a method.",
+      "match": "(:)([A-Za-z_][A-Za-z0-9_]*)\\s*(:=)",
+      "captures": {
+        "1": {
+          "name": "punctuation.separator.send.solveig"
+        },
+        "2": {
+          "name": "entity.name.function.definition.solveig"
+        },
+        "3": {
+          "name": "keyword.operator.assignment.solveig"
+        }
+      }
+    },
+    "assignment": {
+      "name": "keyword.operator.assignment.solveig",
+      "match": ":="
+    },
+    "send": {
+      "match": "(:)([A-Za-z_][A-Za-z0-9_]*)",
+      "captures": {
+        "1": {
+          "name": "punctuation.separator.send.solveig"
+        },
+        "2": {
+          "name": "entity.name.function.send.solveig"
+        }
+      }
+    },
+    "language": {
+      "comment": "Not keywords: ordinary identifiers that happen to be bound. Coloured because every reader expects them to be.",
+      "patterns": [
+        {
+          "name": "variable.language.self.solveig",
+          "match": "\\bself\\b"
+        },
+        {
+          "name": "constant.language.solveig",
+          "match": "\\b(?:nil|true|false)\\b"
+        }
+      ]
+    },
+    "identifier": {
+      "comment": "Consumed so that no rule can start inside a word; not coloured.",
+      "name": "meta.identifier.solveig",
+      "match": "[A-Za-z_][A-Za-z0-9_]*"
+    },
+    "separator": {
+      "patterns": [
+        {
+          "name": "punctuation.terminator.statement.solveig",
+          "match": "\\."
+        },
+        {
+          "name": "punctuation.separator.comma.solveig",
+          "match": ","
+        }
+      ]
+    },
+    "block": {
+      "comment": "The header is read with the brace so that it is matched only there: { a, b | ... }, { | t | ... }, { a | | t | ... }. A body that starts with a name has no bar after it and is not a header.",
+      "name": "meta.block.solveig",
+      "begin": "(\\{)\\s*(?:([A-Za-z_][A-Za-z0-9_]*(?:\\s*,\\s*[A-Za-z_][A-Za-z0-9_]*)*)\\s*(\\|))?(?:\\s*(\\|)\\s*([A-Za-z_][A-Za-z0-9_]*(?:\\s*,\\s*[A-Za-z_][A-Za-z0-9_]*)*)\\s*(\\|))?",
+      "beginCaptures": {
+        "1": {
+          "name": "punctuation.section.block.begin.solveig"
+        },
+        "2": {
+          "patterns": [
+            {
+              "name": "variable.parameter.solveig",
+              "match": "[A-Za-z_][A-Za-z0-9_]*"
+            }
+          ]
+        },
+        "3": {
+          "name": "punctuation.separator.parameters.solveig"
+        },
+        "4": {
+          "name": "punctuation.separator.temporaries.solveig"
+        },
+        "5": {
+          "patterns": [
+            {
+              "name": "variable.other.temporary.solveig",
+              "match": "[A-Za-z_][A-Za-z0-9_]*"
+            }
+          ]
+        },
+        "6": {
+          "name": "punctuation.separator.temporaries.solveig"
+        }
+      },
+      "end": "\\}",
+      "endCaptures": {
+        "0": {
+          "name": "punctuation.section.block.end.solveig"
+        }
+      },
+      "patterns": [
+        {
+          "include": "#statement"
+        }
+      ]
+    },
+    "group": {
+      "comment": "A group may open with temporaries, | a, b |, which is the only way to declare one at the top level of a script.",
+      "name": "meta.group.solveig",
+      "begin": "(\\()\\s*(?:(\\|)\\s*([A-Za-z_][A-Za-z0-9_]*(?:\\s*,\\s*[A-Za-z_][A-Za-z0-9_]*)*)\\s*(\\|))?",
+      "beginCaptures": {
+        "1": {
+          "name": "punctuation.section.group.begin.solveig"
+        },
+        "2": {
+          "name": "punctuation.separator.temporaries.solveig"
+        },
+        "3": {
+          "patterns": [
+            {
+              "name": "variable.other.temporary.solveig",
+              "match": "[A-Za-z_][A-Za-z0-9_]*"
+            }
+          ]
+        },
+        "4": {
+          "name": "punctuation.separator.temporaries.solveig"
+        }
+      },
+      "end": "\\)",
+      "endCaptures": {
+        "0": {
+          "name": "punctuation.section.group.end.solveig"
+        }
+      },
+      "patterns": [
+        {
+          "include": "#statement"
+        }
+      ]
+    },
+    "array": {
+      "name": "meta.array.solveig",
+      "begin": "\\[",
+      "beginCaptures": {
+        "0": {
+          "name": "punctuation.section.array.begin.solveig"
+        }
+      },
+      "end": "\\]",
+      "endCaptures": {
+        "0": {
+          "name": "punctuation.section.array.end.solveig"
+        }
+      },
+      "patterns": [
+        {
+          "include": "#statement"
+        }
+      ]
+    },
+    "dictionary": {
+      "comment": "#[ key = value, ... ]. The = is the pair separator here and equality inside a region.",
+      "name": "meta.dictionary.solveig",
+      "begin": "#\\[",
+      "beginCaptures": {
+        "0": {
+          "name": "punctuation.section.dictionary.begin.solveig"
+        }
+      },
+      "end": "\\]",
+      "endCaptures": {
+        "0": {
+          "name": "punctuation.section.dictionary.end.solveig"
+        }
+      },
+      "patterns": [
+        {
+          "name": "keyword.operator.pair.solveig",
+          "match": "="
+        },
+        {
+          "include": "#statement"
+        }
+      ]
+    },
+    "operators": {
+      "comment": "The ladder, loosest to tightest: | & ~ comparisons + - * / ^. Two-character comparisons first.",
+      "name": "keyword.operator.solveig",
+      "match": "<=|<>|>=|[<>=+\\-*/^&|~]"
+    },
+    "call": {
+      "comment": "sin(x) is x:sin. The name is any identifier; nothing is reserved.",
+      "match": "\\b([A-Za-z_][A-Za-z0-9_]*)(?=\\s*\\()",
+      "captures": {
+        "1": {
+          "name": "entity.name.function.call.solveig"
+        }
+      }
+    },
+    "infix-block": {
+      "comment": "The header is read with the brace so that it is matched only there: { a, b | ... }, { | t | ... }, { a | | t | ... }. A body that starts with a name has no bar after it and is not a header.",
+      "name": "meta.block.solveig",
+      "begin": "(\\{)\\s*(?:([A-Za-z_][A-Za-z0-9_]*(?:\\s*,\\s*[A-Za-z_][A-Za-z0-9_]*)*)\\s*(\\|))?(?:\\s*(\\|)\\s*([A-Za-z_][A-Za-z0-9_]*(?:\\s*,\\s*[A-Za-z_][A-Za-z0-9_]*)*)\\s*(\\|))?",
+      "beginCaptures": {
+        "1": {
+          "name": "punctuation.section.block.begin.solveig"
+        },
+        "2": {
+          "patterns": [
+            {
+              "name": "variable.parameter.solveig",
+              "match": "[A-Za-z_][A-Za-z0-9_]*"
+            }
+          ]
+        },
+        "3": {
+          "name": "punctuation.separator.parameters.solveig"
+        },
+        "4": {
+          "name": "punctuation.separator.temporaries.solveig"
+        },
+        "5": {
+          "patterns": [
+            {
+              "name": "variable.other.temporary.solveig",
+              "match": "[A-Za-z_][A-Za-z0-9_]*"
+            }
+          ]
+        },
+        "6": {
+          "name": "punctuation.separator.temporaries.solveig"
+        }
+      },
+      "end": "\\}",
+      "endCaptures": {
+        "0": {
+          "name": "punctuation.section.block.end.solveig"
+        }
+      },
+      "patterns": [
+        {
+          "include": "#infix"
+        }
+      ]
+    },
+    "infix-group": {
+      "comment": "A group may open with temporaries, | a, b |, which is the only way to declare one at the top level of a script.",
+      "name": "meta.group.solveig",
+      "begin": "(\\()\\s*(?:(\\|)\\s*([A-Za-z_][A-Za-z0-9_]*(?:\\s*,\\s*[A-Za-z_][A-Za-z0-9_]*)*)\\s*(\\|))?",
+      "beginCaptures": {
+        "1": {
+          "name": "punctuation.section.group.begin.solveig"
+        },
+        "2": {
+          "name": "punctuation.separator.temporaries.solveig"
+        },
+        "3": {
+          "patterns": [
+            {
+              "name": "variable.other.temporary.solveig",
+              "match": "[A-Za-z_][A-Za-z0-9_]*"
+            }
+          ]
+        },
+        "4": {
+          "name": "punctuation.separator.temporaries.solveig"
+        }
+      },
+      "end": "\\)",
+      "endCaptures": {
+        "0": {
+          "name": "punctuation.section.group.end.solveig"
+        }
+      },
+      "patterns": [
+        {
+          "include": "#infix"
+        }
+      ]
+    },
+    "infix-array": {
+      "name": "meta.array.solveig",
+      "begin": "\\[",
+      "beginCaptures": {
+        "0": {
+          "name": "punctuation.section.array.begin.solveig"
+        }
+      },
+      "end": "\\]",
+      "endCaptures": {
+        "0": {
+          "name": "punctuation.section.array.end.solveig"
+        }
+      },
+      "patterns": [
+        {
+          "include": "#infix"
+        }
+      ]
+    },
+    "infix-dictionary": {
+      "name": "meta.dictionary.solveig",
+      "begin": "#\\[",
+      "beginCaptures": {
+        "0": {
+          "name": "punctuation.section.dictionary.begin.solveig"
+        }
+      },
+      "end": "\\]",
+      "endCaptures": {
+        "0": {
+          "name": "punctuation.section.dictionary.end.solveig"
+        }
+      },
+      "patterns": [
+        {
+          "include": "#infix"
+        }
+      ]
+    }
+  }
+}
