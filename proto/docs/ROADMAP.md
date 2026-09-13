@@ -31,6 +31,26 @@ customers were real.
 
 ## Open, and undecided
 
+**Proto's version is its own, and so is its Makefile, and the second waits
+on the first.** Proto is `0.17.0` inside a tree that is `0.44.0`, with its
+own changelog and its own `dist` tarball, because it arrived as a
+subproject with its history and nothing about that was decided at the time
+beyond *not now*. Since 2026-09-13 its compiler is built into Solveig's
+`bin/` beside the four, which is as far as the build has been folded. The
+next Proto release is what forces the question: one version and one release
+for the whole tree, or two as today. Folding the Makefile into Solveig's was
+asked about the same day and declined for the same reason, since a merge
+before that answer would settle the version by the back door. What holds it
+apart today is also what the separate file enforces: every one of Proto's
+`test`, `clean`, `install` and `dist` collides with the root's, `dist` cuts
+a tarball under Proto's own number, and the Makefile's opening claim, that
+the build needs no Solveig and reaches it only through `bin/`, is a claim a
+separate file keeps mechanical where one file would keep it by discipline.
+What would have to be true: one version for the tree. Then `dist` and
+`install` are one thing, the collision list empties, and the Makefiles
+merge in the same move, keeping the claim as a comment on the Proto rules
+and a check that no Proto object is built with a solum include path.
+
 **A logical xor still has no spelling, and now needs one less.** For booleans,
 xor *is* not-equals, and the argument for `^^` was that a module using
 `lib/arith.pro` had no way to write one at all. It has `!=` since 2026-09-02, so
