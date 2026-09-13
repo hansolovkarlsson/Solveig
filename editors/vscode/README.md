@@ -46,6 +46,7 @@ regexes in `syntaxes/solveig.tmLanguage.json`:
 | `entity.name.function.send` | the selector of `x:selector` |
 | `entity.name.function.definition` | the selector of `x:selector := ...` |
 | `variable.parameter`, `variable.other.temporary` | `{ a, b \| ... }` and `\| t \|` |
+| `entity.name.type.object` | every other name: the receiver of a send, an argument, a bound name. An object is a prototype, so it is coloured as a type |
 | `variable.language`, `constant.language` | `self`; `nil`, `true`, `false` |
 | `keyword.operator` | the ladder, inside `@expr` only |
 | `entity.name.function.call` | `sin(x)`, inside `@expr` only |
@@ -60,6 +61,19 @@ looks wrong:
   grammar keeps a second set of bracket rules for use inside one. A `-`
   outside a region belongs to the number after it; inside one it is the
   operator.
+
+The objects are coloured as types because that is the scope every theme
+gives a colour of its own; unscoped they took the editor's foreground and
+vanished among the punctuation. A different colour is a setting rather than a
+grammar change:
+
+```json
+"editor.tokenColorCustomizations": {
+  "textMateRules": [
+    { "scope": "entity.name.type.object.solveig", "settings": { "foreground": "#C586C0" } }
+  ]
+}
+```
 
 One limit: a block's parameters and temporaries are read with the brace they
 follow, or, for temporaries, at the start of the next line, which is where

@@ -52,10 +52,18 @@ the grammar page before the engine ran, in the conformance corpus's way. The
 checker is not in `make test`: it is Python, and the suite's rule that nothing
 outside C11 and `make` is needed to run it holds.
 
-**Not verified: the picture.** The grammar has been tokenised, not looked at.
-Whether the colours are the right ones is a question for the editor, and the
-README says how to install the folder in place so that a change to the grammar
-is live on reload.
+**The picture, looked at.** Hans opened a file and the objects had vanished:
+every plain identifier was left unscoped, on the theory that a name is not a
+token kind, and in Dark Modern an unscoped token takes the editor foreground,
+which put `a` and `integer` in the same white as the punctuation. He wanted
+them red or purple, *the most important parts in a sentence*. In that theme
+purple is `keyword.control`, which the directives already have, and red is
+`invalid`; teal is `entity.name.type`, which nothing in the grammar used, and
+in a prototype language the receiver is the type, so that is the scope every
+object now carries. The README gives the one-line setting for a different
+colour. What the tokeniser could not have found: it checks what a token is,
+not what it looks like, and *unscoped* was correct by the first measure and
+invisible by the second.
 
 ## 2026-09-13, evening: three questions about where a capability should live, and no code
 

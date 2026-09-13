@@ -323,8 +323,8 @@
       ]
     },
     "identifier": {
-      "comment": "Consumed so that no rule can start inside a word; not coloured.",
-      "name": "meta.identifier.solveig",
+      "comment": "Every other name is an object, and in a prototype language the receiver is the type: integer, point and a local alike. Scoped as a type so that every theme gives it a colour of its own; it read as the default foreground before, and disappeared.",
+      "name": "entity.name.type.object.solveig",
       "match": "[A-Za-z_][A-Za-z0-9_]*"
     },
     "separator": {
