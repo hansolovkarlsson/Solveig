@@ -11,6 +11,42 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-09-15, later: the reading of six, and the engine held still
+
+**Hans asked for the reading over six files**, and the finding was that
+the list did not move. Six for six: the frame, `keys`, `font:number`,
+`tone`. Four: `hum`, and `random:new` bound as `rng`, one line in each of
+four games. Three: `rect`; and `thing`, `craft`, `draw` and `mote`, since
+Lander is drawn with lines and flies a craft. Two: `mover` and `ball` and
+the kit, still Pong's and Breakout's; `sprite`, which Lander's twelve
+letters made a second game customer for beside the font, so the reading
+of four was right to move it; and `up`, the nose-up heading. One: the two
+gravities, a well and a field, which share one line, a force added to the
+velocity before the move, and one line is not a seam; the bunker, the
+block, the pilots, the hyperspace rules, the terrain, the sideways-only
+`wrap`, and the words.
+
+**The words were the thing to argue rather than count.** By the two-game
+rule they are one game's, and the argument that moved `sprite` does not
+carry: `sprite` was already in the engine under the name `font`, whereas
+letters are content the font never had. What would move them is a second
+game that names a number, or wants a title or a GAME OVER, which every
+arcade game of the period had and none of these six has asked for. So
+they wait, with the trigger written down: the second word in a second
+game.
+
+**The recommendation was the smallest yet**, and made only because the
+rule says so: `rng` and `up` bound in the engine beside `tau`, `mote` on
+the shared generator, six lines out of four games; nothing else. Hans
+said very nice, and later: the games continue another day, and this
+one closes here. Not built; a scoping is not a queued build, and the
+engine stands as it was after five. Six games, and the sixth added
+nothing to the list and confirmed three things on it: the first reading
+where the engine held still, which is what an engine read off games
+rather than designed ahead of them should eventually do.
+
+---
+
 ## 2026-09-15: Lunar Lander, the first game that is not a fight, and the first that wanted words
 
 **Hans said keep pushing the engine, make a sixth game**, and took the
