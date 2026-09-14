@@ -11,6 +11,69 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-09-14, twenty to three: Missile Command, the first game aimed with the mouse, and the alphabet's first ask
+
+**Hans said Missile Command next**, the second of the three candidates, and
+two scoping answers: the cabinet's three buttons rather than one button
+and the nearest base, since choosing the base is the game's whole skill;
+and the whole 1980 roster, missiles that split, bombers and satellites,
+smart bombs that dodge, the count with its tick, the bonus city, the
+multiplier by pairs of waves, THE END.
+
+**The prediction went into the header first**, and it held with one
+correction the engine took rather than the game. `keys` carries nothing,
+for the first time in eight games: every input is an event, a click or a
+press that fires once, and the crosshair is the pointer kept from
+`'mouseMove` as Breakout kept its paddle. Everything in the air, the
+incoming missiles, the shots, the bombers and the smart bombs, delegates
+to `mover` itself, the first game to want neither `ball` nor `thing` but
+the four slots and two lines under both: a missile is a head that moves
+and a trail from where it started. `sprite` carries a third game, the
+cities and the flyers. `font:word` has its third customer and its first
+title, THE END in cells three times the font's, made from the engine's
+own letter rows with `sprite:make` at another size, which is the first
+dividend of the alphabet being where the reading of seven put it. The disc
+is `circles.sol`'s, copied since that file is not a game. The binding was
+asked for nothing, an eighth time.
+
+**The engine was asked for one thing, the first ask in eight games.**
+BONUS POINTS has a space in it, and the alphabet had twenty-six letters
+and no gap; the first run under the dummy drivers stopped on *no key " "
+in the dictionary* at the first count screen, which is exactly the failure
+the reading of seven said a missing glyph would produce, on the first new
+game, for the one character that is not a letter. A space is a cell left
+empty and not a picture, so `font:word` steps over one: one line in the
+engine, with the eighth game named as its customer. Two layout slips were
+found by arithmetic rather than eyes: THE END at four times the cell was
+648 pixels on a screen 640 wide, and LOW and OUT sat off-centre under
+their base.
+
+**Checked as the others were**, by a self-playing copy under the dummy
+drivers, and the pilot needed two corrections before it could find
+anything in the game. It led every shot by a fixed thirty frames, which
+landed only Delta's fast missiles, since Alpha's and Omega's take fifty;
+and it fired at the lowest missile every ten frames while its first shot
+was still in the air, thirty shots for five kills. Leading by the real
+flight time plus a dozen frames for the disc to grow, and marking what it
+had fired at, it took twelve for twelve in wave one, held all six cities
+for seven waves, and scored 27,060 by wave nine across every multiplier
+from one to five, with the bonus city earned crossing 10,000 during a
+count and spent rebuilding a city in the same count, twice. It never
+killed a smart bomb in nine waves, which is the cabinet's point: a single
+disc is what they dodge, and a direct trace showed one sliding sideways
+from a disc's edge and dying for 125 inside one. A quarter of a
+millisecond a frame. Hans played it and said it works. `solveig-sdl`
+`c9db9b3`, 470 lines, `make missile` plays it and `make test` counts
+thirteen examples.
+
+**What is left for the reading of eight**, which is not done here: that
+the pointer kept from `'mouseMove` has its second game, Breakout's paddle
+and this crosshair, a line each; that the disc has a second customer if an
+example counts as one; that `mover` was wanted bare for the first time;
+and that `keys` sat out a game, which says nothing against it.
+
+---
+
 ## 2026-09-14, ten past two: the alphabet moves in, and three lines are bound once
 
 **Hans said build it, all twenty-six, with `rng` and the key lists**, and
