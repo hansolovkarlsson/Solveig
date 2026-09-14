@@ -11,6 +11,50 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-09-14, five to six: the camera moves in
+
+**Hans said build**, and the engine took the reading of twelve's three
+seams. `camera` is an object beside the mover: `x` at nought and
+`screenX(wx)`, the subtraction three scrolling games had written at
+every paint, and Defender overrides `screenX` with its wrap by assigning
+the slot, as Lander overrode `thing:wrap`, so the eleven games whose
+world is their screen never touch it and the one that wraps gets its
+wrap into everything the engine draws through the camera. `mover:box(w,
+h)` is the box at a mover's position through the camera, which Scramble,
+Defender and Mario had each written. The grid has a `cell` with `colOf`
+and `rowOf`, and the font a `centred` word. The engine is 470 lines and
+fifteen names.
+
+**One thing the language said that the reading had not.** Each of the
+three games keeps a zero-argument `box` on its own things, `foe:box` and
+`body:box`, that fills in the width and height; written as
+`self:box(self:w, self:h)` it found the game's own `box` first, the
+one with no arguments, and stopped with *takes 0 arguments, got 2*. A
+slot of the same name shadows whatever its arity, which the language
+has always said, and the way through is `self:via(mover):box(self:w,
+self:h)`, which is what `via` is for. Three lines, and a sentence for
+the reading of thirteen to remember: when the engine gains a name a game
+already uses, the game's own wins, and the arity does not save it.
+
+**Checked the way the readings' moves are checked.** Every game ran
+headless through a start on the new engine; the pilots played Scramble
+to its base stage, Defender through four waves, Centipede a game, and
+Missile to THE END through eleven count screens with their centred
+title; Mario's scenario held entire. Two pilot copies needed their own
+`cam` brought to `camera:x` first, and one of them twice, because BSD
+`sed` does not know a word boundary and said nothing about it, which the
+memory of the oracle already records for `set --` and is now recorded
+for `\b` too. `solveig-sdl` `cd26ae5`.
+
+**Twelve games, and the engine is where the readings have put it.**
+Fifteen names, a generator, two key lists and an alphabet; every one of
+them there because two games wrote it, except ten letters and a gap,
+and the file says so. What is held is the reward at every so many
+points, six games' and still wanting `score` and `lives`, and the body
+against tiles, one game's.
+
+---
+
 ## 2026-09-14, quarter to six: the reading of twelve, and the camera has a shape
 
 **Hans asked for the reading over twelve files.** Twelve for twelve: the
