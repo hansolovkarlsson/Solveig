@@ -298,6 +298,44 @@ mostly have been used for, and they cover it without an evaluator.
 [rules-and-logic.md](rules-and-logic.md) argues the whole of it.
 
 
+### A selector built from a `name` hole
+
+**Asked twice, and the second time the asker turned out not to want it.**
+`instantiate` in `proto/src/expand.c` replaces a parameter only where it
+stands as a name node, an expression; a send's selector is text on the send
+node, so `it:n := e` in a template keeps its `n` whatever the hole held.
+`programs/grammar` met this first, prediction 4 in its README, and keyed its
+rules by symbol instead: `rule 'expr is { ... }` was the predicted spelling
+and the one written.
+
+The second ask came from Solveig on 2026-09-14, where a region that reads
+every statement as a slot write on one receiver, `@with rect { x := #0. ... }`,
+was scoped and held (Solveig's `ideas.md`, *`@with obj { ... }`, a region where
+an assignment is a slot write*). Could Proto carry it instead? The block form
+cannot be a template at all, since a template places a block hole whole and
+nothing walks the statements inside one. The line form was tried:
+
+```
+@syntax on <o> => it := o.
+@syntax slot <n: name> is <e> => it:n := e.
+
+on rect.
+slot x is #0.                     ; emits  it:n := #0
+```
+
+It compiles, emits `it:n := #0` for every slot, and `rect:make` is then not
+understood. So the ask is for exactly this feature. But had it worked, the
+output would read `it:x := #0`, since a template cannot remember `on rect`
+from one use to the next, and the property that made Proto the attractive
+home, a `.sol` that still says `rect:x := #0` and can be grepped for it, is
+lost either way. **The second customer, examined, does not get what it came
+for from this feature**, so the count stays at one that was fine without it.
+
+**The change itself is small**, a check in `instantiate` for a `name`-kind
+parameter standing where a selector is, and it is the one piece of the
+Solveig ask that is Proto's to build. It waits for a customer who would keep
+the result.
+
 ## Retracted
 
 **A form's trailing hole swallowing what follows was written up twice as a
