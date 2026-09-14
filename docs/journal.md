@@ -11,6 +11,46 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-09-14, night: the reading of three, and a mover
+
+**Hans asked for the reading again, over three files now.** All three use
+four of the engine's six names unchanged, `engine`, `keys`, `font` and
+`tone`, which is what the Asteroids header had predicted; three games and
+not one letter was wanted, so a digit font is text enough three times
+over, and the binding is still twelve messages. `rect`, `ball` and the
+whole of `kit.sol` are Pong's and Breakout's and Asteroids touches none of
+them, which is the engine holding one shape of motion, a box that
+bounces, that two games share and the third does not. Asteroids' `thing`,
+its line drawing and its one-channel sound policy are one game's, and by
+the two-game rule they stay where they are. The seam was between `ball`
+and `thing`: four slots and the two lines of the move are in both, and
+everything else on either side belongs to its shape of motion, the box and
+`settle` on one, the radius and `wrap` on the other. Neither is the
+other's special case. Both are a mover.
+
+**So the fifth thing was seen more exactly, and Hans said build it.**
+`mover` is eight lines in `engine.sol`: position, velocity, `alive`, the
+move, `aim(angle, speed)` and `speed`. `ball` delegates to it and keeps
+the box; `thing` delegates to it from `asteroids.sol` and keeps the
+radius; Asteroids lost four lines and the engine gained a name. Nothing
+else moved, and the reading said what would move it: the channel policy
+is a fact about the engine's channel rather than about Asteroids, and it
+becomes `tone:hum` the day a fourth game hums. The three self-playing
+copies ran over the new engine as before, Breakout to the identical score.
+`solveig-sdl` `d998a3a`. One thing said in the reading was wrong and did
+not reach the build: Breakout's brick delegates to `rect`, not to `mover`,
+so it keeps its own `alive` rather than taking a rock's.
+
+**And one fix to the binding earlier in the evening, its own commit.**
+Holding a key on macOS raised the accent popup instead of repeating, which
+is a paddle stopping dead. SDL turns text-input mode on with the video
+subsystem on a desktop, and nothing in the binding answers a text-input
+event, so `sdl:start` now calls `SDL_StopTextInput()` once. Hans found the
+answer, an SDL issue, and confirmed the fix. Not a thirteenth message; the
+twelve stand. `solveig-sdl` `d09eefd`.
+
+---
+
 ## 2026-09-14, evening: Asteroids, the first game to test the engine's boundary
 
 **Hans said "now Asteroids", and it was the game the morning's entry had
