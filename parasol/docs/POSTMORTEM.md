@@ -9,19 +9,20 @@ shipped. This is the failures.
 
 ## Scope
 
-Twenty-eight, from six days, in five cohorts that failed for five different
+Twenty-nine, from seven days, in five cohorts that failed for five different
 reasons:
 
 - **In the compiler** — eight, five of which were latent from 0.1.0 and 0.2.0.
 - **In the method** — two: a negative control that passed because `make` had
   rebuilt nothing, and a reader experiment whose own prompt changed the surface
   it was measuring.
-- **In the documents**, nine: three an edit that reported success and changed
+- **In the documents**, ten: three an edit that reported success and changed
   nothing, two where no edit was attempted at all, one where a sweep looked in
   the files it remembered instead of for the claim, one where the fix falsified
   the sentence describing it, one where a file's closing sentence outlived the
   section that settled it, and one where a sweep corrected a count in three
-  files and missed the fourth, which spelled it with a different noun.
+  files and missed the fourth, which spelled it with a different noun, and
+  one where a respelling reached the record of the respelling before it.
 - **In the programs** — four, found by the first real use of a thing.
 - **In the reasoning** — five, where something true was written down as
   something else and had to be retracted.
@@ -660,6 +661,42 @@ the commit found it and the entry was rewritten. It is noted here because a
 fact about a diff stated from a glance at the diff is the class this cohort
 collects, one level up.
 
+### 29. A respelling that reached the record of the previous respelling, 2026-09-14
+
+**What.** The rename from Proto to Parasol was four substitution rules run
+over every tracked text file under the directory, with two protections: a
+line naming *Phoenix* kept its *Proto*, and `.proto` kept its `t`, that
+being Protocol Buffers. The record of the first rename, on 2026-09-01, is
+mostly lines that do not say *Phoenix*. So `COMPLETED.md` 13 came out saying
+that **`Pro`/`pro_`/`PRO_`, files `.psol`** *keeps the three-letter
+abbreviation `phx_` had*, and the changelog's *Phoenix is Proto* entry that
+**the extension is four characters either way, so the suffix arithmetic in
+`default_output_path` is untouched**, on the same afternoon the arithmetic
+was changed because `.psol` is five.
+
+**What it cost.** Nothing shipped. Four passages, in the changelog, COMPLETED
+13, POSTMORTEM 14 and the journal's 2026-09-01 morning, were put back from
+`HEAD` before the commit, and [conventions.md](conventions.md) now says they
+keep the old name on purpose.
+
+**Cause.** A rename rule is a rule about the present tense. A record of a
+choice is in the past tense and quotes the thing chosen, and the protection
+written for it, *a line that says Phoenix*, was a proxy for *a line about the
+first rename* that held for the sentences with the old-old name in them and
+for none of the others. The precedent was no help: on 2026-09-01 there was no
+earlier rename to protect, so the respelling could be whole and the entry
+could say so as a virtue.
+
+> A record that quotes a name keeps the name it quoted. A respelling that
+> cannot tell a mention from a use has to be read where the records are,
+> not grepped.
+
+**Found by** reading the residue. The rules left a short list of lines that
+still said *Proto*, all of them protected on purpose, and reading the
+protected lines in their paragraphs showed the unprotected sentences beside
+them saying things that were no longer true. The grep found what it was
+asked for; the paragraph around it is what found this.
+
 ---
 
 ## In the programs
@@ -939,10 +976,11 @@ corrected where it stands rather than made never to have happened.
 | A reader run aimed at something else | **1** |
 | Checking the experiment's instructions against the published ones | **1** |
 | Re-deriving a claim about another document while reading for something else | **1** |
+| Reading the lines a sweep protected, in their paragraphs | **1** |
 
-**Two of twenty-eight were found by tests**, and one of those two was a broken
+**Two of twenty-nine were found by tests**, and one of those two was a broken
 test. Five came from writing programs in the language (four of the six
-programs found one, and the sixth found none) and five more came from reading
+programs found one, and the sixth found none) and six more came from reading
 something rather than running it. The rows sum to one more than the entries,
 because 16 was found by two things and sits in two of them.
 
