@@ -11,6 +11,60 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-09-15: Lunar Lander, the first game that is not a fight, and the first that wanted words
+
+**Hans said keep pushing the engine, make a sixth game**, and took the
+recommendation, Lunar Lander, chosen against what was one game's after
+five: a force, a tank, a thing that must not wrap. Two scoping answers: a
+throttle on Up and Down as the cabinet had, with an abort on Space that
+levels and burns at a cost; and the shape of the 1979 rules rather than a
+simplification, a random line terrain with three pads marked 2, 3 and 5,
+one tank for the whole game, a landing scored fifty times the pad,
+twenty-five if hard, fuel for a soft one, a crash costing a new terrain,
+and the game over when the tank is dry and the craft is down. No zoom.
+
+**The prediction went into the header first**, and every part of it
+held. `craft` carried its third game, with `burn` fed a throttle rather
+than a key. The gravity is a field where Spacewar's is a well, so `pull`
+did not fit and what the two share is only that each is a force added to
+the velocity before the move. `wrap` was overridden for the first time, to
+wrap sideways and not up: a lander that came back from below would be a
+different game. The first collision against a line rather than a radius is
+the two feet against the ground interpolated under each, a few lines. And
+the binding was asked for nothing, a sixth time.
+
+**What was new was the words.** Altitude, the two speeds, the fuel and the
+score are numbers, and for the first time in six games a number needed a
+name beside it to be read: SCORE, FUEL, ALT, HS and VS. Twelve letters in
+the digits' 3×5 cells, made with `sprite:make` into a dictionary and
+painted by a `label` block, all in the game; a minus sign is a bar under
+`font:number`. The font had been text enough for five games because five
+games had one number each; a dashboard is where a name is wanted. That
+is what the reading of six has to look at, and by the two-game rule it is
+one game's until then.
+
+**Checked with an autopilot** under the dummy drivers, which took three
+tries and found things on the way. The first had its steering sign
+backwards and hit the ground at three pixels a frame sideways every time,
+which read as a game defect until the trace showed the tilt and speed of
+each crash. The second flew upright and slow and missed the pad by forty
+pixels, which was the pilot's weak steering and not the game, and the
+trace of foot against pad said so. The third landed nine times for 150
+with the bonus and crashed in the ways a person does, too fast, tilted,
+off the edge. One change to the game came out of it: the pads were 44, 34
+and 26 wide for a craft twenty wide, and are 56, 44 and 32, since a 5×
+pad six pixels wider than the craft is a game for the autopilot and not
+for a person. A tilt is normalised now, so that a full turn is still
+upright. Hans played it and said it works. `solveig-sdl` `1f18b33`, 298
+lines.
+
+**Six games, and the binding is still twelve messages.** The 13th's
+prediction that textures, text, sound and held-key state would each be C
+stands scored at one of four, with text now tested the hard way, words
+and all, and still the language's.
+
+---
+
 ## 2026-09-14, end: the reading of five, and the line layer moved in
 
 **Hans asked for the reading over five files.** Five for five: the frame,
