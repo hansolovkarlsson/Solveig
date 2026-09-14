@@ -11,6 +11,60 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-09-14, twenty to four: Scramble, the first world wider than the screen
+
+**Hans asked what a tenth game could test that nine had not**, and the
+answer was a list of eight with one thing at the top of it: none of the
+nine has a world larger than its screen, and a world that scrolls means a
+camera, one number every paint goes through, which nothing in the engine
+has a word for. Scramble was the small one with that in it, against
+Defender, and Pac-Man the second choice for what a grid can be asked to
+do. Hans said Scramble, and the scoping was small enough to state rather
+than ask: the cabinet's two buttons, Space for the laser and X for the
+bomb, no mouse, and the six stages as they were.
+
+**The prediction went into the header first**, and it held, with the
+camera left for the reading as the header said it would be. The movers
+live in the world and the subtraction from `cam` happens at the paint,
+in `foe:paint`, `shot:box` and `bomb:box`, three places in one game. The
+ground is a table again, but one-dimensional, a floor and a roof per
+eight-pixel column, and made ahead of the camera as it comes rather than
+laid out at the start, from a generator seeded per stage and round, so
+that a stage begun again after a crash is the same stage column for
+column, which the check confirmed at column 150. `rect` carries a fourth
+game in screen space and nothing in world space, since the overlap test
+does not care what space it is in. The rockets in flight, the bombs, the
+fireballs and the UFOs are `mover`s bare. `sprite` carries a fourth game
+and `font:word` a fourth customer, FUEL. The binding was asked for
+nothing, a tenth time, and the engine for nothing.
+
+**Checked as the others were**, and the pilot found two rules of mine
+wrong and none of the cabinet's. Immortal, it flew three rounds: every
+stage in order, the base bombed for 800 twice with the next round faster
+and thirstier, an extra ship at each 10,000, a base passed without
+bombing advancing nothing. Then, mortal, it flew stage five on an empty
+tank, because the keys still lifted a dry ship where the rule says it
+falls; the keys are dead at zero now, and directly checked, a dry ship
+falls two a frame and reaches the ground in 76. And a stage cost 89
+units of fuel at 12 a tank, seven or eight tanks a stage, meaner than
+the cabinet; sixteen a tank and a slower drain now. The bomb's forward
+speed was a pixel a frame more than the scrolling and barely left the
+ship; it carries now. Mortal, the pilot dies to foes and to the ground,
+the stage restarts with full fuel, and the game ends and restarts; it
+never got past stage four, dithering under a bobbing UFO at the same
+frame every time since the stage is seeded, and my one attempt to steady
+it dived it into the rockets, so it stays the pilot it is. About 1.1 ms
+a frame. Hans played it and said it works. `solveig-sdl` `de62417`, 422
+lines, `make scramble` plays it and `make test` counts fifteen examples.
+
+**What is left for the reading of ten**, which is not done here: the
+camera, three subtractions in one game and the first thing a game has
+wanted that the engine cannot say; the grid at three games now, the well,
+the field and the ground, one of them one-dimensional; and the wave
+palette written the same way in four games.
+
+---
+
 ## 2026-09-14, ten past three: Centipede, the second grid, and a rule of mine the pilot found
 
 **Hans said Centipede next**, the last of the three candidates, and two
