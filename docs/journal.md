@@ -11,6 +11,43 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-09-14, quarter to four: tint and the grid move in
+
+**Hans said build both**, and the engine took the reading of ten's two
+seams. `tint` is an object beside `font`: `tint:sets`, a table of colour
+sets the game fills, `tint:set`, which one is in use, and `tint:value`,
+a method named for what the games already sent, so that not one of the
+fifty-odd call sites in Missile, Centipede and Scramble changed and the
+three lost their four identical lines each. Tetris's two-colour case
+joined: `colourOf` and the hand-written `sdl:colour` went, and the set
+in use is the level's, assigned once a frame. The tables stayed in the
+games, since a game's colours are its own the way its tones are.
+`grid` sits beside `rect`: rows of counts by columns, one-based both
+ways and asked column first as a pixel is, with `at`, `atPut` and `row`.
+Tetris's well and Centipede's field are grids now, and each lost its
+maker of rows of zeros and its pair of accessors; Tetris's `collapse`
+rebuilds the rows and puts them back on the grid's `cells`, which is
+what a row being an array was for. The engine is 433 lines and fourteen
+names; the four games lost between one and six lines each.
+
+**Checked the way the readings' moves are checked.** Every one of the
+ten games ran headless through a start on the new engine; the four
+pilots played the four converted games as they had, Tetris to 72 lines
+and level 7, Missile to wave eleven and THE END, Centipede two games,
+Scramble a round; and the grid's direct checks passed, the four-row clear
+for 1,200 on an empty well after, and the scorpion's poison and the
+chain's split on the field. Two of the pilots needed their own copies
+brought up to the grid and the corrected lead before they could say
+anything, which is the cost of a pilot being a copy. `solveig-sdl`
+`39477c8`.
+
+**Ten games, and the engine is where the readings have put it**: fourteen
+names, a generator, two key lists and an alphabet, every one of them
+there because two games wrote it, except ten letters, a gap, and nothing
+else. The camera is still Scramble's.
+
+---
+
 ## 2026-09-14, half past three: the reading of ten, with two seams and the camera held
 
 **Hans asked for the reading over ten files**, and the script counted
