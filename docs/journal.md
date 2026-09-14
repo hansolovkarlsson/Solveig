@@ -11,6 +11,59 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-09-14, last: the reading of four, and three things moved in
+
+**Hans asked for the reading over four files.** The counts have settled
+into tiers. Four for four: the frame, held keys, `font:number` and `tone`,
+none of them changed since the first reading, and no game ever called
+`font:digit` directly. Three: `rect`, whose `touches` is the collision test
+in every game but Asteroids; and `alive`, which sits on `mover` so that
+Asteroids takes it from the engine, while Breakout and Invaders had each
+written the line for themselves because their things are rects. Two:
+`mover`, `ball` and the kit, still Pong's and Breakout's box that bounces;
+and the one-channel sound policy, nine words that Asteroids wrote for the
+thrust, the siren and the heartbeat and Invaders wrote again for the
+march and the mystery ship. The reading of three had said that becomes
+`tone:hum` the day a fourth game hums, and it hummed. One: `thing` and
+the line drawing in Asteroids; the bunker's cells and the block cursor in
+Invaders; and `sprite`.
+
+**The exception argued was the sprite.** By the two-game rule it is one
+game's. But `font:digit` walks fifteen cells every frame and fills the
+lit ones, and `sprite:make` walks the same rows once and keeps the runs:
+the same idea at two speeds, and the font is four games old. So the
+engine had been carrying a slow sprite since the first reading, under
+another name, and the sprite's second customer is the font itself. Moving
+it in is the engine tidying what it had, not Invaders pushing something
+in.
+
+**Hans said build it, and three things moved.** `sprite`, with the cell
+size as a slot on the sprite because Invaders paints at two pixels and the
+score at six in one program; the ten digits are ten sprites made when the
+file is compiled in, `digit` is one line and `number` did not change.
+`alive` on `rect`, one line, and three lines gone from two games.
+`tone:play` records the frame on the prototype and `tone:hum` yields for
+three quiet frames; Asteroids and Invaders lost their copies and every
+`play:value(t)` is `t:play` again. The engine went from 211 lines to 251,
+Invaders from 460 to 418, Asteroids from 439 to 432. One slip on the way,
+which the check caught: a mechanical rewrite of `play:value(bangTones:at(k:size))`
+put the `:play` inside the `at`, and the self-flying Asteroids found it on
+its first explosion. All four self-playing copies then ran as before,
+Breakout to the identical score; Asteroids and Invaders launched on the
+real renderer. `solveig-sdl` `90ad43b`.
+
+**What the engine is, after four games**, written down so that the next
+reading has something to be scored against: the frame; held keys; a sprite,
+and the font as ten of them; a rect with `alive`; a mover with `alive`, and
+a ball that is a mover with a box; a tone and its channel. Beside it the
+kit, still two games'. What it is not: a texture, a sample, a scene, a loop
+that calls back, or anything from `sdl.c`, which after four games has
+taken one message from a game and one fix from a Mac. `thing`, the line
+drawing, the bunker and the block cursor wait where they are, for a second
+game that wraps, draws lines, erodes or ripples.
+
+---
+
 ## 2026-09-14, late: Space Invaders, and the trigger not met by a number
 
 **Hans asked for one more, Space Invaders, which was the game the first
