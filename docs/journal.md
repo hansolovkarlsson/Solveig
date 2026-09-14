@@ -11,6 +11,71 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-09-14, evening: Asteroids, the first game to test the engine's boundary
+
+**Hans said "now Asteroids", and it was the game the morning's entry had
+named as the one to ask the questions the first two had not.** Three
+scoping questions first, as before. The rules are the 1979 machine's: rocks
+at 20, 50 and 100 that split in two down to small, four on the first wave
+and two more each wave to eleven, three ships and one more at every
+10,000, four shots on the screen, and hyperspace that may not bring you
+back. Both saucers, which was the one answer that went the long way: the
+large one at 200 firing where it likes, the small one at 1,000 firing at
+you and taking over past 10,000, and a saucer's shots breaking rocks as a
+rock breaks a saucer. And the keys as the cabinet had them, hyperspace
+included. One error in the asking, which the file corrects: the question
+said one rock more per wave, and the machine added two.
+
+**The prediction was written into the file's header before the body was**,
+so that the file could be scored against it rather than the other way
+round. Of the engine's six names, four would carry over unchanged,
+`engine`, `keys`, `font` and `tone`; two would not fit at all, `rect`
+because nothing in Asteroids is a box, and `ball` because a rock's integer
+shadow is a radius and Asteroids wraps where Pong bounced; so the file
+would define its own moving thing, and whether `ball` is a special case of
+it was left for the reading after. And the binding would be asked for
+nothing: `sdl:line` is the whole of a vector display, the trigonometry is
+the machine's, and the continuous sounds would be `sdl:beep` asked for
+again from the frame. All three held. `thing` is a float position and
+velocity with a radius, wrapping at every edge, and rock, shot, ship,
+saucer and debris delegate to it; a shape is a list of unit points drawn
+as lines after one rotation and one scale, so a rock is nine `sdl:line`s
+and the only `fill` on the screen is a shot; the thrust, the siren and a
+heartbeat that quickens as the rocks go are one channel with the latest
+beep winning, re-issued from the frame and yielding to anything that just
+happened. 443 lines, and the twelfth message is still the last.
+
+**Two things the machine said on the way.** `atan2` is class-side,
+`float:atan2(y, x)`, which the reference explains at length and which was
+found by writing `y:atan2(x)` and being told; and `last` takes an argument,
+so a shot's velocity is adjusted before it is added rather than after. Both
+were the language being what its documents say, not defects, and neither
+cost more than a minute.
+
+**Checked as the others were**, by a self-flying copy under SDL's dummy
+drivers: the ship spinning and firing every eighth frame, thrusting now and
+then, into hyperspace every fifteen seconds. Rocks split, the second wave
+arrived with sixteen rocks on the screen, saucers crossed and fired, ships
+were lost, and a game over returned to attract; a second run from 9,900
+showed the extra ship arriving and the small saucer taking over. 12,731
+frames in 3.5 seconds on the `-g` build, so a screen of lines costs
+nothing that matters against the budget. Hans played it and said it
+works. The commit is `solveig-sdl` `6de31cc`.
+
+**What it says about the engine.** The morning had put the engine at five
+things and a tone and predicted that a third game would test its boundary;
+the boundary held at four of six, and what did not carry over was not
+wrong but specific. `rect` and `ball` are Pong's and Breakout's shape of
+motion, a box that bounces, and Asteroids' is a radius that wraps. Whether
+those are two special cases of one `thing`, with the box and the bounce as
+one delegation and the radius and the wrap as another, is a reading of
+three files now rather than two, and it is not done here. It is also not
+on any roadmap, for the same reason as before: the trigger is a fourth
+game or Hans wanting the reading, and neither is a task until it is asked
+for.
+
+---
+
 ## 2026-09-14, later: the engine, read off two games and then built
 
 **Hans asked for the reading the morning's entry had left open: the two
