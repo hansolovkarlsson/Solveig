@@ -71,8 +71,30 @@ with the test that the default is off. The reference, guide, cheatsheet,
 grammar, PRODUCING.md, design.md, README and front page each say it once,
 where they introduce the region.
 
-The suite is green at 1070 claims. What is outside the tree, the SDL and GTK
-extensions' build lines, adds `--expr` when they next compile.
+The suite is green at 1070 claims.
+
+### And the two extensions, which are the reason it is a flag
+
+The SDL and GTK repositories were updated the same hour, since a flag that
+exists to keep them compiling is not finished until they say it. Every one
+of `solveig-sdl`'s eleven examples is written to the region, the engine and
+the kit included, so all nine `make` targets and the README's compile lines
+took `--expr`; in `solveig-gtk` two of three examples use it and the third,
+`edit.sol`, compiles bare, and the Makefile says which is which rather than
+flagging everything.
+
+**And `edit.sol` there had not compiled since 2026-09-01.** It is the port of
+this tree's editor, and it still included `pattern.sol`, which `lib/re.sol`
+replaced that day; nothing in that repository compiles its examples, so
+`make edit` had been broken for thirteen days and no check said so. The
+constructors are `re:on` now and the API is otherwise the same, so the fix
+was the one this tree made in `8e27372`. What could not be checked is a
+search running, because the port takes its keys from the window and not the
+terminal, so a piped `:%s` reaches nothing. A sibling that includes a
+library from this tree by name, with no build of its own, breaks when the
+library is retired and says nothing; this is the first time that has cost a
+working program, and the sibling's own `make` compiling its examples is the
+check that would have said so on the day.
 
 ## 2026-09-14, ten to ten: a region held, a hole that is not a selector, and Proto is Parasol
 
