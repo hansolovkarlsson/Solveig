@@ -336,6 +336,37 @@ entry named is where the reasoning lives.
 | 2.12 | Formatting a single value | A spec argument to `asString`. No conversion letter, no sign mode; bases are a message, not a letter | `3524c70`, `95074c9`, `f4b909d` |
 | 2.13 | Case and text | ASCII only, by explicit range rather than `toupper`. Still live, and in the roadmap's section 3 | `91d413c` |
 
+### The `@expr` region is a front-end option — `454746e`, 2026-09-14
+
+**Hans asked whether `@expr` should leave solas altogether**, so that
+syntax with operators in it lived in Parasol and nowhere else. The toolkit
+had two mechanisms for one thing: a ladder fixed in the compiler, and
+Parasol, where a module declares its own operators and precedence and the
+output is the sends. Parasol had already refused to carry `@expr`, on the
+sentence that supporting both would be supporting two, so the line was drawn
+on one side only.
+
+**The case for removal was scoped first**, in
+[ideas.md](ideas.md#taking-expr-out-of-solas-now-that-parasol-has-the-general-form),
+and was strong: three files used the region and none was a program, the
+customer the region was built for never arrived, and the same formulas as a
+`.psol` header compile to identical instructions, checked. Against it was
+one thing the scoping filed as a cost: a program outside this tree written
+to the region, the SDL extension's `engine.sol` among them, would stop
+compiling.
+
+**The shape chosen was neither.** The region is off unless `solas --expr`
+asks for it, on `solis` and `solid` too, and a host turns it on through
+`SolCompileOptions`. Bare, the language has no `@expr` and the conformance
+corpus says so; flagged, every program written to the region compiles as it
+did. The compiler's part is one gate at the two places a region opens, and
+the refusal names the flag. The documents were the longer half, as the
+scoping said: the corpus reshaped, the construct sweep and `expect.sol`
+compiling with the flag, `operators.sol` marked as the one shipped file that
+needs it, and each reference page saying so once where it introduces the
+region. The lexer is untouched, because a flag that may be on has to leave
+the scanner able to serve it: what changed is the default, not the mechanism.
+
 ---
 
 ## 3. Known limitations

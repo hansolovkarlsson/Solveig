@@ -5,6 +5,45 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### The `@expr` region is off unless `--expr` asks for it — `454746e`, 2026-09-14
+
+**Breaking: a file that opens an `@expr` region is refused by a bare
+`solas`, `solis` or `solid`, and compiles as before with `--expr` (or
+`-e`).** The refusal is at the directive and names the flag:
+
+```
+[prog.sol:1:1] solas: the '@expr' region is off; --expr turns it on at '@expr'
+  @expr( #1 + #2 * #3 ):print.
+  ^^^^^
+```
+
+The language has no operators, and the toolkit had two mechanisms for infix
+all the same: a ladder fixed in this compiler, and [Parasol](../parasol/README.md),
+where a module declares its own. Parasol had refused to carry `@expr` on the
+sentence that *supporting both would be supporting two*, and this is solas
+drawing its side of the same line without a removal. Hans's call, after
+[a scoping that recommended removing it](ideas.md#taking-expr-out-of-solas-now-that-parasol-has-the-general-form):
+a program outside this tree written to the region, the SDL extension's
+engine among them, adds one word to its build line and goes on.
+
+`SolCompileOptions { bool expr }` and `sol_compile_options(...)` are the
+library's half; the older entry points pass NULL, which is every option off.
+An included file inherits the options. The operators are scanned either way,
+so the lexer is unchanged and a stray `+` is refused either way; only the
+message moves, pointing into the region with the flag and naming the flag
+without it. Nothing in `.sob` moves: the region never reached the format.
+
+**What followed.** The [conformance corpus](../conformance/README.md) follows
+the default language: the three region-internal refusals and the lowering
+case are out, held already in `tests/test_expr.c`, and `refused/expr/` holds
+an infix operator and the region itself off by default, 87 cases from 90.
+`examples/operators.sol` is the one shipped file that needs the flag, its
+first line says so, and the Makefile and `test_compile.c` give it and nothing
+else the flag. `expect.sol` compiles every claim with `--expr`. `solum.bnf`
+keeps `region`, stated as the grammar of `solas --expr`, and the construct
+sweep compiles with the flag. `test_expr.c` opens with the test that the
+default is off, and `test_cli.c` drives the three tools bare and flagged.
+
 ### The history listing moved from backspace to ← — `010aa8c`, 2026-09-14
 
 **In `solis`, ← on an empty line lists the last ten lines entered; backspace
