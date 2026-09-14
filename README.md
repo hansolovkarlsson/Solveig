@@ -200,6 +200,19 @@ version the binaries inside it report.
 
 ## Status
 
+**0.46.0** — the `@expr` region is behind a flag, Proto is Parasol, and
+`ifElseIf` is `switch`. `solas`, `solis` and `solid` refuse `@expr` unless
+run with `--expr` (or `-e`): the language has no operators, the region is a
+fixed ladder of them the compiler carries for the programs written to it, and
+the general form, where a module declares its own, is
+[Parasol](parasol/README.md), which had already refused to carry `@expr`
+because supporting both would be supporting two. A program written to the
+region adds one word to its build line. `[...]:ifElseIf` is `[...]:switch`,
+same behaviour, and the second compiler is Parasol with `.psol` modules under
+`parasol/`. Two of those are breaking; none touches the machine: 146
+messages, `.sob` format 14, and 0.45.0's compiler and this one produce
+byte-identical `.sob` files for all 35 examples.
+
 **0.45.0** — the editor colours both languages, and `bin/` holds five binaries.
 [editors/vscode](editors/vscode/README.md) is a VS Code extension installed
 from the folder: grammars for `.sol` and `.psol`, the selector completed after

@@ -5,6 +5,39 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+## 0.46.0 — 2026-09-14
+
+**The `@expr` region is behind a flag, Proto is Parasol, and `ifElseIf` is
+`switch`.** Two of the four entries are breaking, and none of them touches
+the machine.
+
+**`@expr` is off unless `--expr` asks for it**, on `solas`, `solis` and
+`solid` alike (`-e` is the same), and a bare compile refuses the directive
+with a message naming the flag. The language has no operators, and the
+toolkit had two mechanisms for infix all the same: a ladder fixed in this
+compiler and [Parasol](../parasol/README.md), where a module declares its
+own. Parasol had refused `@expr` on the sentence that *supporting both would
+be supporting two*; this is solas drawing its side of the line without a
+removal, so a program written to the region adds one word to its build line.
+A host turns it on through `SolCompileOptions`. The conformance corpus
+follows the default, `examples/operators.sol` is the one shipped file that
+needs the flag, and every reference page says so once where it introduces
+the region.
+
+**`[...]:ifElseIf` in `lib/control.sol` is `[...]:switch`**, same behaviour,
+a name honest about the shape. **The second compiler is Parasol**, its
+modules `.psol`, its directory `parasol/`, with the rename recorded on its
+side. And `solis` lists its history on ← rather than on backspace, which one
+delete too many used to bring up unasked.
+
+**Nothing in the machine changed.** 146 messages, `.sob` format 14, and no
+line under `solum/` or `extensions/` differs from 0.45.0. Checked rather
+than asserted: 0.45.0's compiler and this one produce byte-identical `.sob`
+files for all 35 examples, `operators.sol` compiled with `--expr` on this
+side and bare on the other, and every one runs the same on both machines
+both ways round, `system.sol` differing only in how long things took. No
+extension was touched, so the bundles were not reloaded.
+
 ### The `@expr` region is off unless `--expr` asks for it — `454746e`, 2026-09-14
 
 **Breaking: a file that opens an `@expr` region is refused by a bare

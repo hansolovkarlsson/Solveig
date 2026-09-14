@@ -135,16 +135,14 @@ a different language.
 
 ## Status
 
-**0.45.0** — the language answers 146 messages, unchanged, and `.sob` files
-are still format version 14: nothing in the machine moved this release.
-[editors/vscode](editors/vscode/README.md) is a VS Code extension for `.sol`
-and `.psol` files, installed from the folder: syntax colouring from the two
-grammars, the selector completed after a colon from a list generated out of
-the reference and the libraries, and a read of the dialect an open Parasol file
-declares, so its forms are offered and hover names the file that gave an
-operator its meaning. There is no language server, on purpose. `make` writes
-Parasol's compiler to `bin/parasol` beside the four, so one directory on `PATH`
-reaches the whole toolkit.
+**0.46.0** — the language answers 146 messages, unchanged, and `.sob` files
+are still format version 14: nothing in the machine moved this release. The
+`@expr` infix region is behind a flag now: `solas`, `solis` and `solid`
+refuse it unless run with `--expr`, because the language has no operators and
+the general form of the region, where a module declares its own, is
+[Parasol](parasol/README.md). A program written to the region adds one word
+to its build line. `[...]:ifElseIf` in the control library is `[...]:switch`,
+and the second compiler is Parasol, with `.psol` modules, under `parasol/`.
 
 Working: the scanner, the single-pass compiler, the re-entrant dispatch loop
 with call frames, blocks with lexical capture, message-based control flow, a
