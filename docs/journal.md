@@ -11,6 +11,59 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-09-14, ten to two: the reading of seven, and the second word in a second game
+
+**Hans asked for the reading over seven files**, and this time the count
+was made by a script rather than by eye, over thirty-six names and lines,
+after the first attempt at a shell loop fell to zsh's non-splitting for the
+second time today. Seven for seven: the frame, `keys`, `font:number`,
+`tone`, and three things the earlier readings had not counted because they
+are not names, an `'over` state, the `final score` line and a `frames:mod`
+blink; the same four names as every reading since the first. Five: `hum`,
+and `random:new` bound as `rng`, which is the reading of six's
+recommendation with a fifth customer. Three: `rect`, `craft`, `mote`,
+`sprite`, whose one use in Tetris is the letters; and `leftKeys` and
+`rightKeys`, one line byte for byte in Asteroids, Invaders and Tetris, a
+line in the same basket as `rng`. Two: `ball`, `thing`, `draw`, `up`, the
+kit, as before; and the words. One: the tune, the repeat of a held key, the
+grid, the curtain, and the palette.
+
+**The seam of this reading is the words, and the reading of six wrote its
+trigger down**: the second word in a second game. Tetris names four numbers
+where Lander named five, and `letters`, `glyphs` and `label` are the same
+code in the two files apart from the letter set, twelve letters each and
+sixteen in the union; the diff of the two sections holds the two letter
+lists and nothing else. By the two-game rule they move into the engine
+beside the font, as `font:word(text, left, top)` sitting beside
+`font:number` the way `font:digit` does, and both games lose their copies.
+With that gone Tetris uses `sprite` not at all, which is what its header
+predicted.
+
+**Two things stay, and one of them is worth naming.** The tune is one
+game's. The repeat of a held key, sixteen frames and then every sixth, is
+one game's too, and is a different kind of thing from a seam: a rule of one
+game written over an engine name, which is what `keys` keeping booleans
+rather than the event stream was for. It is the first time an engine name
+has carried a rule rather than a mechanism, and the engine did not have to
+know.
+
+**The one decision inside the recommendation is how many letters.** Sixteen
+is what two games used, and is the engine read off games as the rule says.
+Twenty-six is the alphabet, and is what the digits already are:
+`font:digits` is all ten, not the ones a game had shown. A word with a
+letter the engine lacks fails at run time on a dictionary `at`, which is how
+the eighth game would find out. The reading's own preference is the
+twenty-six, ten rows of text, with the header saying that it is the one
+place the engine was designed ahead and by how much. `rng` at five and the
+key lists at three go in together or not at all, on the argument the six
+made, and nothing in seven changes it either way.
+
+**Not built.** A scoping is not a queued build, and the engine stands as
+it was after six: seven games, and the seventh added one thing to the list
+that the sixth had said it would.
+
+---
+
 ## 2026-09-14, quarter to two: the cosmetic pair, then Tetris, the first game drawn from a grid
 
 **The morning after the release opened with the two small items the
