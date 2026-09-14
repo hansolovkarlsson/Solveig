@@ -58,7 +58,7 @@ or not.
 held still, and the first where the engine's one change of the day came
 during the writing rather than after it: the space in `font:word`, which
 the game asked for on its first count screen and which was in before the
-reading began. Eight games; the engine is thirteen names, a generator,
+reading began. Eight games; the engine is twelve names, a generator,
 two key lists and an alphabet, and every one of them is there because two
 games wrote it, except ten letters and a gap, and the file says so.
 
