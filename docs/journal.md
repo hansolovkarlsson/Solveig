@@ -11,6 +11,38 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-09-14, ten past two: the alphabet moves in, and three lines are bound once
+
+**Hans said build it, all twenty-six, with `rng` and the key lists**, and
+the engine took the reading of seven's whole recommendation. `font:word`
+sits beside `font:number` as `font:digit` does, over twenty-six letters in
+the digits' cells, and the engine's header says in one sentence where it
+was designed ahead and by how much: Lander and Tetris had used sixteen
+between them, the digits are all ten, and a word with a letter the font
+lacked would have failed an eighth game at run time. `rng` is bound beside
+`tau`, and `mote`, which had kept a generator of its own, uses it; the two
+key lists three games had written byte for byte sit beside `keys`, and a
+game with more keys names its own beside them, as Asteroids' thrust and
+Tetris's drop do. Lander and Tetris lost their word sections and five games
+lost a line or two: nine lines out of seven files, none in. The engine is
+392 lines; Lander 298 to 272, Tetris 427 to 400.
+
+**Checked the way the readings' moves have been checked**, which is not by
+compiling alone. `make test` compiles twelve examples and would have said
+nothing about a name that resolved at compile time and failed at run time,
+so every game ran headless through a start under the dummy drivers, with
+the scratch engine handing each a Space on its fifth frame and stopping
+it on its nine-hundredth; the Tetris pilot played two games to the curtain
+on the new engine; and every glyph was painted once, with a check that all
+twenty-six are five rows of three. Nothing was asked of the binding.
+`solveig-sdl` `8d8dc8c`.
+
+**Seven games, and the engine is where the readings have put it.** Every
+name in it is there because two games wrote it, except ten letters, and
+the file says which ten and why.
+
+---
+
 ## 2026-09-14, ten to two: the reading of seven, and the second word in a second game
 
 **Hans asked for the reading over seven files**, and this time the count
