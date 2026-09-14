@@ -11,6 +11,54 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-09-14, later still: Spacewar!, the second game drawn with lines
+
+**Hans asked for a fifth game and took the recommendation, Spacewar!**,
+chosen against what the reading of four had left waiting: `thing`, the line
+drawing and the wrap are Asteroids' alone, and Spacewar! is the game that
+wants all three, so it is the one that can settle them by the two-game
+rule. Two scoping questions. The rules are the 1962 machine's: a star in
+the middle whose gravity bends both ships and kills one that touches it,
+torpedoes that fly straight as the PDP-1's did, fuel and thirty-one
+torpedoes a round shown as bars, hyperspace with a chance of not coming
+back that rises each use, the screen wrapping, a round ended by a death
+with both dying nobody's point, and first to five. And the machine flies
+the wedge until `C`, as Pong's right paddle.
+
+**The prediction went into the header first.** That `thing` and `draw`
+would be wanted exactly as Asteroids wrote them, and would be copied in
+rather than shared, so that the reading of five could move them by the
+rule and not by one file reaching into another; that gravity would be a
+few lines on the thing and the first force in any of the games; that the
+two bars are `fill`s and the star four lines; and that the binding would be
+asked for nothing, again. All held. `thing:pull` is six lines, the pull
+capped at twenty pixels so that a near miss is a slingshot rather than an
+explosion of arithmetic, and the star is a `thing` that does not move so
+that `touches` works against it. `mote`, the line debris, came across too,
+its second game. 357 lines.
+
+**The machine pilot took two tries, and the check found the first before
+Hans would have.** The first turned toward the needle and burned; the
+ships start in opposite corners with the star between them, so it flew
+into the star every round at speed four, and the headless run printed
+*star* ten times in a row. The second has three rules in order of
+urgency: falling into the well, close and with the velocity pointed in, it
+turns against its velocity and burns, which is how a pilot leaves a well;
+near the star it points away and burns; otherwise it hunts, burning only
+when lined up and not already quick, firing when lined up and in range.
+It never uses hyperspace, so a person who does has an edge. Against a dumb
+needle that spins and sprays, the matches went 3-4 and 2-3, and the star
+took only the dumb one. Gravity was softened on the way, 600 to 150 over
+the square of the distance, and the ships start further out, so that a
+ship left alone falls in over ten seconds rather than two; the original
+gave you time. Hans played it and said it works. `solveig-sdl` `e94e545`.
+
+**What is left for the reading of five**: `thing` and `draw` have their
+second game, and so has the wrap and the debris; whether `pull` is the
+thing's or Spacewar's is one game's question still.
+
+---
+
 ## 2026-09-14, last: the reading of four, and three things moved in
 
 **Hans asked for the reading over four files.** The counts have settled
