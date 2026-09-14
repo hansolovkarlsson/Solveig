@@ -96,6 +96,20 @@ library is retired and says nothing; this is the first time that has cost a
 working program, and the sibling's own `make` compiling its examples is the
 check that would have said so on the day.
 
+**That check exists now, and the file that claimed it already did was the
+way it was found.** Both repositories had an untracked `CLAUDE.md`, and
+committing them meant reading them: each said `make check` runs the
+examples and `scratch/` is gitignored, and neither was true of its repo.
+`check` verifies `pkg-config` and the Solveig version and is an order-only
+prerequisite of the build, which is the right job for it and the wrong
+place to compile anything on every `make`; so `make test` is the new
+target, every example through `solas` with `--expr` where the file is
+written to the region, failing on the first that does not compile, eleven
+in one repo and four in the other. `scratch/` went into both `.gitignore`s
+and the two `CLAUDE.md`s now say what the Makefiles do. A gloss written
+ahead of the thing it describes reads as a record of it, and this one
+would have sent the next session to a target that checked nothing.
+
 ## 2026-09-14, ten to ten: a region held, a hole that is not a selector, and Proto is Parasol
 
 **Hans read `engine.sol` in the SDL extension and proposed a syntax**: a
