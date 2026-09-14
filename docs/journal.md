@@ -11,6 +11,68 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-09-13, evening: 0.45.0 cut, then Pong, and the first message a program asked an extension for
+
+**The release first.** Twenty-two commits had gone in during the day with
+nothing cut, so 0.45.0 went out before anything new opened: the editor
+extension, `bin/proto`, the checker's sandbox wipe. Nothing under `solum/`
+had changed, and the compatibility check said so rather than the notes
+asserting it: 0.44.0's compiler and this one write byte-identical `.sob`
+files for all 35 examples, and each runs the same on both machines both ways
+round. One false start in the checking: this Mac has no `timeout`, and the
+first crosswise loop compared thirty-five "command not found" strings and
+found them equal. The page rendered with four paragraphs and no `<br>`,
+`site.sh` found nothing to look at, and no line of C moved.
+
+**Then the game.** The midday assessment had ended with *one game first,
+Pong or Breakout, and the engine is what is left after the second*, and Hans
+chose to start. The scoping question was who plays the right paddle; he took
+the machine with a key to hand it over, so the game can be tried alone.
+`examples/pong.sol` in the SDL repository is 290 lines and the README's
+closing sentence, *you can write Pong*, checked by writing it. Three things
+the game wanted were not among the eleven messages. Two were written in the
+language in a few lines each: the score is a 3×5 cell font drawn out of
+`sdl:fill`, which is how the 1972 machine drew its digits, and a held key is
+four booleans set on `'keyDown` and cleared on `'keyUp`, because the binding
+has events and no keyboard state, and a key held across a frame is a fact
+the program keeps. The physics is floats and the drawing is integers, with
+the line between them crossed once a frame by `truncated`, which is what
+keeps `#` and `asFloat` out of every other line. It could not be seen from
+here, `screencapture` being refused to this shell, so the physics was run
+by a self-playing copy with both paddles machine-driven and the digit table
+printed as text; Hans played it and said it works.
+
+**The third thing became C.** Pong is silent without its beep, and no
+program in the language can make a sound, so `sdl:beep(#hertz, #ms)` is the
+twelfth message and the first time the trigger at the end of the SDL README,
+*a program that wants something this does not have*, has fired since it was
+written. Three shapes were put: a synthesised square wave, a WAV loader with
+a mixer, or both. Hans took the first. It is sixty lines: the samples are
+written in C and queued with `SDL_QueueAudio`, so the file still has no
+callback in it, and the one place SDL offers to call into a program is the
+one place the binding declines, for the reason its header already gives.
+The device is opened by the first beep rather than by `sdl:start`, so a
+program that never beeps holds none; a machine with nothing to play on gets
+`false` and silence, on the same reasoning as software rendering for a
+headless run; a new beep drops what was queued, because a beep is about
+now; and the tone is cut at a whole period so it does not click. The three
+tones in the game are the original's pitches and lengths. One shared error
+message changed on the way: *a coordinate is written with `#`* became *an
+integer is written with `#`*, since `wait` and `beep` use the same check and
+neither takes a coordinate.
+
+**What it says about the boundary.** The midday section had put the rule as
+*the only things that earn C are a wider product, a C library, or a measured
+wait*, and the evening found a fourth that is really the second: a
+capability the machine has no path to at all. A score and a held key looked
+like gaps in the binding and were not, because the language could compose
+them from what was there; a sound was a gap, because nothing in the language
+reaches a speaker. The distinction was found by writing the program and not
+by reading the list, which is the method's point. The engine is still what
+is left after the second game, and the second game is not started.
+
+---
+
 ## 2026-09-13, late afternoon: five binaries in one directory
 
 **Hans asked whether Proto's compiler could be built into Solveig's `bin/`
