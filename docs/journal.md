@@ -11,6 +11,57 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-09-14, end: the reading of five, and the line layer moved in
+
+**Hans asked for the reading over five files.** Five for five: the frame,
+`keys`, `font:number`, `tone`, unchanged since the first reading. Three or
+four: `rect`, `alive`, and `random:new` bound as `rng`, which is the
+language's and stays a line. Two, and this time a whole layer: `thing`,
+`draw` and `mote` are in Asteroids and Spacewar byte for byte, because
+that was what the copying was for, and so are `fw`, `fh` and `tau`. The
+seam of this reading was between the two games' ships. Asteroids' `ship`
+and Spacewar's are both a thing with a heading; both turn by a rate; both
+thrust along the heading with the same top-speed clamp, `aim` of the
+velocity's own angle; both paint a shape at the heading and a flame behind
+it on alternate frames; both have a mode of alive, hyper and dead. What
+they carry differs, drag in one and a tank in the other, and so does what
+hyperspace costs, a fixed one in eight against uses in eight. The
+mechanism is shared and the rules are not. One game's: gravity, the
+bunker, the block cursor, the two pilots, and the two hyperspace rules.
+
+**Hans said build it.** `thing`, `draw` and `mote` went into `engine.sol`
+as they were, `open` binds the two floats and `tau` beside the integers,
+and `craft` is the seam written down: a thing with a heading, `turn`,
+`burn` to a ceiling, and `paint` of a shape with a flame on the burning
+frames, twelve lines. Asteroids' ship is a craft with drag; Spacewar's is
+a craft with a tank and a rack; Spacewar's `pull` is a method added to the
+engine's `thing` from the game's own file, which the reference's tiers
+allow because it claims no name. Hyperspace stayed in both games on
+purpose: the mechanism is five lines and the rule is the interesting
+part, and moving it would have put a rule in the engine or a hook in it,
+and the engine has no hooks. Asteroids' saucer prototype had been called
+`craft` and is `ufo`. Asteroids went from 432 lines to 372, Spacewar from
+357 to 303, the engine from 251 to 340; the five games with the engine and
+kit are shorter than they were before the move. One slip, caught by the
+check on its first frame: the rename of the saucer was a blanket one and
+took the ship's `craft:new` with it. All five self-playing copies then
+ran, Breakout to the identical score, and the two line games launched on
+the real renderer. `solveig-sdl` `2213031`.
+
+**What the engine is, after five games**, for the next reading to be
+scored against: the frame, with the floats and a whole turn; held keys; a
+sprite, and the font as ten; a rect with `alive`; a mover with `alive`
+and its two shapes of motion, a ball with a box and a thing with a radius
+that wraps; a craft; lines and debris; a tone and its channel. Beside it
+the kit, still Pong's and Breakout's. What it is not: gravity, hyperspace,
+a texture, a sample, a scene, a loop that calls back, or anything from
+`sdl.c`, which after five games has taken one message from a game. The
+14th, by the count: five games, an engine read off them five times, and
+the binding the same size at the end of the day as at the start, but for
+one call that stops a Mac from raising a popup.
+
+---
+
 ## 2026-09-14, later still: Spacewar!, the second game drawn with lines
 
 **Hans asked for a fifth game and took the recommendation, Spacewar!**,
