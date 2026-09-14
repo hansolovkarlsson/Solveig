@@ -200,6 +200,19 @@ version the binaries inside it report.
 
 ## Status
 
+**0.45.0** — the editor colours both languages, and `bin/` holds five binaries.
+[editors/vscode](editors/vscode/README.md) is a VS Code extension installed
+from the folder: grammars for `.sol` and `.pro`, the selector completed after
+a colon from a list generated out of the reference and the libraries rather
+than typed in, Proto's directives and hole kinds completed from its reference,
+and a read of the dialect an open `.pro` file declares, so that its forms are
+offered and hover says which file gave an operator its meaning. No language
+server, for the reason its README gives. `make` now writes Proto's compiler
+to `bin/proto` beside the four, and the document checker empties its sandbox
+before every document instead of once a pass. Nothing in the machine changed:
+146 messages, `.sob` format 14, and 0.44.0's compiler and this one produce
+byte-identical `.sob` files for all 35 examples.
+
 **0.44.0** — Proto is in the tree, and the roadmap is empty again.
 [Proto](proto/), the compiler whose syntax arrives with the file it compiles,
 is now a subproject with its 86 commits: the root `make` builds it and `make

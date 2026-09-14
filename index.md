@@ -135,16 +135,16 @@ a different language.
 
 ## Status
 
-**0.44.0** — the language answers 146 messages, up from 145, and `.sob` files
-are still format version 14. [Proto](proto/docs/what-is-proto.md),
-the compiler whose syntax arrives with the file it compiles, is now a subproject
-of this repository, built and tested from the root and reaching Solveig only
-through `bin/`. `system:utcOffset(t)` answers the seconds the machine's clock
-is ahead of UTC at an instant, which is what a `diff` header needs and what
-closed the roadmap's last entry: the program had been an hour out on any file
-older than the last clock change, and no check could see it because every
-check writes its operands fresh. `sort`'s reader was quadratic twice in the
-length of a line and agreed with the tool the whole time, which is now a rule.
+**0.45.0** — the language answers 146 messages, unchanged, and `.sob` files
+are still format version 14: nothing in the machine moved this release.
+[editors/vscode](editors/vscode/README.md) is a VS Code extension for `.sol`
+and `.pro` files, installed from the folder: syntax colouring from the two
+grammars, the selector completed after a colon from a list generated out of
+the reference and the libraries, and a read of the dialect an open Proto file
+declares, so its forms are offered and hover names the file that gave an
+operator its meaning. There is no language server, on purpose. `make` writes
+Proto's compiler to `bin/proto` beside the four, so one directory on `PATH`
+reaches the whole toolkit.
 
 Working: the scanner, the single-pass compiler, the re-entrant dispatch loop
 with call frames, blocks with lexical capture, message-based control flow, a

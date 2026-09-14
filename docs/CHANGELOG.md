@@ -5,6 +5,41 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+## 0.45.0 — 2026-09-13
+
+**The editor colours both languages, and `bin/` holds five binaries.**
+
+[editors/vscode](../editors/vscode/README.md) is a VS Code extension, built
+in one day and installed from the folder: a TextMate grammar for `.sol`
+written from [GRAMMAR.md](GRAMMAR.md) and one for `.pro` from Proto's token
+table, a language configuration, and completion of the selector after a
+colon from `selectors.json`, which `messages.py` writes from the reference's
+Message index and every exported `lib/` definition, 186 selectors and 262
+signatures with none typed in. After `@` it offers Proto's eight directive
+forms and after a hole's colon the five kinds. `dialect.js` reads the header
+of an open `.pro` file and everything it `@use`s, offers the dialect's forms
+as snippets, and shows on hover which file gave an operator its meaning,
+which is the half of a language with declared syntax that a grammar cannot
+see. There is no language server, for the reason the README gives. `test.py`
+runs the grammars over every tracked `.sol` and `.pro` file and the
+completion under `osascript`, since there is no `node` here; it stays out of
+`make test`, which stays C11 and `make`.
+
+**`make` writes Proto's compiler to `bin/proto`**, beside `solas`, `solvm`,
+`solis` and `solid`; `proto/bin/` is gone, and Proto's `clean` removes only
+the file it put there. Proto's own [changelog](../proto/docs/CHANGELOG.md)
+has that and the bignum, its seventh program. The document checker empties
+its sandbox before every document rather than once a pass, which turns the
+one-in-eight failure of 2026-09-12 into one that would fail every run, and
+does not.
+
+**Nothing in the machine changed.** 146 messages, `.sob` format 14, and no
+line of C under `solum/` differs from 0.44.0. Checked rather than asserted:
+0.44.0's compiler and this one produce byte-identical `.sob` files for all
+35 examples, and every one runs the same on both machines both ways round,
+`system.sol` differing only in how long things took. No extension was
+touched, so the bundles were not reloaded.
+
 ### `bin/` holds five binaries — `f4dd0d3`, 2026-09-13
 
 **`make` now writes Proto's compiler to `bin/proto`**, beside `solas`,
