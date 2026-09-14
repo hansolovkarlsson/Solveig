@@ -1250,12 +1250,18 @@ static void test_pascal_compiles_a_program_that_runs(void)
         assert(run(command, out, sizeof out) == 0);
 
         /* A program that reads is fed the .in file beside it, and one that
-           does not gets an empty standard input rather than the terminal. */
+           does not gets an empty standard input rather than the terminal.
+           The test asks whether the file is there rather than letting the
+           redirection fail and falling through on `||`: the shell reports
+           the failed redirection on its own stderr, which is the terminal's,
+           and twenty programs without an .in file were twenty lines of
+           `No such file` in a green run. */
         snprintf(command, sizeof command,
-                 "bin/solvm " DIR "/%s.sob "
-                 "< programs/pas/oracle/agree/%s.in 2>/dev/null "
-                 "|| bin/solvm " DIR "/%s.sob < /dev/null 2>&1",
-                 programs[i], programs[i], programs[i]);
+                 "if [ -r programs/pas/oracle/agree/%s.in ]; "
+                 "then bin/solvm " DIR "/%s.sob "
+                 "< programs/pas/oracle/agree/%s.in 2>&1; "
+                 "else bin/solvm " DIR "/%s.sob < /dev/null 2>&1; fi",
+                 programs[i], programs[i], programs[i], programs[i]);
         assert(run(command, out, sizeof out) == 0);
 
         snprintf(expected_path, sizeof expected_path,
