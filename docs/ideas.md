@@ -55,6 +55,7 @@ marked as a sketch.
 | More `@` directives: `@define`, `@ifdef`, `@once` | **No** — each one's job is already done by something that is not a directive |
 | Infix operators, `@expr(a^2 + b/2)` | **Built**, on 2026-08-28 — [scoped in the morning and in by the evening](#infix-arithmetic-as-a-compile-time-notation): arithmetic, then `sin(x)` once *limiting* it turned out to be the expensive half, then comparison and logic, and the name with them |
 | `@expr{...}`, a region that is a block | **Built on 2026-08-29**, the day after it was scoped — [the sentence was tried first and lost](#expr-a-region-that-is-a-block-rather-than-a-group); the entry predicted one hard part and the second was the one that mattered, a notation that silently stopped inlining |
+| `@with obj { ... }`, a region where `x := e` writes a slot | **Held, with a trigger**: asked on 2026-09-14 from engine.sol; [same class as `@expr` and judged by the same sentence](#with-obj----a-region-where-an-assignment-is-a-slot-write): switchless and no `.sob` change, but it puts a second meaning on `:=` and takes `grep 'rect:paint'` away from every program. Trigger: the paste bug, or a reading that the long form hid something |
 | Phoenix — a second language whose output Solum uses | **Defer** — the machinery is proven three times over; [the unexplored half](#programs-that-would-press-on-something) is whether a hosted language can publish a *library* rather than a program |
 | A conformance suite for a second implementation | **Built, both halves, on 2026-09-03** — [conformance/](../conformance/README.md), **89 cases** scored on their bytes with both tools taken from `SOL_COMPILE` and `SOL_RUN`, and in `make test`. Three kinds and not two: a refusal is compile-time and a **trap is run-time**, which the scoping had run together — 13 of the 15 demonstrations in `examples/` turn out to be the machine's business, not the front end's. Every answer written from the documentation before it was run. **Two findings, both in the documentation**: a REFERENCE.md paragraph wrong about `onError` in both halves, and a **self-including file that PRODUCING.md filed as a refusal when it is a warning** — it compiles, leaves with 0, and runs. [The scoping](#a-conformance-suite--a-corpus-a-second-implementation-can-score-itself-against) has the shape; what is left is the five 65,535 limits, which are a generator's business |
 | Programs that would press on something — Pascal, predicate logic, a parser toolkit, `tail`, and [which Unix tool next](#which-unix-tool-next-and-what-each-would-press-on--surveyed-2026-08-31) | **Defer, and none needs permission** — each is [predicted to find one thing](#programs-that-would-press-on-something), written down before it is written. **The editor was written**, and found what this page said it would. **So was `sha256sum`, on 2026-08-31**, the first off the Unix survey and the first program here with no I/O in its inner loop: [the prediction held in both halves](#it-was-written-on-2026-08-31-and-the-prediction-held-in-both-halves) and produced the number it was written for — **208 bytecode instructions a byte, 4.3 ns each, 234M a second**. **And `diff` on 2026-09-02**, where [one prediction of four held](#it-was-written-on-2026-09-02-and-one-of-the-four-predictions-held) — the output format, which was the whole difficulty — and the three that did not are more useful than the one that did. **And `gzip -d` on 2026-09-04**, the last of the three the survey named and [the one whose prediction measured the wrong thing](#it-was-written-on-2026-09-04-and-the-prediction-measured-the-wrong-thing): it asked for the cost of a 32 KB window as boxed values, and the window is 4.8% of the program. **And `sort` the same day**, which had been filed among the also-rans and is [promoted to an entry of its own](#sort--filed-below-as-pressing-on-less-and-written-anyway): the gap it was predicted to find was not there, because a write is not the reverse of a read — a producer knows what comes next — and what its merge wanted was the ranged read, already built |
@@ -4497,6 +4498,123 @@ its body used the operator that makes a region necessary. The mode is put back
 after each block, so a plain block beside one in an argument list is read by its
 own rules.
 
+### `@with obj { ... }`, a region where an assignment is a slot write
+
+**Asked on 2026-09-14, from reading engine.sol in the SDL extension.** An
+object there is declared as a run of statements on one receiver:
+
+```
+rect := object:new.
+rect:x := #0. rect:y := #0. rect:w := #0. rect:h := #0.
+rect:alive := true.
+rect:make := { left, top, w, h | | r |
+    r := self:new. r:x := left. r:y := top. r:w := w. r:h := h. r }.
+rect:right  := { @expr(self:x + self:w) }.
+```
+
+The proposal is a region that writes the receiver once and reads every
+statement in it as a slot assignment on that receiver. The name is open;
+`@with` is used below. Sketch:
+
+```
+@with rect {
+    x := #0. y := #0. w := #0. h := #0.
+    alive := true.
+    make := { left, top, w, h | @with self:new { x := left. y := top. w := w. h := h } }.
+    right := { @expr(self:x + self:w) }.
+}.
+```
+
+The stated purpose is readability, and that a mistake in the receiver is easier
+to see when the receiver is written once.
+
+**Held, with a trigger.** It is the same class of proposal as `@expr`, and it
+is judged by the same sentence: [the `@` namespace is for a thing nothing in the
+language already does](#more--directives-define-ifdef-once), and this fails that
+test as written, since `rect:x := #0` does the job. So it argues on legibility,
+as `@expr` did. What it shares with `@expr` is the part that let `@expr` win:
+no switches, so the text on the screen never stops being the program, and no
+`.sob` change, since the region desugars to the `OP_SET_SLOT` the long form
+already emits. What it does not share is the size of the change in meaning.
+
+#### What it would have to be, to be sound
+
+Four rules, each forced by something:
+
+- **The receiver is evaluated once**, into a temporary the region dups for each
+  write. That is what makes `@with rect:make(...) { ... }` sound, and it is the
+  rule [pascal.sol](../programs/pascal.sol) already keeps for Pascal's `with`,
+  for the reason the standard gives: a designator with a side effect cannot be
+  re-read.
+- **Only the head of an assignment is rewritten.** A bare name on the right is
+  what it is everywhere else, so `w := w` above means *slot `w` gets parameter
+  `w`*. Pascal's `with` rewrites reads too, and that is its famous defect: a
+  field added to the record later changes what an existing line means. This
+  form would not have it, and the docs would have to say so beside the Pascal
+  compiler, which implements the other one.
+- **Nested blocks are ordinary code.** `r := self:new` inside a method body must
+  stay a local. That is the opposite of `@expr`, whose mode reaches into nested
+  blocks on purpose, so the two directives would nest by different rules.
+- **It answers the receiver**, so it can stand where `make` builds its instance.
+  That makes it an expression, like `@expr` and unlike `@include`.
+
+#### The case, measured
+
+The run-of-one-receiver shape is not a `rect` thing. Counting runs of four or
+more consecutive `recv:name :=` at the top level: engine.sol has ten (`rect` 9,
+`ball` 8), and in this tree [edit.sol](../programs/edit.sol) has a run of 68,
+[sola.sol](../programs/sola.sol) one of 92, [basic.sol](../programs/basic.sol)
+one of 39. Whatever this is, it is not a corner: it would become the way every
+object in every program is declared.
+
+On the bugs, the two typos that come first to mind are caught already, and
+these two were run:
+
+```
+rect := object:new.
+rcet:y := #2.               ; solvm: undefined name 'rcet'
+
+rect:make := { l | | r | r := self:new. rx := l. r }.
+rect:make(#3).              ; undefined name 'rx' -- declare it with '| rx |'
+                            ; or assign it at the top level
+```
+
+The one the region removes is the paste: a line copied from another object's
+run with a receiver that is a *valid* other name, `ball:paint` left under
+`rect`, which lands the method on the wrong object and nothing reports. The
+one it adds is the mirror: an assignment to a global placed inside the region,
+`running := false` inside `@with engine { ... }`, which becomes a slot with the
+same silence.
+
+#### What it costs, and why that decides it for now
+
+**Grep.** Today `grep 'rect:paint'` finds the definition of any method in the
+tree, and the journal, the reference and the programs' own comments cite
+methods that way. Inside a region the definition is `paint :=`, which every
+object has. That cost is permanent and lands on the same side of the ledger the
+proposal argues from.
+
+**A second meaning for `:=`.** [Cascades](#cascades-awith-m11-m245-) were
+refused because `:m1(#1)` sends to a receiver that is not written down. This is
+that shape with `:=`: the head of every statement in the region names a slot on
+something the line does not say. `@expr` changed the meaning of one token, `-`,
+and the entry above records what even that cost in probes and modes.
+
+**The build** is about a day, and the compiler is the small half: the lexer
+already tokenises any `@name`; the region is `expression` for the receiver,
+which stops naturally at the `{`, then a loop of `name := expression` over a
+dup. The large half is the documents: a production in `solum.bnf`, GRAMMAR.md
+and check_syntax.sol, which the suite holds together; conformance cases with
+`-legal` neighbours; the reference, the guide and the cheatsheet; the editor's
+colouring; and the counts.
+
+**Trigger:** a program that shows the paste bug, or a reading of the engine
+that finds the run form is what hid something. Neither has happened; the six
+games and six readings on 2026-09-14 found the engine readable in the long form.
+If it is built, the name should be `@with`, with the Pascal difference stated,
+since `@using` reads as C#'s resource disposal and the region disposes of
+nothing.
+
 ### Programs that would press on something
 
 These are programs rather than language features, and they are here because what
@@ -6134,7 +6252,7 @@ program can read it. No `make` target, no `bin/solvm`, no wording of ours.
 | | what it holds | why it is not a conformance suite |
 | --- | --- | --- |
 | `tests/*.c` — 40 files | the C API, the compiler and the VM | internal by construction; a second implementation has none of these symbols |
-| [expect.sol](../programs/expect.sol) — 1066<!--count claims--> claims | the examples and the documents against their own comments | **the author's corpus, matched as a subsequence** — its own header says why, and why that is right for a document |
+| [expect.sol](../programs/expect.sol) — 1067<!--count claims--> claims | the examples and the documents against their own comments | **the author's corpus, matched as a subsequence** — its own header says why, and why that is right for a document |
 | [oracle.sh](../programs/oracle.sh) — six corpora | `sed`, `diff`, `sort` against BSD's | a second implementation of a **program**, not of the language |
 
 **The subsequence rule is the sharp one.** `expect.sol` requires each claim to
