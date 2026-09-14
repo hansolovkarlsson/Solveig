@@ -117,8 +117,8 @@ lights, and **Solveig** carries the same star into Norse: *sól* joined to
 | `embed/`  | A C program that holds a `SolVM` -- see [embedding.md](docs/embedding.md) |
 | `lib/`    | The library that ships with the language, found on the search path |
 | `extensions/` | Bundles built by `make` and loaded only when a host names one -- [net](extensions/net/README.md), UDP sockets, documented in [NET.md](docs/NET.md) |
-| `editors/` | Editor support: [vscode](editors/vscode/README.md), syntax colouring, bracket matching and completion for VS Code, `.sol` and `.pro` alike, installed from the folder |
-| `proto/`  | **Proto** -- a second compiler, whose syntax arrives with the file it is compiling and whose output is Solveig source. Its own Makefile, records and version; [what it is](proto/README.md) |
+| `editors/` | Editor support: [vscode](editors/vscode/README.md), syntax colouring, bracket matching and completion for VS Code, `.sol` and `.psol` alike, installed from the folder |
+| `parasol/`  | **Parasol** -- a second compiler, whose syntax arrives with the file it is compiling and whose output is Solveig source. Its own Makefile, records and version; [what it is](parasol/README.md) |
 
 Two more live outside this repository, and outside it on purpose — the front
 page says *no dependencies beyond a C11 compiler and `make`*, and it stays true
@@ -134,7 +134,7 @@ already assumes, so nothing has to be installed for `make` to build it.
 Both are built against [extend.h](solum/include/solum/extend.h) and loaded with
 `--extension=`; see [docs/extensions.md](docs/extensions.md).
 
-**Proto is inside, and was outside until 2026-09-12, for a reason worth keeping.**
+**Parasol is inside, and was outside until 2026-09-12, for a reason worth keeping.**
 Its whole claim is that a language is something you write on top of a substrate
 you do not get to change, and a front end living two directories from the
 compiler it targets would prove only that Solveig's author can write a front
@@ -143,19 +143,19 @@ end for Solveig. So for its first seventeen versions it was a
 takes nothing from this one but the binaries under `bin/`: no header, no
 archive, no symbol. It emits text, `solas` reads text, and **the coupling is a
 file format and a command line, which is the same surface anybody else would
-have.** What moved it in is the other half of that dependence: Proto emits
+have.** What moved it in is the other half of that dependence: Parasol emits
 *this* language and nothing else, so every change here is a change it has to
 follow, and two repositories meant finding that out one suite run late. Now
-`make test` here runs Proto's suite after its own.
+`make test` here runs Parasol's suite after its own.
 
 ```sh
-proto vectors.pro -o vectors.sol && solas vectors.sol && solvm vectors.sob
+proto vectors.psol -o vectors.sol && solas vectors.sol && solvm vectors.sob
 ```
 
 Six programs are written in it — an assembler reaching ARM64, a PEG toolkit,
 SHA-256, a ledger, a document, and a BASIC interpreter — and what they say about
 whether a grammar declared per module is worth having is in
-[proto/docs/does-it-pay.md](proto/docs/does-it-pay.md).
+[parasol/docs/does-it-pay.md](parasol/docs/does-it-pay.md).
 
 Each component keeps its public headers in `<component>/include/<component>/`
 and its implementation in `<component>/src/`. `solum/include/solum/bytecode.h`
@@ -202,19 +202,19 @@ version the binaries inside it report.
 
 **0.45.0** — the editor colours both languages, and `bin/` holds five binaries.
 [editors/vscode](editors/vscode/README.md) is a VS Code extension installed
-from the folder: grammars for `.sol` and `.pro`, the selector completed after
+from the folder: grammars for `.sol` and `.psol`, the selector completed after
 a colon from a list generated out of the reference and the libraries rather
-than typed in, Proto's directives and hole kinds completed from its reference,
-and a read of the dialect an open `.pro` file declares, so that its forms are
+than typed in, Parasol's directives and hole kinds completed from its reference,
+and a read of the dialect an open `.psol` file declares, so that its forms are
 offered and hover says which file gave an operator its meaning. No language
-server, for the reason its README gives. `make` now writes Proto's compiler
-to `bin/proto` beside the four, and the document checker empties its sandbox
+server, for the reason its README gives. `make` now writes Parasol's compiler
+to `bin/parasol` beside the four, and the document checker empties its sandbox
 before every document instead of once a pass. Nothing in the machine changed:
 146 messages, `.sob` format 14, and 0.44.0's compiler and this one produce
 byte-identical `.sob` files for all 35 examples.
 
-**0.44.0** — Proto is in the tree, and the roadmap is empty again.
-[Proto](proto/), the compiler whose syntax arrives with the file it compiles,
+**0.44.0** — Parasol is in the tree, and the roadmap is empty again.
+[Parasol](parasol/), the compiler whose syntax arrives with the file it compiles,
 is now a subproject with its 86 commits: the root `make` builds it and `make
 test` runs its suite, and it still reaches Solveig only through `bin/`.
 **`system:utcOffset(t)`** answers the seconds the machine's clock is ahead of

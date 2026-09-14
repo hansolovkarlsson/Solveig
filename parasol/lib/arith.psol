@@ -1,0 +1,79 @@
+; arith.psol -- Solveig's arithmetic, spelled the way arithmetic is spelled.
+;
+; A dialect file: directives and nothing else. Reached with
+;
+;     @use "arith.psol".
+;
+; and looked for beside the file using it, then in each -I directory, then in
+; PARASOL_PATH. Code does not live here -- a dialect provides syntax, and
+; Solveig's own @include provides messages, so a dialect that wants both ships
+; a .sol beside itself and says so.
+;
+; The precedences are the ones every language with these operators has agreed
+; on, which is the only reason to prefer them: a file that declares 70 for `*`
+; and 60 for `+` is not clever, it is unsurprising, and unsurprising is the
+; whole job of a shared dialect.
+
+@infix  *   70 mul.
+@infix  /   70 div.
+@infix  %   70 mod.
+@infix  +   60 add.
+@infix  -   60 sub.
+
+; **Six comparisons and not three, decided on 2026-09-02 by the second
+; customer.** This file shipped `<`, `>` and `==` alone from the first commit,
+; and the argument against completing the set was the standing one: a surface
+; does not grow without a customer, and until `programs/prose` there was not
+; one. `prose` wanted `<=` and wrote `while i < doc:size + #1` instead;
+; `programs/basic` wanted `<=` and `>=` five times over, in a `FOR` loop's
+; limit test and a bounds check, and `!=` four times.
+;
+; **The count settles `<=` and not the other two** -- two customers for the
+; first, one each for the second and third -- and the family went in whole
+; anyway, which is the one place this file departs from the rule rather than
+; applying it. **An arith with `<=` and no `>=` is a worse trap than an arith
+; with neither**, because the missing one is missing for no reason a reader can
+; see, and the first thing anybody does after writing `i <= n` is write
+; `n >= i`. A rule that produces a half-set is being read too literally.
+;
+; All six are plain messages in Solveig, so this was three lines and no
+; templates. `lib/clike.psol` has had the same six since 0.6.0.
+@infix  <   40 lessThan.
+@infix  >   40 greaterThan.
+@infix  <=  40 lessOrEqual.
+@infix  >=  40 greaterOrEqual.
+@infix  ==  40 equals.
+@infix  !=  40 notEquals.
+
+@prefix !      not.
+
+; `and` and `or` take a *block* in Solveig, so that the right-hand side is not
+; evaluated unless it is needed. An operator naming a message cannot say that --
+; `@infix && 30 and` compiles to `a:and(b)` and is refused at run time -- so
+; these name a template instead, and the template puts the block on.
+;
+; This is here because programs/ember wanted it and could not have it: six
+; expressions in that compiler are written `(a == b):and({ ... })` by hand, and
+; every one of them was a run-time failure first, `and` being a message a symbol
+; does not understand.
+;
+; **`&&` and `||`, which is where this file arrived rather than where it
+; started.** It declared `/\` and `\/` until 0.10.0, and the argument for them
+; had two halves. One expired in 0.9.0: `||` could not be declared at all until
+; the lexer took two bars as one token, so `&&` would have stood beside `\/` as
+; two unrelated decisions. The other -- that this file is arithmetic and logic
+; rather than C, so `/\` and `\/` are the notation that goes with saying so --
+; was overturned by something worse than a matter of taste.
+;
+; `\/` was *also* how `examples/utf8.psol` and `programs/digest/sha2.psol` spelled
+; a **bitwise** or, and `~` was logical not here and bitwise not there. One
+; spelling, two meanings, twice over -- and a reader has to know which file they
+; are in before they can read a line. C's table settles it: `&&`, `||` and `!`
+; are the logical ones, `&`, `\`, `^` and `~` the bitwise, and nothing in the
+; repository spells one operation two ways any more.
+;
+; **The capability is untouched.** `/\` and `\/` lex and declare exactly as they
+; did; a module that prefers them may still say so. What changed is this
+; repository's usage, not the language.
+@infix  &&  30 => left:and({ right }).
+@infix  ||  25 => left:or({ right }).

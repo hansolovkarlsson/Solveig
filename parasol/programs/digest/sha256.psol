@@ -1,0 +1,151 @@
+; sha256.psol -- SHA-256, in the notation it is defined in.
+;
+;     solvm sha256.sob            ; the FIPS 180-4 vectors, and it says so
+;     solvm sha256.sob FILE ...   ; the digest of each file named
+;
+; Written in Parasol. What the dialect buys is in README.md; the short of it is
+; that every formula below is the one in the standard, and the mod-2^32 rule
+; that the standard states once is in the header rather than in twenty-three
+; places in the code.
+
+@use "sha2.psol".
+
+; The round constants and the initial hash, each the fractional part of a root
+; of a small prime -- K the cube roots, H the square roots. Generated from that
+; definition rather than transcribed, then checked against the two ends the
+; standard prints.
+k := [
+    #1116352408, #1899447441, #3049323471, #3921009573,
+    #961987163, #1508970993, #2453635748, #2870763221,
+    #3624381080, #310598401, #607225278, #1426881987,
+    #1925078388, #2162078206, #2614888103, #3248222580,
+    #3835390401, #4022224774, #264347078, #604807628,
+    #770255983, #1249150122, #1555081692, #1996064986,
+    #2554220882, #2821834349, #2952996808, #3210313671,
+    #3336571891, #3584528711, #113926993, #338241895,
+    #666307205, #773529912, #1294757372, #1396182291,
+    #1695183700, #1986661051, #2177026350, #2456956037,
+    #2730485921, #2820302411, #3259730800, #3345764771,
+    #3516065817, #3600352804, #4094571909, #275423344,
+    #430227734, #506948616, #659060556, #883997877,
+    #958139571, #1322822218, #1537002063, #1747873779,
+    #1955562222, #2024104815, #2227730452, #2361852424,
+    #2428436474, #2756734187, #3204031479, #3329325298].
+
+h0 := [
+    #1779033703, #3144134277, #1013904242, #2773480762,
+    #1359893119, #2600822924, #528734635, #1541459225].
+
+; ------------------------------------------------------------ the algorithm
+
+; Global rather than a temporary, because a block may not outlive the frame it
+; was written in -- Solveig 3.1, which programs/grammar met the same way.
+hh := array:new.
+w := array:new.
+[#1, #64]:loop({ i | w:add(#0) }).
+
+; A string's bytes. `at` answers a one-character string and `asByte` its number,
+; which is the pair Solveig gives for reaching into text as data.
+bytesOf := { s | | out, i |
+    out := array:new.
+    i := #1.
+    while i <= s:size do (out:add(s:at(i):asByte). i := i + #1).
+    out }.
+
+; The padding the standard specifies: a one bit, then zeros, then the length in
+; bits as eight bytes, big-endian, landing the whole on a multiple of 64.
+;
+; The length is written with sends and not with the operators above it. It is a
+; count of bits in a file and not a 32-bit word, and the mask that makes the
+; rest of this file correct would be exactly wrong here.
+pad := { bytes | | bits, shift |
+    bits := bytes:size:mul(#8).
+    bytes:add(#128).
+    while (bytes:size % #64) != #56 do bytes:add(#0).
+    shift := #56.
+    while shift >= #0 do (
+        bytes:add((bits:shiftRight(shift)):bitAnd(#255)).
+        shift := shift:sub(#8)).
+    bytes }.
+
+; One 64-byte block, `at` being the one-based index of its first byte.
+block := { bytes, at | | i, va, vb, vc, vd, ve, vf, vg, vh, t1, t2, b |
+    i := #0.
+    while i < #16 do (
+        b := at + i * #4.
+        w:atPut(i + #1, bytes:at(b) << #24
+                     | bytes:at(b + #1) << #16
+                     | bytes:at(b + #2) << #8
+                     | bytes:at(b + #3)).
+        i := i + #1).
+
+    ; The message schedule. This is the standard's line, and it is this line.
+    i := #16.
+    while i < #64 do (
+        w:atPut(i + #1,
+            (w:at(i - #1) >>> #17 ^ w:at(i - #1) >>> #19 ^ w:at(i - #1) >> #10)
+          + w:at(i - #6)
+          + (w:at(i - #14) >>> #7 ^ w:at(i - #14) >>> #18 ^ w:at(i - #14) >> #3)
+          + w:at(i - #15)).
+        i := i + #1).
+
+    va := hh:at(#1). vb := hh:at(#2). vc := hh:at(#3). vd := hh:at(#4).
+    ve := hh:at(#5). vf := hh:at(#6). vg := hh:at(#7). vh := hh:at(#8).
+
+    ; Sixty-four rounds. T1 and T2 are the standard's, character for character
+    ; apart from the names -- Sigma1(e), Ch(e,f,g), Sigma0(a), Maj(a,b,c) all
+    ; written out, because a form here would expand to the same code and a
+    ; method would cost a frame.
+    i := #0.
+    while i < #64 do (
+        t1 := vh
+            + (ve >>> #6 ^ ve >>> #11 ^ ve >>> #25)
+            + (ve & vf ^ ~ve & vg)
+            + k:at(i + #1)
+            + w:at(i + #1).
+        t2 := (va >>> #2 ^ va >>> #13 ^ va >>> #22)
+            + (va & vb ^ va & vc ^ vb & vc).
+        vh := vg. vg := vf. vf := ve. ve := vd + t1.
+        vd := vc. vc := vb. vb := va. va := t1 + t2.
+        i := i + #1).
+
+    hh:atPut(#1, hh:at(#1) + va). hh:atPut(#2, hh:at(#2) + vb).
+    hh:atPut(#3, hh:at(#3) + vc). hh:atPut(#4, hh:at(#4) + vd).
+    hh:atPut(#5, hh:at(#5) + ve). hh:atPut(#6, hh:at(#6) + vf).
+    hh:atPut(#7, hh:at(#7) + vg). hh:atPut(#8, hh:at(#8) + vh).
+    nil }.
+
+; The digest of a string, as the sixty-four hex characters everybody prints.
+sha256 := { message | | bytes, at, out, i |
+    bytes := pad:value(bytesOf:value(message)).
+    hh := h0:copyFrom(#1, #8).
+    at := #1.
+    while at < bytes:size do (block:value(bytes, at). at := at + #64).
+    out := "".
+    i := #1.
+    while i <= #8 do (
+        out := out:concat(hh:at(i):asBase(#16):asString("08")).
+        i := i + #1).
+    out }.
+
+; ----------------------------------------------------------------- the tool
+
+; `display` and `print` both end the line, so a line with two things on it is
+; built and then written once.
+line := { digest, label | (digest:concat("  "):concat(label)):display }.
+
+args := system:arguments.
+
+if args:size == #0 then (
+    ; It demonstrates itself on the vectors printed in FIPS 180-4, which is the
+    ; one oracle that predates every implementation of this algorithm.
+    ["", "abc", "abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq"]:do({ m |
+        line:value(sha256:value(m), m:size:asString:concat(" bytes")) }).
+    ; And on the block boundary, where the padding either fits in the block it
+    ; is in or forces one more -- 56 and 64 are the two that force it.
+    [#55, #56, #63, #64, #65]:do({ n | | m |
+        m := "".
+        [#1, n]:loop({ i | m := m:concat("a") }).
+        line:value(sha256:value(m), n:asString:concat(" x 'a'")) }))
+else args:do({ path |
+    line:value(sha256:value(system:readFile(path)), path) }).

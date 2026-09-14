@@ -1,7 +1,7 @@
 {
   "name": "solveig",
   "displayName": "Solveig",
-  "description": "Syntax colouring, bracket matching, comment toggling and completion for Solveig .sol and Proto .pro files",
+  "description": "Syntax colouring, bracket matching, comment toggling and completion for Solveig .sol and Parasol .psol files",
   "version": "0.1.0",
   "publisher": "hansolovkarlsson",
   "license": "MIT",
@@ -19,7 +19,7 @@
   "main": "./extension.js",
   "activationEvents": [
     "onLanguage:solveig",
-    "onLanguage:proto"
+    "onLanguage:parasol"
   ],
   "contributes": {
     "languages": [
@@ -35,13 +35,13 @@
         "configuration": "./language-configuration.json"
       },
       {
-        "id": "proto",
+        "id": "parasol",
         "aliases": [
-          "Proto",
-          "proto"
+          "Parasol",
+          "parasol"
         ],
         "extensions": [
-          ".pro"
+          ".psol"
         ],
         "configuration": "./language-configuration.json"
       }
@@ -53,9 +53,9 @@
         "path": "./syntaxes/solveig.tmLanguage.json"
       },
       {
-        "language": "proto",
-        "scopeName": "source.proto",
-        "path": "./syntaxes/proto.tmLanguage.json"
+        "language": "parasol",
+        "scopeName": "source.parasol",
+        "path": "./syntaxes/parasol.tmLanguage.json"
       }
     ],
     "snippets": [
@@ -64,8 +64,8 @@
         "path": "./snippets/solveig.json"
       },
       {
-        "language": "proto",
-        "path": "./snippets/proto.json"
+        "language": "parasol",
+        "path": "./snippets/parasol.json"
       }
     ]
   }

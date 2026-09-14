@@ -1,0 +1,538 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- Generated from the Artifact of the same page; see docs/what-is-parasol.md. -->
+<style>html{color-scheme:light dark}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+<title>From .psol to .sol</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Spectral:wght@500;600&family=Source+Sans+3:wght@400;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --ground:#F5F6F4; --surface:#FFFFFF; --sunk:#EDEFEC;
+  --ink:#191D1C; --ink-2:#414947; --muted:#6B7472;
+  --rule:#DCE0DD; --rule-2:#C9CFCB;
+  --source:#0E7263; --source-bg:#E2EFEB; --source-line:#9CCCC1;
+  --template:#6B45B4; --template-bg:#EDE7F8; --template-line:#BFA9E4;
+  --serif:"Spectral",Georgia,"Times New Roman",serif;
+  --sans:"Source Sans 3",-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --ground:#131716; --surface:#1B201F; --sunk:#171C1B;
+    --ink:#E4E8E6; --ink-2:#B5BDBA; --muted:#8A9390;
+    --rule:#2C3331; --rule-2:#3A4340;
+    --source:#4FC5AC; --source-bg:#12302A; --source-line:#2C6A5D;
+    --template:#B396EC; --template-bg:#221C39; --template-line:#5A4788;
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#131716; --surface:#1B201F; --sunk:#171C1B;
+  --ink:#E4E8E6; --ink-2:#B5BDBA; --muted:#8A9390;
+  --rule:#2C3331; --rule-2:#3A4340;
+  --source:#4FC5AC; --source-bg:#12302A; --source-line:#2C6A5D;
+  --template:#B396EC; --template-bg:#221C39; --template-line:#5A4788;
+}
+
+*{box-sizing:border-box}
+body{background:var(--ground);color:var(--ink);font-family:var(--sans);font-size:16.5px;line-height:1.62;-webkit-font-smoothing:antialiased}
+
+main{display:grid;justify-items:center;padding:0 22px 110px;row-gap:0}
+main>*{width:100%;max-width:716px}
+main>figure{max-width:964px}
+
+/* ---- masthead ---- */
+.masthead{display:grid;justify-items:center;padding:0 22px;border-bottom:1px solid var(--rule);margin-bottom:52px}
+.masthead>div{width:100%;max-width:716px;padding:76px 0 44px}
+.eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin:0 0 18px}
+h1{font-family:var(--serif);font-weight:600;font-size:clamp(34px,6vw,46px);line-height:1.08;letter-spacing:-.015em;margin:0 0 20px;text-wrap:balance}
+h1 .dot{color:var(--muted);font-weight:500}
+.standfirst{font-size:19px;line-height:1.55;color:var(--ink-2);margin:0 0 30px;max-width:60ch}
+.chain{font-family:var(--mono);font-size:12.5px;color:var(--muted);display:flex;flex-wrap:wrap;gap:0 10px;align-items:center;margin:0}
+.chain b{color:var(--ink);font-weight:500}
+.chain span{color:var(--rule-2)}
+
+/* ---- sections ---- */
+section{padding:44px 0 4px;border-top:1px solid var(--rule)}
+section:first-of-type{border-top:none;padding-top:0}
+h2{font-family:var(--serif);font-weight:600;font-size:26px;line-height:1.2;letter-spacing:-.01em;margin:0 0 6px;text-wrap:balance;display:flex;gap:14px;align-items:baseline}
+h2 .step{font-family:var(--mono);font-size:12px;font-weight:500;color:var(--template);letter-spacing:.08em;flex:none;position:relative;top:-2px}
+h3{font-family:var(--sans);font-weight:600;font-size:16px;letter-spacing:.005em;margin:30px 0 8px}
+p{margin:0 0 15px;max-width:66ch}
+p:last-child{margin-bottom:0}
+strong{font-weight:600}
+a{color:var(--source)}
+.lede{color:var(--ink-2);font-size:17px;margin-bottom:22px}
+
+code{font-family:var(--mono);font-size:.875em;background:var(--sunk);border:1px solid var(--rule);border-radius:3px;padding:.09em .34em}
+.src-t{color:var(--source)}
+.tpl-t{color:var(--template)}
+
+pre{font-family:var(--mono);font-size:12.5px;line-height:1.72;background:var(--surface);border:1px solid var(--rule);border-radius:5px;padding:16px 18px;overflow-x:auto;margin:0 0 18px}
+pre code{background:none;border:none;padding:0;font-size:inherit}
+.filetag{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:0 0 7px}
+.pre-pair{display:grid;gap:14px;grid-template-columns:1fr;align-items:start;margin-bottom:18px}
+@media(min-width:620px){.pre-pair{grid-template-columns:1fr 1fr}}
+.pre-pair pre{margin:0}
+
+/* ---- tables ---- */
+.tbl{width:100%;border-collapse:collapse;margin:4px 0 20px;font-size:14.5px}
+.tbl th{text-align:left;font-family:var(--mono);font-size:10.5px;letter-spacing:.11em;text-transform:uppercase;color:var(--muted);font-weight:400;padding:0 14px 8px 0;border-bottom:1px solid var(--rule-2)}
+.tbl td{padding:11px 14px 11px 0;border-bottom:1px solid var(--rule);vertical-align:top;color:var(--ink-2)}
+.tbl td:first-child{color:var(--ink);font-family:var(--mono);font-size:12.5px;white-space:nowrap}
+.tbl tr:last-child td{border-bottom:none}
+
+/* ---- figures ---- */
+figure{margin:26px 0 30px;display:grid;gap:0}
+.fig-frame{background:var(--surface);border:1px solid var(--rule);border-radius:6px;padding:22px 20px;overflow-x:auto}
+figure svg{display:block;width:100%;height:auto;min-width:520px}
+figcaption{font-size:13.5px;line-height:1.55;color:var(--muted);margin-top:12px;max-width:74ch}
+figcaption b{color:var(--ink-2);font-weight:600}
+
+/* svg theming */
+.dgm{color:var(--ink-2)}
+.dgm text{font-family:var(--mono);fill:currentColor}
+.t-ink{fill:var(--ink)}
+.t-mut{fill:var(--muted)}
+.t-src{fill:var(--source)}
+.t-tpl{fill:var(--template)}
+.eb{font-size:9.5px;letter-spacing:.13em}
+.lb{font-size:10.5px}
+.mn{font-size:11.5px}
+.mn-b{font-size:12.5px}
+.file{fill:var(--surface);stroke:var(--rule-2);stroke-width:1.4}
+.stage{fill:var(--surface);stroke:var(--ink-2);stroke-width:1.5}
+.bandS{fill:var(--source-bg)}
+.bandT{fill:var(--template-bg)}
+.boxS{fill:var(--source-bg);stroke:var(--source-line);stroke-width:1.4}
+.boxT{fill:var(--template-bg);stroke:var(--template-line);stroke-width:1.4}
+.ln{stroke:var(--ink-2);stroke-width:1.5;fill:none}
+.ln-t{stroke:var(--template);stroke-width:2;fill:none}
+.ln-s{stroke:var(--source);stroke-width:2;fill:none}
+.hair{stroke:var(--rule-2);stroke-width:1;fill:none}
+.dash{stroke:var(--template);stroke-width:1.4;fill:none;stroke-dasharray:4 4}
+.ah-n{fill:var(--ink-2)}
+.ah-t{fill:var(--template)}
+.ah-s{fill:var(--source)}
+.barS{fill:var(--source-bg);stroke:var(--source-line);stroke-width:1.3}
+.barT{fill:var(--template-bg);stroke:var(--template-line);stroke-width:1.3}
+.pillT{fill:var(--template-bg);stroke:var(--template-line);stroke-width:1.3}
+.pillS{fill:var(--source-bg);stroke:var(--source-line);stroke-width:1.3}
+
+/* ---- key ---- */
+.key{display:flex;flex-wrap:wrap;gap:10px 26px;font-family:var(--mono);font-size:11.5px;color:var(--muted);margin:0 0 4px;padding:14px 0 0;border-top:1px solid var(--rule)}
+.key span{display:flex;align-items:center;gap:8px}
+.key i{width:22px;height:11px;border-radius:2px;display:block;flex:none}
+.k-s{background:var(--source-bg);border:1px solid var(--source-line)}
+.k-t{background:var(--template-bg);border:1px solid var(--template-line)}
+
+/* ---- callout ---- */
+.rule-box{border-left:2px solid var(--template);padding:2px 0 2px 18px;margin:24px 0}
+.rule-box p{margin:0;font-family:var(--serif);font-size:18px;line-height:1.5;color:var(--ink)}
+
+.closing{margin-top:8px}
+.closing li{margin-bottom:14px;max-width:64ch}
+.closing ol{padding-left:0;list-style:none;counter-reset:inv;margin:8px 0 0}
+.closing li{counter-increment:inv;position:relative;padding-left:34px}
+.closing li::before{content:counter(inv);position:absolute;left:0;top:1px;font-family:var(--mono);font-size:11px;color:var(--template);border:1px solid var(--template-line);border-radius:50%;width:21px;height:21px;display:grid;place-items:center}
+.closing li b{font-weight:600}
+
+footer{display:grid;justify-items:center;padding:0 22px 70px}
+footer>div{width:100%;max-width:716px;border-top:1px solid var(--rule);padding-top:18px;font-family:var(--mono);font-size:11.5px;color:var(--muted);line-height:1.7}
+
+:focus-visible{outline:2px solid var(--source);outline-offset:2px}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<header class="masthead">
+  <div>
+    <p class="eyebrow">Parasol 0.9.0 &nbsp;·&nbsp; compiler internals</p>
+    <h1>From <span class="dot">.psol</span> to <span class="dot">.sol</span></h1>
+    <p class="standfirst">A module declares its own grammar in its header, and that header is the only thing that changes how the rest of the file parses. Here is the whole path, traced through one real file.</p>
+    <p class="chain"><b>trace.psol</b> <span>&rarr;</span> parasol <span>&rarr;</span> <b>trace.sol</b> + <b>.sol.map</b> <span>&rarr;</span> solas <span>&rarr;</span> <b>trace.sob</b> <span>&rarr;</span> solvm</p>
+  </div>
+</header>
+
+<main>
+
+<section>
+  <p class="lede">Parasol is a translator. A <code>.psol</code> goes in, Solveig source comes out, and it never runs a program &mdash; not yours, and not its own. Everything below happens in one pass over one file.</p>
+
+  <figure>
+    <div class="fig-frame">
+      <svg viewBox="0 0 880 856" class="dgm" role="img" aria-label="The Parasol pipeline: the header of a module builds a dialect of two tables, which configures the reader; the body is parsed with it into a tree, expanded, and emitted as Solveig source plus a source map.">
+        <defs>
+          <marker id="ahn-f1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="ah-n" d="M0,0 L10,5 L0,10 z"/></marker>
+          <marker id="aht-f1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="ah-t" d="M0,0 L10,5 L0,10 z"/></marker>
+        </defs>
+
+        <!-- control.psol -->
+        <rect class="file" x="30" y="52" width="176" height="66"/>
+        <rect class="bandT" x="31" y="53" width="174" height="64"/>
+        <text class="eb t-tpl" x="44" y="76">DIALECT FILE</text>
+        <text class="mn t-ink" x="44" y="98">lib/control.psol</text>
+        <line class="ln" x1="206" y1="85" x2="290" y2="85" marker-end="url(#ahn-f1)"/>
+        <text class="lb t-mut" x="248" y="76" text-anchor="middle">@use</text>
+
+        <!-- trace.psol -->
+        <text class="eb t-mut" x="300" y="22">TRACE.PRO</text>
+        <rect class="file" x="300" y="30" width="240" height="212"/>
+        <rect class="bandT" x="301" y="31" width="238" height="96"/>
+        <rect class="bandS" x="301" y="127" width="238" height="114"/>
+        <line class="hair" x1="301" y1="127" x2="539" y2="127"/>
+        <text class="eb t-tpl" x="314" y="52">HEADER · DIRECTIVES</text>
+        <text class="mn t-ink" x="314" y="76">@language solveig.</text>
+        <text class="mn t-ink" x="314" y="96">@use "control.psol".</text>
+        <text class="eb t-src" x="314" y="150">BODY · STATEMENTS</text>
+        <text class="mn t-ink" x="314" y="174">n := #3.</text>
+        <text class="mn t-ink" x="314" y="194">while n &gt; #0 do (…).</text>
+        <text class="mn t-ink" x="314" y="214">if total &gt; #5 then …</text>
+
+        <!-- header -> dialect -->
+        <path class="ln-t" d="M540,78 H756 V296" marker-end="url(#aht-f1)"/>
+        <text class="lb t-tpl" x="648" y="68" text-anchor="middle">builds the tables</text>
+
+        <!-- dialect -->
+        <rect class="boxT" x="650" y="300" width="212" height="128" rx="10"/>
+        <text class="eb t-tpl" x="668" y="326">DIALECT</text>
+        <text class="lb t-ink" x="668" y="354">precedence table</text>
+        <text class="lb t-mut" x="668" y="371">10 infix · 1 prefix</text>
+        <text class="lb t-ink" x="668" y="396">form table</text>
+        <text class="lb t-mut" x="668" y="413">6 forms · 2 op templates</text>
+
+        <!-- dialect -> reader -->
+        <line class="ln-t" x1="650" y1="356" x2="497" y2="356" marker-end="url(#aht-f1)"/>
+        <text class="lb t-tpl" x="573" y="340" text-anchor="middle">fills</text>
+        <text class="lb t-tpl" x="573" y="378" text-anchor="middle">infix · unary · form</text>
+
+        <!-- body -> reader -->
+        <line class="ln" x1="370" y1="242" x2="370" y2="306" marker-end="url(#ahn-f1)"/>
+        <text class="lb t-mut" x="382" y="280">tokens</text>
+
+        <!-- reader -->
+        <rect class="stage" x="250" y="310" width="240" height="86" rx="10"/>
+        <text class="eb t-mut" x="270" y="338">STEP 3</text>
+        <text class="mn-b t-ink" x="270" y="362">READER</text>
+        <text class="lb t-mut" x="270" y="381">reader.c · 1442 lines</text>
+
+        <line class="ln" x1="370" y1="396" x2="370" y2="466" marker-end="url(#ahn-f1)"/>
+        <text class="lb t-mut" x="506" y="424">tree — a MACRO node</text>
+        <text class="lb t-mut" x="506" y="441">at each form use</text>
+
+        <!-- expander -->
+        <rect class="stage" x="250" y="470" width="240" height="86" rx="10"/>
+        <text class="eb t-mut" x="270" y="498">STEP 4</text>
+        <text class="mn-b t-ink" x="270" y="522">EXPANDER</text>
+        <text class="lb t-mut" x="270" y="541">substitute · hygiene · spans</text>
+
+        <line class="ln" x1="370" y1="556" x2="370" y2="626" marker-end="url(#ahn-f1)"/>
+        <text class="lb t-mut" x="506" y="584">expanded tree — every</text>
+        <text class="lb t-mut" x="506" y="601">node carries a span</text>
+
+        <!-- emitter -->
+        <rect class="stage" x="250" y="630" width="240" height="86" rx="10"/>
+        <text class="eb t-mut" x="270" y="658">STEP 5</text>
+        <text class="mn-b t-ink" x="270" y="682">EMITTER</text>
+        <text class="lb t-mut" x="270" y="701">emit.c — the only file</text>
+
+        <!-- outputs -->
+        <path class="ln" d="M370,716 V748 H262 V772" marker-end="url(#ahn-f1)"/>
+        <path class="ln" d="M370,716 V748 H478 V772" marker-end="url(#ahn-f1)"/>
+        <rect class="file" x="180" y="776" width="164" height="56"/>
+        <text class="mn t-ink" x="262" y="800" text-anchor="middle">trace.sol</text>
+        <text class="lb t-mut" x="262" y="818" text-anchor="middle">Solveig source</text>
+        <rect class="file" x="396" y="776" width="176" height="56"/>
+        <text class="mn t-ink" x="484" y="800" text-anchor="middle">trace.sol.map</text>
+        <text class="lb t-mut" x="484" y="818" text-anchor="middle">back to the .psol</text>
+
+        <text class="lb t-mut" x="620" y="806">then solas, then solvm.</text>
+        <text class="lb t-mut" x="620" y="823">Parasol is done here.</text>
+      </svg>
+    </div>
+    <figcaption><b>The edge that matters is the violet one.</b> The header is read first and builds the dialect; the dialect then configures the reader, before a single statement of the body is parsed. Everything else on the page is a consequence of that ordering.</figcaption>
+  </figure>
+
+  <div class="key">
+    <span><i class="k-t"></i> declared syntax — header, tables, templates</span>
+    <span><i class="k-s"></i> written code — your statements and arguments</span>
+  </div>
+  <p style="margin-top:14px;font-size:14.5px;color:var(--muted)">That pairing runs through every figure below.</p>
+</section>
+
+<section>
+  <h2><span class="step">00</span> A file is two halves</h2>
+  <p>The core grammar is <code>module = { directive } { statement }</code>. Every <code>@</code>-directive comes first, then the code. Nothing after the first statement can change the syntax.</p>
+  <p class="filetag">trace.psol</p>
+  <pre><code>@language solveig.
+@use "control.psol".
+
+n := #3.
+total := #0.
+while n &gt; #0 do (total := total + n. n := n - #1).
+if total &gt; #5 then total:print else "small":print.</code></pre>
+  <p>The one exception proves the rule: <code>@include</code> is Solveig's own directive, so Parasol treats it as a <em>statement</em> and passes it straight through.</p>
+</section>
+
+<section>
+  <h2><span class="step">01</span> Gather the unit</h2>
+  <p><code>@use "control.psol"</code> pulls in the dialect file, which itself uses <code>arith.psol</code>. A file is looked for beside the one using it, then each <code>-I</code> directory, then <code>PARASOL_PATH</code> &mdash; and it is read <strong>once</strong>, so a diamond costs nothing and a dialect never collides with itself.</p>
+  <p>All the files share one offset space. That detail looks like bookkeeping until step 5, where it is the reason a single generated line can name two origins.</p>
+</section>
+
+<section>
+  <h2><span class="step">02</span> The header builds two tables</h2>
+  <p>Reading top to bottom, the directives fill a <code>ParasolDialect</code>. For this file the chain is <code>control.psol</code> &rarr; <code>arith.psol</code>, and it comes to eleven operators and six forms.</p>
+  <table class="tbl">
+    <thead><tr><th>directive</th><th>lands in</th><th>as</th></tr></thead>
+    <tbody>
+      <tr><td>@infix + 60 add.</td><td>precedence table</td><td><code>+</code> binds at 60, becomes <code>:add</code></td></tr>
+      <tr><td>@infix &gt; 40 greaterThan.</td><td>precedence table</td><td><code>&gt;</code> binds at 40, becomes <code>:greaterThan</code></td></tr>
+      <tr><td>@infix /\ 30 =&gt; …</td><td>both</td><td>an operator with a template <em>is</em> a form, and is registered as one</td></tr>
+      <tr><td>@syntax while &lt;t&gt; do &lt;b&gt; =&gt; …</td><td>form table</td><td>word <code>while</code>, two holes, plus the template</td></tr>
+      <tr><td>@syntax if &lt;c&gt; then &lt;a&gt; =&gt; …</td><td>form table</td><td>word <code>if</code>, two parts</td></tr>
+      <tr><td>@syntax if &lt;c&gt; then &lt;a&gt; else &lt;b&gt; =&gt; …</td><td>form table</td><td>word <code>if</code>, three parts</td></tr>
+    </tbody>
+  </table>
+  <p>Two <code>if</code> forms under one word, and nothing anywhere declares which is meant. The next step is why that is fine.</p>
+  <p><strong>These tables are all that varies.</strong> The token set and the rest of the grammar are the same in every <code>.psol</code> there will ever be: <code>#3</code>, <code>'sym</code>, <code>x:msg(y)</code>, <code>{ }</code>, <code>.</code> between statements. A dialect gets the characters that mean nothing until it says so &mdash; and <code>|</code>, <code>:</code>, <code>.</code> and <code>,</code> are never among them.</p>
+</section>
+
+<section>
+  <h2><span class="step">03</span> Parse the body, consulting the tables</h2>
+  <p>The parser has exactly three holes in it &mdash; <code>infix</code>, <code>unary</code> and <code>form</code> &mdash; and the dialect fills them. It hits <code>while</code>, finds it in the form table, and <strong>a declared form beats anything else that name could be</strong>. Otherwise <code>while</code> would just be an identifier and <code>f(x)</code> would mean <code>x:f</code>, which is exactly what happens to every name the header did not declare.</p>
+  <p>Then it matches the pattern, and this is the part worth being precise about.</p>
+
+  <figure>
+    <div class="fig-frame">
+      <svg viewBox="0 0 860 300" class="dgm" role="img" aria-label="Two forms spelled if advance in lockstep across the tokens; both stay alive through the second hole, and the token else settles which one matched.">
+        <defs>
+          <marker id="ahn-f2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path class="ah-n" d="M0,0 L10,5 L0,10 z"/></marker>
+        </defs>
+
+        <text class="eb t-mut" x="16" y="26">TOKENS &rarr;</text>
+        <text class="mn t-tpl" x="275" y="42" text-anchor="middle">if</text>
+        <text class="mn t-src" x="360" y="42" text-anchor="middle">total &gt; #5</text>
+        <text class="mn t-tpl" x="450" y="42" text-anchor="middle">then</text>
+        <text class="mn t-src" x="540" y="42" text-anchor="middle">total:print</text>
+        <text class="mn t-tpl" x="630" y="42" text-anchor="middle">else</text>
+        <text class="mn t-src" x="730" y="42" text-anchor="middle">"small":print</text>
+        <line class="hair" x1="250" y1="54" x2="800" y2="54"/>
+
+        <!-- form A -->
+        <text class="mn t-ink" x="236" y="103" text-anchor="end">if &lt;c&gt; then &lt;a&gt;</text>
+        <rect class="barS" x="250" y="86" width="350" height="26" rx="4"/>
+        <text class="lb t-mut" x="256" y="132">complete here — but the next token is `else`</text>
+        <text class="mn t-mut" x="816" y="106">✕</text>
+
+        <!-- form B -->
+        <text class="mn t-ink" x="236" y="177" text-anchor="end">if &lt;c&gt; then &lt;a&gt; else &lt;b&gt;</text>
+        <rect class="barT" x="250" y="160" width="550" height="26" rx="4"/>
+        <text class="lb t-mut" x="256" y="206">wants `else` here, and gets it</text>
+        <text class="mn t-tpl" x="816" y="180">✓</text>
+
+        <!-- decision -->
+        <line class="dash" x1="600" y1="60" x2="600" y2="238"/>
+        <line class="ln" x1="600" y1="246" x2="600" y2="256" marker-end="url(#ahn-f2)"/>
+        <text class="lb t-tpl" x="600" y="276" text-anchor="middle">one token settles it — no backtracking</text>
+
+        <text class="eb t-mut" x="16" y="103">ALIVE</text>
+        <text class="eb t-mut" x="16" y="177">ALIVE</text>
+      </svg>
+    </div>
+    <figcaption><b>Every form under one word advances together, candidates dropping out as tokens arrive.</b> Both readings of <code>if</code> stay alive through <code>&lt;c&gt; then &lt;a&gt;</code>; the following token decides. Had it been anything but <code>else</code>, the marks swap. Two forms can therefore only part company <em>on a word</em> &mdash; which is why the roadmap's optional-parts item insists an optional part must begin with one.</figcaption>
+  </figure>
+
+  <p>What comes out is a tree with an unexpanded <code>MACRO</code> node at each use, tagged with the declaration that matched. Operators resolve in the same pass, so <code>n &gt; #0</code> inside the form is already <code>n:greaterThan(#0)</code> before expansion starts.</p>
+  <p>A hole can also say what it will take &mdash; <code>expression</code>, <code>name</code>, <code>literal</code>, <code>block</code> or <code>place</code>. All five are decided by looking at what was parsed, so none of them needs an evaluator. That is why <code>swap #1 and u</code> is refused at the use rather than after expansion with a trail leading into the library.</p>
+</section>
+
+<section>
+  <h2><span class="step">04</span> Expand</h2>
+  <p><code>parasol_expand</code> replaces each <code>MACRO</code> with an instance of its template. Three things happen at once, and they happen together because doing any of them later would mean doing the others again.</p>
+
+  <figure>
+    <div class="fig-frame">
+      <svg viewBox="0 0 940 440" class="dgm" role="img" aria-label="A template from control.psol and a use from trace.psol combine into one tree; the nodes the template produced point at control.psol, and the argument subtrees grafted into it keep their own spans in trace.psol.">
+        <defs>
+          <marker id="ahn-f3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto"><path class="ah-n" d="M0,0 L10,5 L0,10 z"/></marker>
+        </defs>
+
+        <!-- template -->
+        <rect class="boxT" x="16" y="52" width="292" height="86" rx="8"/>
+        <text class="eb t-tpl" x="34" y="78">TEMPLATE · lib/control.psol:24</text>
+        <text class="mn-b t-ink" x="34" y="106">{ t }:whileTrue({ b })</text>
+        <text class="lb t-mut" x="34" y="126">the braces are the template's doing</text>
+
+        <!-- use -->
+        <rect class="boxS" x="16" y="196" width="292" height="96" rx="8"/>
+        <text class="eb t-src" x="34" y="222">THE USE · trace.psol:6</text>
+        <text class="mn-b t-ink" x="34" y="250">while n &gt; #0 do (…)</text>
+        <text class="lb t-mut" x="34" y="272">t &larr; n &gt; #0 &nbsp;&nbsp; b &larr; (…) &nbsp; unevaluated</text>
+
+        <path class="ln" d="M308,95 C332,95 330,150 350,164" marker-end="url(#ahn-f3)"/>
+        <path class="ln" d="M308,244 C332,244 330,196 350,182" marker-end="url(#ahn-f3)"/>
+
+        <rect class="stage" x="356" y="146" width="104" height="54" rx="10"/>
+        <text class="mn t-ink" x="408" y="178" text-anchor="middle">expand</text>
+        <line class="ln" x1="460" y1="173" x2="500" y2="173" marker-end="url(#ahn-f3)"/>
+
+        <!-- tree -->
+        <text class="eb t-mut" x="512" y="40">THE TREE THAT COMES OUT</text>
+        <text class="eb t-mut" x="792" y="40">SPAN POINTS AT</text>
+        <line class="hair" x1="512" y1="50" x2="912" y2="50"/>
+
+        <!-- connectors -->
+        <path class="hair" d="M524,84 V310 M524,132 H556 M524,180 H556 M524,310 H556"/>
+        <path class="hair" d="M574,132 V262 M574,180 H606 M574,262 H606"/>
+        <path class="hair" d="M624,180 V262 M624,228 H656 M624,262 H656"/>
+        <path class="hair" d="M574,310 V358 M574,358 H606"/>
+
+        <rect class="pillT" x="512" y="60" width="146" height="24" rx="5"/>
+        <text class="mn t-ink" x="522" y="77">send whileTrue</text>
+        <text class="lb t-tpl" x="792" y="77">control.psol:24</text>
+
+        <rect class="pillT" x="560" y="108" width="82" height="24" rx="5"/>
+        <text class="mn t-ink" x="570" y="125">block</text>
+        <text class="lb t-tpl" x="792" y="125">control.psol:24</text>
+
+        <rect class="pillS" x="608" y="156" width="150" height="24" rx="5"/>
+        <text class="mn t-ink" x="618" y="173">send greaterThan</text>
+        <text class="lb t-src" x="792" y="173">trace.psol:6</text>
+
+        <rect class="pillS" x="656" y="204" width="102" height="24" rx="5"/>
+        <text class="mn t-ink" x="666" y="221">name n</text>
+        <text class="lb t-src" x="792" y="221">trace.psol:6</text>
+
+        <rect class="pillS" x="656" y="238" width="102" height="24" rx="5"/>
+        <text class="mn t-ink" x="666" y="255">integer 0</text>
+        <text class="lb t-src" x="792" y="255">trace.psol:6</text>
+
+        <rect class="pillT" x="560" y="286" width="82" height="24" rx="5"/>
+        <text class="mn t-ink" x="570" y="303">block</text>
+        <text class="lb t-tpl" x="792" y="303">control.psol:24</text>
+
+        <rect class="pillS" x="608" y="334" width="134" height="24" rx="5"/>
+        <text class="mn t-ink" x="618" y="351">sequence (…)</text>
+        <text class="lb t-src" x="792" y="351">trace.psol:6</text>
+
+        <text class="lb t-mut" x="512" y="398">A violet skeleton with teal grafts. The graft keeps the span it</text>
+        <text class="lb t-mut" x="512" y="415">arrived with, so an error inside an argument points at the argument.</text>
+      </svg>
+    </div>
+    <figcaption><b>Substitution, hygiene and provenance, in one pass.</b> Run <code>parasol --tree</code> on the file and this is literally what prints: the <code>whileTrue</code> node carries offset <code>@1178</code>, in <code>control.psol</code>; the <code>greaterThan</code> beneath it carries <code>@70</code>, in <code>trace.psol</code>. Each node also records <code>scope</code> (which expansion) and <code>from</code> (which form), so a diagnostic can print the whole trail.</figcaption>
+  </figure>
+
+  <h3>Hygiene, and why it shipped in the same commit</h3>
+  <p>The <code>swap</code> form binds a <code>t</code>. So does the caller. Every name a <em>template</em> binds is renamed to one nothing in the module uses:</p>
+  <div class="pre-pair">
+    <div><p class="filetag">written</p><pre><code>t := #1.
+u := #2.
+swap t and u</code></pre></div>
+    <div><p class="filetag">emitted</p><pre><code>t := #1.
+u := #2.
+{ | t__1 |
+    t__1 := t.
+    t := u.
+    u := t__1 }:value.</code></pre></div>
+  </div>
+  <p>Without the rename that swap destroys a value instead of exchanging one. Hygiene went in with forms rather than after them, because a system that expands without it grows programs that depend on the capture &mdash; and those programs are what make hygiene impossible to add later.</p>
+
+  <h3>It terminates, and not because a counter says so</h3>
+  <p>A template is read under the header <em>as it stood at its own line</em>, so it can only mention forms declared above it. Expanding form N yields uses of forms below N and never of N itself, and the highest index strictly falls. That is a property of reading the header top to bottom, not a limit bolted on afterwards.</p>
+</section>
+
+<section>
+  <h2><span class="step">05</span> Emit, and the map</h2>
+  <p>Only <code>emit.c</code> has ever heard of Solveig &mdash; the lexer, the dialect table, the tree and the spans are all substrate-agnostic. It walks the expanded tree and prints:</p>
+  <p class="filetag">trace.sol</p>
+  <pre><code>; Generated by Parasol 0.9.0. Edit the .psol, not this.
+
+n := #3.
+total := #0.
+{ n:greaterThan(#0) }:whileTrue({ (total := total:add(n). n := n:sub(#1)) }).
+total:greaterThan(#5):ifElse({ total:print }, { "small":print }).</code></pre>
+  <p>And alongside it, the reason those spans were carried all the way through.</p>
+
+  <figure>
+    <div class="fig-frame">
+      <svg viewBox="0 0 860 344" class="dgm" role="img" aria-label="One generated line has two origins: its opening brace and whileTrue come from the template in control.psol, and the condition inside comes from line 6 of trace.psol. The source map records both.">
+        <defs>
+          <marker id="ahs-f4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto"><path class="ah-s" d="M0,0 L10,5 L0,10 z"/></marker>
+          <marker id="aht-f4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto"><path class="ah-t" d="M0,0 L10,5 L0,10 z"/></marker>
+        </defs>
+
+        <text class="eb t-mut" x="30" y="34">TRACE.SOL · LINE 5</text>
+        <text class="mn-b" x="30" y="66"><tspan class="t-tpl">{ </tspan><tspan class="t-src">n:greaterThan(#0)</tspan><tspan class="t-tpl"> }:whileTrue({ </tspan><tspan class="t-src">…</tspan><tspan class="t-tpl"> })</tspan></text>
+
+        <line class="ln-s" x1="46" y1="78" x2="178" y2="78"/>
+        <line class="ln-t" x1="182" y1="78" x2="292" y2="78"/>
+
+        <path class="ln-s" d="M112,80 V120 H150 V150" marker-end="url(#ahs-f4)"/>
+        <path class="ln-t" d="M236,80 V120 H470 V150" marker-end="url(#aht-f4)"/>
+
+        <rect class="boxS" x="30" y="154" width="266" height="72" rx="8"/>
+        <text class="eb t-src" x="48" y="180">TRACE.PRO:6:7</text>
+        <text class="mn t-ink" x="48" y="204">n &gt; #0</text>
+        <text class="lb t-mut" x="48" y="220">the condition you wrote</text>
+
+        <rect class="boxT" x="350" y="154" width="300" height="72" rx="8"/>
+        <text class="eb t-tpl" x="368" y="180">LIB/CONTROL.PRO:24:40</text>
+        <text class="mn t-ink" x="368" y="204">{ t }:whileTrue({ b })</text>
+        <text class="lb t-mut" x="368" y="220">the template it was put inside</text>
+
+        <line class="hair" x1="30" y1="252" x2="830" y2="252"/>
+        <text class="eb t-mut" x="30" y="274">TRACE.SOL.MAP</text>
+        <text class="lb t-mut" x="172" y="274">generated &nbsp;·&nbsp; source &nbsp;·&nbsp; offset &nbsp;·&nbsp; file</text>
+        <text class="mn t-tpl" x="30" y="302">5:1&#160;&#160;&#160;&#160;24:40&#160;&#160;&#160;1172&#160;&#160;&#160;lib/control.psol</text>
+        <text class="mn t-src" x="30" y="324">5:3&#160;&#160;&#160;&#160;6:7&#160;&#160;&#160;&#160;&#160;68</text>
+      </svg>
+    </div>
+    <figcaption><b>Generated line 5 has two origins, and the map knows which is which.</b> Column 1 came from the template; column 3 came from your line 6. That is the payback for carrying a span on every node through expansion &mdash; without it, generated code is where the trail goes cold.</figcaption>
+  </figure>
+
+  <p>From here Parasol is finished. <code>solas</code> turns the source into a <code>.sob</code> and <code>solvm</code> runs it; the two projects meet at a file format and a command line, and that is the whole of the coupling.</p>
+</section>
+
+<section>
+  <h2>Not a preprocessor</h2>
+  <p>Parasol sits where a precompiler sits &mdash; before the real compiler, emitting source, never running your program. The mechanism is a different thing entirely.</p>
+  <table class="tbl">
+    <thead><tr><th></th><th>a preprocessor (cpp, m4)</th><th>Parasol</th></tr></thead>
+    <tbody>
+      <tr><td>operates on</td><td>tokens or text, with no grammar</td><td>a tree, matched inside the parser</td></tr>
+      <tr><td>bad output</td><td>can emit something that will not parse</td><td>cannot — expansion is over a parse that succeeded</td></tr>
+      <tr><td>capture</td><td>none; <code>SWAP</code> eats your <code>t</code></td><td>every template-bound name renamed per expansion</td></tr>
+      <tr><td>positions</td><td><code>#line</code>, by hand</td><td>a span on every node, and a map</td></tr>
+      <tr><td>extension point</td><td>a substitution</td><td>the grammar itself — precedence and pattern shape</td></tr>
+    </tbody>
+  </table>
+  <p>The nearer relatives are <code>syntax-rules</code>, <code>macro_rules!</code> and Dylan &mdash; hygienic syntax macros. The line Parasol keeps that Lisp does not is that <strong>nothing runs at expand time</strong>. A template is a pattern and a tree, never a computation. That single restriction is what the two hardest open questions are both about: whether a guard may evaluate anything (it may not, or parsing would depend on running the file), and whether the expander may fold <code>#32:sub(#17)</code> when <code>integer:sub</code> is a slot a program may reassign.</p>
+</section>
+
+<section class="closing">
+  <h2>Three invariants</h2>
+  <p>Every decision on the roadmap is downstream of one of these.</p>
+  <ol>
+    <li><b>The header is the only thing that varies, and it is read, never run.</b> Any tool can tokenise and parse any <code>.psol</code> top to bottom without executing it. Forth and TeX moved that line and became languages no tool can read; if it ever moves here, it moves at the module boundary and nowhere else.</li>
+    <li><b>Matching happens while parsing, not afterwards.</b> There is no scan-and-rewrite pass over finished code. That buys single-token decisions and no backtracking &mdash; and it is also why choosing the wrong shape is silent, a pattern where a call was meant being a perfectly legal parse.</li>
+    <li><b>Expansion is one pass, and it carries provenance out with it.</b> Substitution, hygiene and spans arrive together, because each one done later would mean redoing the other two.</li>
+  </ol>
+  <div class="rule-box">
+    <p>A dialect gets the characters that mean nothing until it says so. The answer to a want the fixed vocabulary cannot spell is to grow the vocabulary &mdash; not to make the vocabulary declarable.</p>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <div>
+    Traced against Parasol 0.9.0 · reader.c 1442 · expand.c 567 · emit.c 331 · dialect.c 251 · lex.c 226<br>
+    Reproduce with <span style="color:var(--ink)">parasol -I lib trace.psol -o trace.sol --map</span> and <span style="color:var(--ink)">parasol -I lib trace.psol --tree</span>
+  </div>
+</footer>
+</body>
+</html>

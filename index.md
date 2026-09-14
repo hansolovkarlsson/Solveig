@@ -138,12 +138,12 @@ a different language.
 **0.45.0** — the language answers 146 messages, unchanged, and `.sob` files
 are still format version 14: nothing in the machine moved this release.
 [editors/vscode](editors/vscode/README.md) is a VS Code extension for `.sol`
-and `.pro` files, installed from the folder: syntax colouring from the two
+and `.psol` files, installed from the folder: syntax colouring from the two
 grammars, the selector completed after a colon from a list generated out of
-the reference and the libraries, and a read of the dialect an open Proto file
+the reference and the libraries, and a read of the dialect an open Parasol file
 declares, so its forms are offered and hover names the file that gave an
 operator its meaning. There is no language server, on purpose. `make` writes
-Proto's compiler to `bin/proto` beside the four, so one directory on `PATH`
+Parasol's compiler to `bin/parasol` beside the four, so one directory on `PATH`
 reaches the whole toolkit.
 
 Working: the scanner, the single-pass compiler, the re-entrant dispatch loop

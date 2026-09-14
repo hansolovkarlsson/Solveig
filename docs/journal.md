@@ -11,6 +11,64 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-09-14, ten to ten: a region held, a hole that is not a selector, and Proto is Parasol
+
+**Hans read `engine.sol` in the SDL extension and proposed a syntax**: a
+region that writes the receiver once and reads every statement in it as a
+slot on that receiver, `@with rect { x := #0. make := { ... } }` for
+`rect:x := #0. rect:make := { ... }`. Readability, and a receiver that
+cannot be wrong on one line. It was scoped rather than built, and the
+scoping is [an entry in ideas.md](ideas.md#with-obj----a-region-where-an-assignment-is-a-slot-write),
+held with a trigger.
+
+### The case, and where it lands
+
+It is `@expr`'s class of proposal and is judged by the same sentence: the `@`
+namespace is for a thing nothing in the language already does, and
+`rect:x := #0` does this one, so it argues on legibility. What it shares
+with `@expr` is what let `@expr` win, no switches and no `.sob` change. What
+it does not share is the size of the change in meaning: the head of every
+statement in the region names a slot on something the line does not say,
+which is the shape the cascade ruling refused for `:`. The two typos that
+come first to mind are caught today, `rcet:y` as an undefined name and a
+bare `rx := l` in a block with its two-way message. The one the region
+removes is the paste with a valid other receiver; the one it adds is the
+global assignment that becomes a slot. And the run-of-one-receiver shape is
+the whole tree, `edit.sol` 68 long and `sola.sol` 92, so this would become
+how every object is declared, and `grep 'rect:paint'` would stop finding
+definitions. Held: the trigger is that paste bug in a real program, or a
+reading of the engine that finds the long form hid something. The six
+readings this morning did not.
+
+### Could Parasol carry it?
+
+Asked next, and tried rather than argued. The block form cannot be a
+template, since a hole is placed whole and nothing walks the statements in
+one. The line form, `on rect. slot x is #0.`, compiled and emitted
+`it:n := #0`: a `name` hole is not substituted into a send's selector, which
+`programs/grammar` had predicted and confirmed as its fourth finding. The
+roadmap there has the entry, and the examined answer is that the second
+customer does not get what it came for even if the feature existed, since
+the output would say `it:x` and the greppable `.sol` that made Parasol the
+attractive home is lost either way.
+
+### The name
+
+Then Hans said he was not sold on *Proto* and offered `pretex`. Three rounds
+and one refusal later he offered *Parasol*, and that one held: plain English,
+`sol` in its tail as Solas and Solis have it in their head, *para-* as
+*beside* and *paraphrase* as what the output is. The extension went to
+`.psol`, `.pro` having been half of what was wrong with the old name, it
+being qmake's and Prolog's. The rename is Parasol's to record and it has:
+[changelog](../parasol/docs/CHANGELOG.md), COMPLETED 18 with the names put
+and not taken, and its journal. What is Solveig's is the directory,
+`parasol/` now, `bin/parasol`, the root Makefile's target, and the editor's
+second language, whose id and scopes moved with the name. Every mention of
+the project by its name in these documents was respelled, as the Phoenix
+mentions were on 2026-09-01, and the object model's `proto` was not touched.
+The suite here was green with the same 1067 claims before and after, and
+`editors/vscode/test.py` over 24 `.psol` files.
+
 ## 2026-09-14, ten past eight: the reading of six, and the engine held still
 
 **Hans asked for the reading over six files**, and the finding was that
@@ -587,7 +645,7 @@ the record.
 
 **The release first.** Twenty-two commits had gone in during the day with
 nothing cut, so 0.45.0 went out before anything new opened: the editor
-extension, `bin/proto`, the checker's sandbox wipe. Nothing under `solum/`
+extension, `bin/parasol`, the checker's sandbox wipe. Nothing under `solum/`
 had changed, and the compatibility check said so rather than the notes
 asserting it: 0.44.0's compiler and this one write byte-identical `.sob`
 files for all 35 examples, and each runs the same on both machines both ways
@@ -647,33 +705,33 @@ is left after the second game, and the second game is not started.
 
 ## 2026-09-13, late afternoon: five binaries in one directory
 
-**Hans asked whether Proto's compiler could be built into Solveig's `bin/`
-rather than `proto/bin/`.** Two shapes were put to him: Proto writing there
+**Hans asked whether Parasol's compiler could be built into Solveig's `bin/`
+rather than `parasol/bin/`.** Two shapes were put to him: Parasol writing there
 itself, one line in its Makefile, or the root Makefile copying the binary up
-and leaving Proto untouched. He took the first, "instead" being what he
-asked for. The one trap was `clean`: Proto's ran `rm -rf $(BUILD) $(BIN)`,
+and leaving Parasol untouched. He took the first, "instead" being what he
+asked for. The one trap was `clean`: Parasol's ran `rm -rf $(BUILD) $(BIN)`,
 which with `BIN` pointing at Solveig's `bin/` would have deleted the four
-binaries every time Proto cleaned, including from its own `sanitize` target,
+binaries every time Parasol cleaned, including from its own `sanitize` target,
 which cleans first. It now removes the one file it puts there. The proof
 was `make clean && make && make test` from the root, `ls bin` showing five,
-and `make clean` inside `proto/` leaving four. Proto's boundary sentence
+and `make clean` inside `parasol/` leaving four. Parasol's boundary sentence
 changed by a clause: it reaches Solveig only through `bin/`, reading four
 and writing one.
 
 **Then whether the two Makefiles should merge.** No, and the reason is now
-where it can be found: on [Proto's roadmap](../proto/docs/ROADMAP.md) under
+where it can be found: on [Parasol's roadmap](../parasol/docs/ROADMAP.md) under
 an entry for its version, which had never existed, the *version stays its
 own* hold having lived only in standups since the subtree came in. The
-separate file is the *needs no Solveig* claim kept mechanical, every Proto
-target collides with a root one, and `dist` cuts a tarball under Proto's
+separate file is the *needs no Solveig* claim kept mechanical, every Parasol
+target collides with a root one, and `dist` cuts a tarball under Parasol's
 own number; a merge before the version question is answered would answer
 it by the back door. When one version for the tree is decided, the
 Makefiles merge in the same move.
 
-## 2026-09-13, mid-afternoon: Proto in the editor, and the line a grammar cannot cross
+## 2026-09-13, mid-afternoon: Parasol in the editor, and the line a grammar cannot cross
 
-**Hans asked for the same for `.pro` files**, and the answer turned on one
-sentence in Proto's reference: a dialect declares operators, precedence and
+**Hans asked for the same for `.psol` files**, and the answer turned on one
+sentence in Parasol's reference: a dialect declares operators, precedence and
 meaning, and *it does not declare tokens*. A TextMate grammar colours tokens.
 So the fixed half of a language whose syntax arrives with the file is
 exactly the half a grammar can see, and the declared half, which file made
@@ -684,29 +742,29 @@ an extension can open files and a grammar cannot.
 
 **The grammar found two things the reference had to be read twice for.**
 `|` is not an operator character and cannot become one, the tokens table
-says, and `examples/utf8.pro` declares `@infix | 50 bitOr.` Both are true:
+says, and `examples/utf8.psol` declares `@infix | 50 bitOr.` Both are true:
 the bar is a token of its own that `@infix` may look up, so `{ a | b }` keeps
 one reading in every module, and a `@prefix |` is refused since a block's
 temporaries open with one. The declaration head takes a lone bar; in code a
 bar no block or group header claimed colours as an operator. And
 `while (n < #20)` is lexically `swap(a, b)`: a name before a parenthesis is a
-form used in either shape, and nothing else in Proto puts one there, so the
+form used in either shape, and nothing else in Parasol puts one there, so the
 call colour is right for both, which is more than the first grammar
 could say about `sin(x)`.
 
 **The reader is the one piece of a language server that needed no server.**
-A header is small, declarative, and read whole, and Proto says where a
-`@use` is looked for: beside the file, then `-I`, then `PROTO_PATH`. The
+A header is small, declarative, and read whole, and Parasol says where a
+`@use` is looked for: beside the file, then `-I`, then `PARASOL_PATH`. The
 extension does the first and third; `-I` is the command line's. From the
 header, a bare word offers the forms as snippets made from their
 declarations, a block hole getting its braces, and a hover on `&&` shows
 `@infix && 30 => left:and({ right }).` and the file it came from. The check
-is again the corpus: every `.pro` header parsed under `osascript`, with as
+is again the corpus: every `.psol` header parsed under `osascript`, with as
 many declarations found as the file has directive lines, and every `@use`
-resolving beside its file. The two `.pro` files that reach `lib/` by
+resolving beside its file. The two `.psol` files that reach `lib/` by
 `../../lib/` did, which is the resolution rule doing its one job.
 
-**Looked at, both halves.** Hans opened a `.pro` file and reported it
+**Looked at, both halves.** Hans opened a `.psol` file and reported it
 working, hover included, which is the one part `osascript` could not run:
 `extension.js` is the file VS Code runs, and it ran.
 
@@ -858,14 +916,14 @@ library, or a measured wait.
 
 ---
 
-## 2026-09-13, later: Proto's seventh program, and a number for the large-number library
+## 2026-09-13, later: Parasol's seventh program, and a number for the large-number library
 
-**Hans asked what Proto had outstanding, then for a program to write, then for
+**Hans asked what Parasol had outstanding, then for a program to write, then for
 the bignum**, and asked alongside it whether Solveig wants a maths extension in
 the shape of `extensions/net`, and whether Python's `math` is the measure of
-what *advanced maths* would mean. The program is `proto/programs/bignum`, and
-its records are Proto's: the README carries the predictions and what they met,
-and Proto's journal has the day. Two things are Solveig's to know.
+what *advanced maths* would mean. The program is `parasol/programs/bignum`, and
+its records are Parasol's: the README carries the predictions and what they met,
+and Parasol's journal has the day. Two things are Solveig's to know.
 
 **A large-number library is a library.** 126 lines of generated Solveig,
 correct against `bc`, needing nothing the machine lacks; the overflow trap
@@ -874,12 +932,12 @@ at `-O2` against 0.24 ms for CPython's `int`, which is 170× and also 40 ms.
 The case for a C extension is that ratio and nothing else, and it has no
 customer. Python's `math` sorts, by 3.14's own argument, into C-library calls
 that would be primitives and arithmetic that would be `lib/math.sol`;
-`proto/docs/solveig-notes.md` 5 has the inventory, and nothing in it was
+`parasol/docs/solveig-notes.md` 5 has the inventory, and nothing in it was
 wanted.
 
 **A run-time frame has a line and no column.** Compile errors carry one; a
 frame does not, and a generated line is often a span of source lines, so
-Proto's map, exact to the column, had nothing to look up. `solveig-notes.md`
+Parasol's map, exact to the column, had nothing to look up. `solveig-notes.md`
 4, with the frame that showed it.
 
 The `-O2` figure meant a clean rebuild and a second one to put `-g` back. The
@@ -1054,12 +1112,12 @@ Hans asked for the push and the cut, and 0.44.0 went out by
 examples compared across both compilers and both machines, the page with its
 three fixups checked by fetching it (five paragraphs, no `<br>`, three links
 answering 200), `site.sh` clean. Then the front page was read as a stranger
-would read it, which the procedure asks for last, and the word *Proto* in the
-new status paragraph was a link to `proto/README.md`, which is a 404 on the
+would read it, which the procedure asks for last, and the word *Parasol* in the
+new status paragraph was a link to `parasol/README.md`, which is a 404 on the
 site: the front-matter plugin does not render a file called README, so the
 link that is right on GitHub is wrong on Pages, and `site.sh` did not see it
 because it holds links against pages and a README is not one. The link now
-goes to Proto's own [what-is-proto](../proto/docs/what-is-proto.md), which is
+goes to Parasol's own [what-is-parasol](../parasol/docs/what-is-parasol.md), which is
 served. One line, after the tag, which is what the last step of the procedure
 is for.
 
@@ -1072,9 +1130,9 @@ compiled once and run sixty times from the checker's own sandbox with no
 failure, so whatever it is lives in the harness's run of it and not in the
 block. Recorded here so that the next person to see it knows it was seen.
 
-## 2026-09-12, later: Proto comes in, and the argument against it is kept
+## 2026-09-12, later: Parasol comes in, and the argument against it is kept
 
-**Proto is now `proto/`**, brought in with `git subtree add` so its 86 commits
+**Parasol is now `parasol/`**, brought in with `git subtree add` so its 86 commits
 are in this history, and Hans asked for it against a recommendation to leave it
 where it was. The recommendation is recorded here because it was not wrong, it
 was outweighed, and the next time the question comes up the two halves should
@@ -1082,25 +1140,25 @@ both be on the page.
 
 ### The case for leaving it outside
 
-Proto's own Makefile made it: a front end with privileged access to the
+Parasol's own Makefile made it: a front end with privileged access to the
 compiler it targets proves only that its author can write one, and the claim
-Proto exists to test is that a dialect is something anybody can write on a
+Parasol exists to test is that a dialect is something anybody can write on a
 substrate they do not get to change. Solveig's side said the same in its own
 terms: a small core is a goal in itself, gtk and sdl are sibling repositories,
-and Phoenix is an outside producer with a contract document. Proto is the same
+and Phoenix is an outside producer with a contract document. Parasol is the same
 shape as Phoenix, and a gentler case, since what it emits is source rather than
-a bytecode format that can refuse an old version. The kind of dependence Proto
+a bytecode format that can refuse an old version. The kind of dependence Parasol
 has on Solveig is the kind Nim and Cython have on C: total, one-directional,
-and pinned by a version rather than by a directory. `PROTO_SOLVEIG_MINIMUM`
+and pinned by a version rather than by a directory. `PARASOL_SOLVEIG_MINIMUM`
 was that pin, and `make check` enforced it.
 
 ### The case that won
 
-Proto emits this language and nothing else. Every change here is a change it
+Parasol emits this language and nothing else. Every change here is a change it
 has to follow, and with two repositories the breakage was found one suite run
-late, when somebody remembered to run Proto's suite against the new HEAD. The
-sync that a sibling checkout offers is one-way: Proto's suite ran against
-`../Solveig`, but nothing in Solveig ran Proto. That gap could have been closed
+late, when somebody remembered to run Parasol's suite against the new HEAD. The
+sync that a sibling checkout offers is one-way: Parasol's suite ran against
+`../Solveig`, but nothing in Solveig ran Parasol. That gap could have been closed
 with a `make check-proto` that runs the sibling's suite when the directory is
 present, and that was the recommendation. Hans's view was that one tree makes
 the follow-up one commit and one green run rather than two, and that
@@ -1110,26 +1168,26 @@ maintenance cost, and he is the one paying it.
 
 ### What moved and what did not
 
-The boundary did not move. Proto still reaches Solveig only through the
+The boundary did not move. Parasol still reaches Solveig only through the
 binaries under `bin/`, from the targets that hand them a file, and includes no
 header. Its Makefile's opening paragraph still says why, with a second
-paragraph saying where it now lives. Its records stay as `proto/docs/`, its own
+paragraph saying where it now lives. Its records stay as `parasol/docs/`, its own
 set, including a `POSTMORTEM.md` that this repository refuses for its own
-`docs/` and does not refuse for Proto's: the rule here is about what
-predictions look like when they are scored, and Proto keeps a different ledger.
+`docs/` and does not refuse for Parasol's: the rule here is about what
+predictions look like when they are scored, and Parasol keeps a different ledger.
 The claim count in [programs.md](programs.md) sweeps `docs/` and does not see
-`proto/`, which is why the suite stayed green through the move without the
+`parasol/`, which is why the suite stayed green through the move without the
 numbers moving.
 
 What did move: `SOLVEIG ?= ../Solveig` became `..`; the minimum-version check
 in `make check` went, since the parent is the version by construction, and
-`PROTO_SOLVEIG_MINIMUM` stays in `common.h` as the record of the language
+`PARASOL_SOLVEIG_MINIMUM` stays in `common.h` as the record of the language
 level for anybody building against some other Solveig; the root `make` builds
-`proto/bin/proto`, `make test` runs Proto's suite after its own, `make install`
-puts `proto` beside the four binaries and the dialects under `lib/proto/`, and
+`parasol/bin/parasol`, `make test` runs Parasol's suite after its own, `make install`
+puts `proto` beside the four binaries and the dialects under `lib/parasol/`, and
 `make clean` recurses. `make dist` needed nothing, since it archives HEAD.
-Proto keeps its own version number and changelog until there is a reason to
-fold them in. The Proto repository on GitHub is archived with a pointer here.
+Parasol keeps its own version number and changelog until there is a reason to
+fold them in. The Parasol repository on GitHub is archived with a pointer here.
 
 ---
 

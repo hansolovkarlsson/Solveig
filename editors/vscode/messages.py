@@ -7,7 +7,7 @@
 The list is the reference's Message index, which the build holds to
 builtins.c; the per-type tables give each message its signature and what it
 answers. A library adds the selectors it binds with :=, less any that its
-object's exports list leaves out. Proto's reference gives its header
+object's exports list leaves out. Parasol's reference gives its header
 directives and the five hole kinds. Nothing here is typed in by hand, so the
 completion list cannot drift from the documents without this check saying so.
 """
@@ -119,9 +119,9 @@ def library():
             out.append((recv, name, sig, summary_for(lines, i, name), 'lib/' + path))
     return out
 
-def proto():
+def parasol():
     """The header directives and hole kinds, from the two tables that list them."""
-    text = open(os.path.join(ROOT, 'proto', 'docs', 'REFERENCE.md'), encoding='utf-8').read()
+    text = open(os.path.join(ROOT, 'parasol', 'docs', 'REFERENCE.md'), encoding='utf-8').read()
     heading, directives, kinds = '', [], []
     for line in text.split('\n'):
         if line.startswith('#'):
@@ -170,8 +170,8 @@ def build():
             if key not in seen:
                 seen.add(key); uniq.append(s)
         e['signatures'] = uniq
-    directives, kinds = proto()
-    return {'generated': 'by editors/vscode/messages.py from docs/REFERENCE.md, lib/*.sol and proto/docs/REFERENCE.md; do not edit',
+    directives, kinds = parasol()
+    return {'generated': 'by editors/vscode/messages.py from docs/REFERENCE.md, lib/*.sol and parasol/docs/REFERENCE.md; do not edit',
             'types': TYPES,
             'selectors': [by[k] for k in sorted(by)],
             'directives': directives,

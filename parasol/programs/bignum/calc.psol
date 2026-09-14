@@ -1,0 +1,70 @@
+; calc.psol -- a few large numbers, checked against bc.
+;
+;     parasol bignum.psol -o bignum.sol
+;     parasol calc.psol -o calc.sol && solas calc.sol -o calc.sob
+;     solvm calc.sob
+;
+; The library arrives as generated Solveig source under @include, which is
+; Solveig's directive and passes through Parasol untouched. So this file is
+; compiled by solas together with bignum.sol, and an error in the library is
+; reported against bignum.sol, whose map is beside it. README.md, prediction 5.
+;
+; The operators are lib/arith.psol's, and nothing here declares a `+`: the same
+; `@infix + 60 add.` adds two bignums on one line and two integers on the
+; next, because `add` is a message and the receiver decides what it means.
+; That is prediction 2, and it is why this file and bignum.psol can share a
+; dialect where digest's and ledger's scaffolding could not share theirs.
+
+@use "../../lib/control.psol".
+
+; arith.psol has no power operator, integers having no `pow`. A bignum has
+; one, so this file declares the spelling. Right-associative, as in
+; mathematics, and above `*`.
+@infixr ^ 80 pow.
+
+; A Solveig integer as a bignum, short enough to write inline. A form and not
+; a block, because `n(#2)` on a name that is not a form is `#2:n`.
+@syntax n(i) => big:fromInteger(i).
+
+@include "bignum.sol".
+
+; ------------------------------------------------------------ the functions
+
+factorial := { k | | r, i |
+    r := n(#1).
+    i := #2.
+    while i <= k do (r := r * n(i). i := i + #1).
+    r }.
+
+fibonacci := { k | | a, b, t, i |
+    a := n(#0). b := n(#1).
+    i := #0.
+    while i < k do (t := a + b. a := b. b := t. i := i + #1).
+    a }.
+
+; ---------------------------------------------------------------- the lines
+;
+; Each is one expression in the notation, and each answer was printed by bc
+; before this file existed. `fill` asks a bignum for `asString`, so nothing
+; is converted by hand.
+
+line := { label, value | "{} = {}":fill([label, value]):display }.
+
+line:value("999999999 + 1", n(#999999999) + n(#1)).
+line:value("1000000000 - 1", n(#1000000000) - n(#1)).
+line:value("999999999 * 999999999", n(#999999999) * n(#999999999)).
+line:value("100!", factorial:value(#100)).
+line:value("2^4096", n(#2) ^ #4096).
+line:value("fib(1000)", fibonacci:value(#1000)).
+line:value("2^256 - 3^100", n(#2) ^ #256 - n(#3) ^ #100).
+
+p := n(#2) ^ #4096.
+"2^4096 / 7 = {} remainder {}":fill([p / #7, p % #7]):display.
+
+line:value("3^200 * 7^100", n(#3) ^ #200 * n(#7) ^ #100).
+
+"100! < 2^4096: {}":fill([factorial:value(#100) < n(#2) ^ #4096]):display.
+
+; The largest number computed here, and the one not printed in full: bc says
+; how many digits it has, and the program has to agree without showing them.
+"1000! has {} digits":fill([factorial:value(#1000):asString:size]):display.

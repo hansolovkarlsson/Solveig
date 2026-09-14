@@ -1,0 +1,760 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Parasol",
+  "scopeName": "source.parasol",
+  "patterns": [
+    {
+      "include": "#statement"
+    }
+  ],
+  "repository": {
+    "statement": {
+      "comment": "Everything that can appear in a Parasol module. Operators are tokens everywhere, since a dialect may declare any of them; whether one is declared is the compiler's to know.",
+      "patterns": [
+        {
+          "include": "#temporaries-line"
+        },
+        {
+          "include": "#atoms"
+        },
+        {
+          "include": "#block"
+        },
+        {
+          "include": "#group"
+        },
+        {
+          "include": "#array"
+        },
+        {
+          "include": "#dictionary"
+        }
+      ]
+    },
+    "temporaries-line": {
+      "match": "^\\s*(\\|)\\s*([A-Za-z_][A-Za-z0-9_]*(?:\\s*,\\s*[A-Za-z_][A-Za-z0-9_]*)*)\\s*(\\|)",
+      "captures": {
+        "1": {
+          "name": "punctuation.separator.temporaries.parasol"
+        },
+        "2": {
+          "patterns": [
+            {
+              "name": "variable.other.temporary.parasol",
+              "match": "[A-Za-z_][A-Za-z0-9_]*"
+            }
+          ]
+        },
+        "3": {
+          "name": "punctuation.separator.temporaries.parasol"
+        }
+      }
+    },
+    "atoms": {
+      "patterns": [
+        {
+          "include": "#comment"
+        },
+        {
+          "include": "#string"
+        },
+        {
+          "include": "#directive-use"
+        },
+        {
+          "include": "#directive-include"
+        },
+        {
+          "include": "#directive-expr"
+        },
+        {
+          "include": "#directive-infix-message"
+        },
+        {
+          "include": "#directive-infix-template"
+        },
+        {
+          "include": "#directive-prefix-message"
+        },
+        {
+          "include": "#directive-prefix-template"
+        },
+        {
+          "include": "#directive-syntax"
+        },
+        {
+          "include": "#directive-unknown"
+        },
+        {
+          "include": "#number"
+        },
+        {
+          "include": "#symbol"
+        },
+        {
+          "include": "#definition"
+        },
+        {
+          "include": "#assignment"
+        },
+        {
+          "include": "#send"
+        },
+        {
+          "include": "#language"
+        },
+        {
+          "include": "#call"
+        },
+        {
+          "include": "#identifier"
+        },
+        {
+          "include": "#operators"
+        },
+        {
+          "include": "#separator"
+        }
+      ]
+    },
+    "comment": {
+      "name": "comment.line.semicolon.parasol",
+      "begin": ";",
+      "beginCaptures": {
+        "0": {
+          "name": "punctuation.definition.comment.parasol"
+        }
+      },
+      "end": "$"
+    },
+    "string": {
+      "name": "string.quoted.double.parasol",
+      "begin": "\"",
+      "beginCaptures": {
+        "0": {
+          "name": "punctuation.definition.string.begin.parasol"
+        }
+      },
+      "end": "\"",
+      "endCaptures": {
+        "0": {
+          "name": "punctuation.definition.string.end.parasol"
+        }
+      },
+      "patterns": [
+        {
+          "name": "constant.character.escape.parasol",
+          "match": "\\\\[\"\\\\ntr]"
+        },
+        {
+          "name": "invalid.illegal.escape.parasol",
+          "match": "\\\\."
+        }
+      ]
+    },
+    "directive-use": {
+      "name": "keyword.control.directive.use.parasol",
+      "match": "@use\\b"
+    },
+    "directive-include": {
+      "comment": "Solveig's own, passed through as a statement.",
+      "name": "keyword.control.directive.include.parasol",
+      "match": "@include\\b"
+    },
+    "directive-expr": {
+      "comment": "Refused: a dialect declares its operators instead.",
+      "name": "invalid.illegal.directive.refused.parasol",
+      "match": "@expr\\b"
+    },
+    "directive-infix-message": {
+      "name": "meta.directive.infix.parasol",
+      "match": "(@infixr?)\\s+(\\|\\||[-+*/<>=!&^%~?\\\\]+|\\|)\\s+([0-9]+)\\s+([A-Za-z_][A-Za-z0-9_]*)\\s*(\\.)",
+      "captures": {
+        "1": {
+          "name": "keyword.control.directive.parasol"
+        },
+        "2": {
+          "name": "keyword.operator.declared.parasol"
+        },
+        "3": {
+          "name": "constant.numeric.precedence.parasol"
+        },
+        "4": {
+          "name": "entity.name.function.send.parasol"
+        },
+        "5": {
+          "name": "punctuation.terminator.statement.parasol"
+        }
+      }
+    },
+    "directive-infix-template": {
+      "comment": "The template runs to the statement's own full stop; one inside a group or a block belongs to it.",
+      "name": "meta.directive.infix.parasol",
+      "begin": "(@infixr?)\\s+(\\|\\||[-+*/<>=!&^%~?\\\\]+|\\|)\\s+([0-9]+)\\s+(=>)",
+      "beginCaptures": {
+        "1": {
+          "name": "keyword.control.directive.parasol"
+        },
+        "2": {
+          "name": "keyword.operator.declared.parasol"
+        },
+        "3": {
+          "name": "constant.numeric.precedence.parasol"
+        },
+        "4": {
+          "name": "keyword.operator.template.parasol"
+        }
+      },
+      "end": "\\.",
+      "endCaptures": {
+        "0": {
+          "name": "punctuation.terminator.statement.parasol"
+        }
+      },
+      "patterns": [
+        {
+          "include": "#template"
+        }
+      ]
+    },
+    "directive-prefix-message": {
+      "name": "meta.directive.prefix.parasol",
+      "match": "(@prefix)\\s+(\\|\\||[-+*/<>=!&^%~?\\\\]+)\\s+([A-Za-z_][A-Za-z0-9_]*)\\s*(\\.)",
+      "captures": {
+        "1": {
+          "name": "keyword.control.directive.parasol"
+        },
+        "2": {
+          "name": "keyword.operator.declared.parasol"
+        },
+        "3": {
+          "name": "entity.name.function.send.parasol"
+        },
+        "4": {
+          "name": "punctuation.terminator.statement.parasol"
+        }
+      }
+    },
+    "directive-prefix-template": {
+      "comment": "The template runs to the statement's own full stop; one inside a group or a block belongs to it.",
+      "name": "meta.directive.prefix.parasol",
+      "begin": "(@prefix)\\s+(\\|\\||[-+*/<>=!&^%~?\\\\]+)\\s+(=>)",
+      "beginCaptures": {
+        "1": {
+          "name": "keyword.control.directive.parasol"
+        },
+        "2": {
+          "name": "keyword.operator.declared.parasol"
+        },
+        "3": {
+          "name": "keyword.operator.template.parasol"
+        }
+      },
+      "end": "\\.",
+      "endCaptures": {
+        "0": {
+          "name": "punctuation.terminator.statement.parasol"
+        }
+      },
+      "patterns": [
+        {
+          "include": "#template"
+        }
+      ]
+    },
+    "directive-syntax": {
+      "comment": "@syntax name(params) => template. or @syntax word <hole> word ... => template. The words between the holes are what the dialect's users will type.",
+      "name": "meta.directive.syntax.parasol",
+      "begin": "(@syntax)\\s+([A-Za-z_][A-Za-z0-9_]*)",
+      "beginCaptures": {
+        "1": {
+          "name": "keyword.control.directive.parasol"
+        },
+        "2": {
+          "name": "entity.name.function.syntax.parasol"
+        }
+      },
+      "end": "\\.",
+      "endCaptures": {
+        "0": {
+          "name": "punctuation.terminator.statement.parasol"
+        }
+      },
+      "patterns": [
+        {
+          "include": "#comment"
+        },
+        {
+          "comment": "From => to the statement's full stop, the template is code.",
+          "name": "meta.template.parasol",
+          "begin": "=>",
+          "beginCaptures": {
+            "0": {
+              "name": "keyword.operator.template.parasol"
+            }
+          },
+          "end": "(?=\\.)",
+          "patterns": [
+            {
+              "include": "#statement"
+            }
+          ]
+        },
+        {
+          "name": "meta.hole.parasol",
+          "match": "(<)\\s*([A-Za-z_][A-Za-z0-9_]*)\\s*(?:(:)\\s*(expression|name|literal|block|place))?\\s*(>)",
+          "captures": {
+            "1": {
+              "name": "punctuation.definition.hole.begin.parasol"
+            },
+            "2": {
+              "name": "variable.parameter.hole.parasol"
+            },
+            "3": {
+              "name": "punctuation.separator.kind.parasol"
+            },
+            "4": {
+              "name": "storage.type.kind.parasol"
+            },
+            "5": {
+              "name": "punctuation.definition.hole.end.parasol"
+            }
+          }
+        },
+        {
+          "comment": "A kind that is not one of the five.",
+          "name": "meta.hole.parasol",
+          "match": "(<)\\s*([A-Za-z_][A-Za-z0-9_]*)\\s*(:)\\s*([A-Za-z_][A-Za-z0-9_]*)\\s*(>)",
+          "captures": {
+            "1": {
+              "name": "punctuation.definition.hole.begin.parasol"
+            },
+            "2": {
+              "name": "variable.parameter.hole.parasol"
+            },
+            "3": {
+              "name": "punctuation.separator.kind.parasol"
+            },
+            "4": {
+              "name": "invalid.illegal.kind.parasol"
+            },
+            "5": {
+              "name": "punctuation.definition.hole.end.parasol"
+            }
+          }
+        },
+        {
+          "comment": "The call shape's parameter list.",
+          "begin": "\\(",
+          "beginCaptures": {
+            "0": {
+              "name": "punctuation.section.parameters.begin.parasol"
+            }
+          },
+          "end": "\\)",
+          "endCaptures": {
+            "0": {
+              "name": "punctuation.section.parameters.end.parasol"
+            }
+          },
+          "patterns": [
+            {
+              "name": "variable.parameter.parasol",
+              "match": "[A-Za-z_][A-Za-z0-9_]*"
+            },
+            {
+              "name": "punctuation.separator.comma.parasol",
+              "match": ","
+            }
+          ]
+        },
+        {
+          "name": "keyword.control.syntax-word.parasol",
+          "match": "[A-Za-z_][A-Za-z0-9_]*"
+        }
+      ]
+    },
+    "directive-unknown": {
+      "comment": "@use, @infix, @infixr, @prefix and @syntax are the directives, and @include passes through. A declaration this grammar could not read whole lands here too.",
+      "name": "invalid.illegal.directive.parasol",
+      "match": "@[A-Za-z_][A-Za-z0-9_]*"
+    },
+    "operands": {
+      "comment": "What an operator template calls its operands.",
+      "name": "variable.parameter.operand.parasol",
+      "match": "\\b(?:left|right|operand)\\b"
+    },
+    "number": {
+      "comment": "Before the operators, so that %101 is a binary integer and not the operator %; the lexer makes the same choice when 0 or 1 follows. A float has no sign: - is a declared prefix or nothing.",
+      "patterns": [
+        {
+          "name": "constant.numeric.integer.parasol",
+          "match": "#-?[0-9]+"
+        },
+        {
+          "name": "constant.numeric.hex.parasol",
+          "match": "\\$[0-9A-Fa-f]+"
+        },
+        {
+          "name": "constant.numeric.binary.parasol",
+          "match": "%[01]+"
+        },
+        {
+          "name": "constant.numeric.float.parasol",
+          "match": "(?<![A-Za-z0-9_#$%])[0-9]+(?:\\.[0-9]+)?(?:[eE][+-]?[0-9]+)?"
+        }
+      ]
+    },
+    "symbol": {
+      "name": "constant.other.symbol.parasol",
+      "match": "'[A-Za-z_][A-Za-z0-9_]*"
+    },
+    "definition": {
+      "match": "(:)([A-Za-z_][A-Za-z0-9_]*)\\s*(:=)",
+      "captures": {
+        "1": {
+          "name": "punctuation.separator.send.parasol"
+        },
+        "2": {
+          "name": "entity.name.function.definition.parasol"
+        },
+        "3": {
+          "name": "keyword.operator.assignment.parasol"
+        }
+      }
+    },
+    "assignment": {
+      "comment": ":= is taken before any operator and is always itself.",
+      "name": "keyword.operator.assignment.parasol",
+      "match": ":="
+    },
+    "send": {
+      "match": "(:)([A-Za-z_][A-Za-z0-9_]*)",
+      "captures": {
+        "1": {
+          "name": "punctuation.separator.send.parasol"
+        },
+        "2": {
+          "name": "entity.name.function.send.parasol"
+        }
+      }
+    },
+    "language": {
+      "patterns": [
+        {
+          "name": "variable.language.self.parasol",
+          "match": "\\bself\\b"
+        },
+        {
+          "name": "constant.language.parasol",
+          "match": "\\b(?:nil|true|false)\\b"
+        }
+      ]
+    },
+    "call": {
+      "comment": "A form used, in either shape: swap(a, b), or while (c) with a group in its hole. Nothing else in Parasol puts a name before a parenthesis.",
+      "match": "\\b([A-Za-z_][A-Za-z0-9_]*)(?=\\s*\\()",
+      "captures": {
+        "1": {
+          "name": "entity.name.function.call.parasol"
+        }
+      }
+    },
+    "identifier": {
+      "comment": "Every other name is an object, coloured as the type it is; a word a @use'd dialect made into syntax is one too, because a grammar cannot read the other file.",
+      "name": "entity.name.type.object.parasol",
+      "match": "[A-Za-z_][A-Za-z0-9_]*"
+    },
+    "operators": {
+      "comment": "Operator characters run together as far as they go, and || is one token. A lone bar is an operator only by declaration, and one that no block or group header claimed is taken as one here.",
+      "name": "keyword.operator.parasol",
+      "match": "\\|\\||[-+*/<>=!&^%~?\\\\]+|\\|"
+    },
+    "separator": {
+      "patterns": [
+        {
+          "name": "punctuation.terminator.statement.parasol",
+          "match": "\\."
+        },
+        {
+          "name": "punctuation.separator.comma.parasol",
+          "match": ","
+        }
+      ]
+    },
+    "block": {
+      "comment": "As in Solveig: the header is read with the brace, { a, b | ... }, { | t | ... }, { a | | t | ... }.",
+      "name": "meta.block.parasol",
+      "begin": "(\\{)\\s*(?:([A-Za-z_][A-Za-z0-9_]*(?:\\s*,\\s*[A-Za-z_][A-Za-z0-9_]*)*)\\s*(\\|))?(?:\\s*(\\|)\\s*([A-Za-z_][A-Za-z0-9_]*(?:\\s*,\\s*[A-Za-z_][A-Za-z0-9_]*)*)\\s*(\\|))?",
+      "beginCaptures": {
+        "1": {
+          "name": "punctuation.section.block.begin.parasol"
+        },
+        "2": {
+          "patterns": [
+            {
+              "name": "variable.parameter.parasol",
+              "match": "[A-Za-z_][A-Za-z0-9_]*"
+            }
+          ]
+        },
+        "3": {
+          "name": "punctuation.separator.parameters.parasol"
+        },
+        "4": {
+          "name": "punctuation.separator.temporaries.parasol"
+        },
+        "5": {
+          "patterns": [
+            {
+              "name": "variable.other.temporary.parasol",
+              "match": "[A-Za-z_][A-Za-z0-9_]*"
+            }
+          ]
+        },
+        "6": {
+          "name": "punctuation.separator.temporaries.parasol"
+        }
+      },
+      "end": "\\}",
+      "endCaptures": {
+        "0": {
+          "name": "punctuation.section.block.end.parasol"
+        }
+      },
+      "patterns": [
+        {
+          "include": "#statement"
+        }
+      ]
+    },
+    "group": {
+      "name": "meta.group.parasol",
+      "begin": "(\\()\\s*(?:(\\|)\\s*([A-Za-z_][A-Za-z0-9_]*(?:\\s*,\\s*[A-Za-z_][A-Za-z0-9_]*)*)\\s*(\\|))?",
+      "beginCaptures": {
+        "1": {
+          "name": "punctuation.section.group.begin.parasol"
+        },
+        "2": {
+          "name": "punctuation.separator.temporaries.parasol"
+        },
+        "3": {
+          "patterns": [
+            {
+              "name": "variable.other.temporary.parasol",
+              "match": "[A-Za-z_][A-Za-z0-9_]*"
+            }
+          ]
+        },
+        "4": {
+          "name": "punctuation.separator.temporaries.parasol"
+        }
+      },
+      "end": "\\)",
+      "endCaptures": {
+        "0": {
+          "name": "punctuation.section.group.end.parasol"
+        }
+      },
+      "patterns": [
+        {
+          "include": "#statement"
+        }
+      ]
+    },
+    "array": {
+      "name": "meta.array.parasol",
+      "begin": "\\[",
+      "beginCaptures": {
+        "0": {
+          "name": "punctuation.section.array.begin.parasol"
+        }
+      },
+      "end": "\\]",
+      "endCaptures": {
+        "0": {
+          "name": "punctuation.section.array.end.parasol"
+        }
+      },
+      "patterns": [
+        {
+          "include": "#statement"
+        }
+      ]
+    },
+    "dictionary": {
+      "name": "meta.dictionary.parasol",
+      "begin": "#\\[",
+      "beginCaptures": {
+        "0": {
+          "name": "punctuation.section.dictionary.begin.parasol"
+        }
+      },
+      "end": "\\]",
+      "endCaptures": {
+        "0": {
+          "name": "punctuation.section.dictionary.end.parasol"
+        }
+      },
+      "patterns": [
+        {
+          "name": "keyword.operator.pair.parasol",
+          "match": "="
+        },
+        {
+          "include": "#statement"
+        }
+      ]
+    },
+    "template": {
+      "comment": "A template's code, with the operand names coloured wherever a bracket puts them.",
+      "patterns": [
+        {
+          "include": "#operands"
+        },
+        {
+          "include": "#temporaries-line"
+        },
+        {
+          "include": "#atoms"
+        },
+        {
+          "include": "#template-block"
+        },
+        {
+          "include": "#template-group"
+        },
+        {
+          "include": "#template-array"
+        },
+        {
+          "include": "#template-dictionary"
+        }
+      ]
+    },
+    "template-block": {
+      "comment": "As in Solveig: the header is read with the brace, { a, b | ... }, { | t | ... }, { a | | t | ... }.",
+      "name": "meta.block.parasol",
+      "begin": "(\\{)\\s*(?:([A-Za-z_][A-Za-z0-9_]*(?:\\s*,\\s*[A-Za-z_][A-Za-z0-9_]*)*)\\s*(\\|))?(?:\\s*(\\|)\\s*([A-Za-z_][A-Za-z0-9_]*(?:\\s*,\\s*[A-Za-z_][A-Za-z0-9_]*)*)\\s*(\\|))?",
+      "beginCaptures": {
+        "1": {
+          "name": "punctuation.section.block.begin.parasol"
+        },
+        "2": {
+          "patterns": [
+            {
+              "name": "variable.parameter.parasol",
+              "match": "[A-Za-z_][A-Za-z0-9_]*"
+            }
+          ]
+        },
+        "3": {
+          "name": "punctuation.separator.parameters.parasol"
+        },
+        "4": {
+          "name": "punctuation.separator.temporaries.parasol"
+        },
+        "5": {
+          "patterns": [
+            {
+              "name": "variable.other.temporary.parasol",
+              "match": "[A-Za-z_][A-Za-z0-9_]*"
+            }
+          ]
+        },
+        "6": {
+          "name": "punctuation.separator.temporaries.parasol"
+        }
+      },
+      "end": "\\}",
+      "endCaptures": {
+        "0": {
+          "name": "punctuation.section.block.end.parasol"
+        }
+      },
+      "patterns": [
+        {
+          "include": "#template"
+        }
+      ]
+    },
+    "template-group": {
+      "name": "meta.group.parasol",
+      "begin": "(\\()\\s*(?:(\\|)\\s*([A-Za-z_][A-Za-z0-9_]*(?:\\s*,\\s*[A-Za-z_][A-Za-z0-9_]*)*)\\s*(\\|))?",
+      "beginCaptures": {
+        "1": {
+          "name": "punctuation.section.group.begin.parasol"
+        },
+        "2": {
+          "name": "punctuation.separator.temporaries.parasol"
+        },
+        "3": {
+          "patterns": [
+            {
+              "name": "variable.other.temporary.parasol",
+              "match": "[A-Za-z_][A-Za-z0-9_]*"
+            }
+          ]
+        },
+        "4": {
+          "name": "punctuation.separator.temporaries.parasol"
+        }
+      },
+      "end": "\\)",
+      "endCaptures": {
+        "0": {
+          "name": "punctuation.section.group.end.parasol"
+        }
+      },
+      "patterns": [
+        {
+          "include": "#template"
+        }
+      ]
+    },
+    "template-array": {
+      "name": "meta.array.parasol",
+      "begin": "\\[",
+      "beginCaptures": {
+        "0": {
+          "name": "punctuation.section.array.begin.parasol"
+        }
+      },
+      "end": "\\]",
+      "endCaptures": {
+        "0": {
+          "name": "punctuation.section.array.end.parasol"
+        }
+      },
+      "patterns": [
+        {
+          "include": "#template"
+        }
+      ]
+    },
+    "template-dictionary": {
+      "name": "meta.dictionary.parasol",
+      "begin": "#\\[",
+      "beginCaptures": {
+        "0": {
+          "name": "punctuation.section.dictionary.begin.parasol"
+        }
+      },
+      "end": "\\]",
+      "endCaptures": {
+        "0": {
+          "name": "punctuation.section.dictionary.end.parasol"
+        }
+      },
+      "patterns": [
+        {
+          "name": "keyword.operator.pair.parasol",
+          "match": "="
+        },
+        {
+          "include": "#template"
+        }
+      ]
+    }
+  }
+}

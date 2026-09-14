@@ -1,0 +1,33 @@
+Parasol
+=======
+
+A compiler whose syntax arrives with the file it is compiling.
+
+A module declares its own grammar in its header, and that grammar holds for that file and no other.
+
+What a header may say
+---------------------
+    - an operator, its precedence, and the message it becomes
+    - an operator standing for a template, which a message cannot be
+    - a form that reads like a call
+    - a form that reads like a statement
+
+What it will not do
+-------------------
+
+The line between a fixed token stream and a declared grammar is where this design sits.
+
+    Forth and TeX moved the line and became languages no tool can read without executing them.
+
+---
+
+Where the evidence is
+---------------------
+    - ember, an assembler: notation pays per line
+    - grammar, a parser: a rule cannot be a form
+        - so the recursive part stops being notation
+        - and becomes data
+    - digest, a hash: a dialect can carry a rule
+    - ledger, in decimal: and sometimes it carries nothing
+
+Four programs, and the fifth is this one.

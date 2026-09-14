@@ -47,10 +47,10 @@
 
   // The situation at the cursor, or null when there is nothing to offer: not
   // after a colon, inside a string or a comment, or at the := of a binding.
-  // In a Proto module two more places have something: after an @, the
+  // In a Parasol module two more places have something: after an @, the
   // directives; after the colon inside a hole, <c: , the five kinds.
   function context(before, data, language) {
-    if (language === 'proto') {
+    if (language === 'parasol') {
       var d = /@([A-Za-z_][A-Za-z0-9_]*)?$/.exec(before);
       if (d && !inTextOrComment(before.slice(0, d.index))) return { kind: 'directive', partial: d[1] || '' };
       var h = new RegExp('<' + ID + '\\s*:\\s*(' + ID + ')?$').exec(before);
@@ -117,7 +117,7 @@
       return {
         label: f.form,
         detail: helpers.formHead(f),
-        documentation: '```proto\n' + f.text + '\n```\n*' + f.from + '*',
+        documentation: '```parasol\n' + f.text + '\n```\n*' + f.from + '*',
         insertText: helpers.formSnippet(f),
         snippet: true,
         sortText: '0' + f.form

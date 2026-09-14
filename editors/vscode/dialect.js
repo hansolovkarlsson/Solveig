@@ -1,4 +1,4 @@
-// dialect.js -- what a Proto module's header declares, and what it @uses.
+// dialect.js -- what a Parasol module's header declares, and what it @uses.
 //
 // A dialect gives a module its operators and forms, and a grammar cannot read
 // the file they came from; this can. Nothing from vscode is used here, so
@@ -80,7 +80,7 @@
   }
 
   // Everything a module's header declares, its @uses followed. `read(from,
-  // path)` answers { path, text } for a @use, resolved the way Proto resolves
+  // path)` answers { path, text } for a @use, resolved the way Parasol resolves
   // it, or null; a file is read once, so a diamond costs nothing and a cycle
   // is not followed.
   function parse(text, from, read) {

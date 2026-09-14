@@ -8,12 +8,12 @@ const dialect = require('./dialect.js');
 const data = require('./selectors.json');
 
 // Where a @use is looked for: beside the file using it, then each entry of
-// PROTO_PATH. The -I directories are the command line's and have no
+// PARASOL_PATH. The -I directories are the command line's and have no
 // counterpart here.
 function readUse(from, use) {
   const dirs = [];
   if (from && path.isAbsolute(from)) dirs.push(path.dirname(from));
-  (process.env.PROTO_PATH || '').split(':').filter(Boolean).forEach(d => dirs.push(d));
+  (process.env.PARASOL_PATH || '').split(':').filter(Boolean).forEach(d => dirs.push(d));
   for (const dir of dirs) {
     const candidate = path.resolve(dir, use);
     try {
@@ -24,7 +24,7 @@ function readUse(from, use) {
 }
 
 function dialectOf(document) {
-  if (document.languageId !== 'proto') return null;
+  if (document.languageId !== 'parasol') return null;
   const from = document.uri.scheme === 'file' ? document.uri.fsPath : '';
   return dialect.parse(document.getText(), from, readUse);
 }
@@ -32,7 +32,7 @@ function dialectOf(document) {
 const OPERATOR = /\|\||[-+*\/<>=!&^%~?\\]+|\|/g;
 
 function activate(context) {
-  context.subscriptions.push(vscode.languages.registerCompletionItemProvider(['solveig', 'proto'], {
+  context.subscriptions.push(vscode.languages.registerCompletionItemProvider(['solveig', 'parasol'], {
     provideCompletionItems(document, position) {
       const before = document.lineAt(position.line).text.slice(0, position.character);
       const ctx = completion.context(before, data, document.languageId);
@@ -55,7 +55,7 @@ function activate(context) {
 
   // Hover on an operator or a syntax word: the declaration that gave it its
   // meaning, and the file that said so.
-  context.subscriptions.push(vscode.languages.registerHoverProvider('proto', {
+  context.subscriptions.push(vscode.languages.registerHoverProvider('parasol', {
     provideHover(document, position) {
       const line = document.lineAt(position.line).text;
       let range = document.getWordRangeAtPosition(position, /[A-Za-z_][A-Za-z0-9_]*/);
@@ -73,7 +73,7 @@ function activate(context) {
       const found = dialect.lookup(dialectOf(document), document.getText(range));
       if (!found.length) return undefined;
       const md = new vscode.MarkdownString();
-      found.forEach(d => md.appendCodeblock(d.text, 'proto').appendMarkdown('*' + d.from + '*\n\n'));
+      found.forEach(d => md.appendCodeblock(d.text, 'parasol').appendMarkdown('*' + d.from + '*\n\n'));
       return new vscode.Hover(md, range);
     }
   }));

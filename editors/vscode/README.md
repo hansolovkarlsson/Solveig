@@ -1,7 +1,7 @@
 # Solveig for VS Code
 
 Syntax colouring, bracket matching and comment toggling for Solveig's `.sol`
-files and Proto's `.pro` files, and completion of the selector after a colon: every message the reference
+files and Parasol's `.psol` files, and completion of the selector after a colon: every message the reference
 documents and every selector the shipped libraries export, each with what it
 answers. Type `#3:` and `add` is at the top of the list; type `a:` and the
 whole list is offered, because what `a` is cannot be known without running
@@ -77,10 +77,10 @@ follow, or, for temporaries, at the start of the next line, which is where
 lines, or a temporaries list wrapped across three, is left plain rather than
 coloured wrong.
 
-## What the Proto grammar knows
+## What the Parasol grammar knows
 
-`syntaxes/proto.tmLanguage.json` is Proto's token table from
-[its reference](../../proto/docs/REFERENCE.md#tokens), which no dialect can
+`syntaxes/parasol.tmLanguage.json` is Parasol's token table from
+[its reference](../../parasol/docs/REFERENCE.md#tokens), which no dialect can
 change, and that is the whole reason a grammar can colour a language whose
 syntax arrives with the file. Solveig's tokens with three differences:
 
@@ -89,7 +89,7 @@ syntax arrives with the file. Solveig's tokens with three differences:
   compiler's to know, so an undeclared one looks like a declared one. A lone
   `|` is an operator only by declaration, and one that no block or group
   header claimed is coloured as one.
-- **`-3` is an operator and a literal**, since a float has no sign in Proto;
+- **`-3` is an operator and a literal**, since a float has no sign in Parasol;
   `#-3` keeps its sign, as in Solveig.
 - **The header directives have parts.** `@use`, `@infix`, `@infixr`, `@prefix`
   and `@syntax` are `keyword.control.directive`; a declared operator is
@@ -100,12 +100,12 @@ syntax arrives with the file. Solveig's tokens with three differences:
   `entity.name.function.syntax`, the words between holes are
   `keyword.control.syntax-word`, a hole's name `variable.parameter.hole` and
   its kind `storage.type.kind`; a kind that is not one of the five is
-  `invalid.illegal.kind`. `@expr` is refused by Proto and coloured as
+  `invalid.illegal.kind`. `@expr` is refused by Parasol and coloured as
   `invalid`; `@include` passes through and is a directive; any other
   `@word`, or a declaration the grammar could not read whole, is `invalid`.
 
 What it gets wrong, and cannot help: in `while (n < #20) {`, `while` is a
-word that `lib/clike.pro` made into syntax through `@use`, and a grammar
+word that `lib/clike.psol` made into syntax through `@use`, and a grammar
 cannot read another file. It is coloured as a form used, since a name before
 a parenthesis is that in either shape, `swap(a, b)` or `while (c)`; a
 syntax word with no parenthesis after it, `then`, `do`, `else`, is coloured as
@@ -115,11 +115,11 @@ coloured as syntax. What the grammar cannot read, the next section can.
 ## What the dialect gives
 
 `dialect.js` reads the header of the open module and of everything it
-`@use`s, resolved the way Proto resolves it: beside the file using it, then
-each entry of `PROTO_PATH`. The command line's `-I` has no counterpart here.
+`@use`s, resolved the way Parasol resolves it: beside the file using it, then
+each entry of `PARASOL_PATH`. The command line's `-I` has no counterpart here.
 A file is read once, so a diamond costs nothing and a cycle is not followed;
 a `@use` that cannot be found is skipped, and the header ends at the first
-statement, as Proto's does. From that, in a `.pro` file:
+statement, as Parasol's does. From that, in a `.psol` file:
 
 - **A bare word offers the dialect's forms**, each as a snippet built from
   its declaration: `while <c> <b: block>` inserts `while c { }` with the
@@ -132,9 +132,9 @@ statement, as Proto's does. From that, in a `.pro` file:
   against what. An operator nothing declared shows nothing, which is what
   the compiler would then refuse.
 
-`test.py` parses every `.pro` file's header with it, checks that it found as
+`test.py` parses every `.psol` file's header with it, checks that it found as
 many declarations as the file has directive lines and that every `@use`
-resolves beside the file, and runs its cases against `lib/clike.pro` through
+resolves beside the file, and runs its cases against `lib/clike.psol` through
 the example that uses it.
 
 ## What completion knows
@@ -151,10 +151,10 @@ from none:
   less any name its object's `exports` leaves out, with the one line the
   comment above it says.
 
-In a Proto module two more places offer: after `@`, the eight directive
-forms from [the header table](../../proto/docs/REFERENCE.md#the-header), each
+In a Parasol module two more places offer: after `@`, the eight directive
+forms from [the header table](../../parasol/docs/REFERENCE.md#the-header), each
 inserting as a snippet with a tab stop per part; and after the colon inside
-a hole, `<t: `, the five kinds. Both lists come from Proto's reference by the
+a hole, `<t: `, the five kinds. Both lists come from Parasol's reference by the
 same generator.
 
 The provider offers after a colon and nowhere else, not inside a string or a
@@ -177,13 +177,13 @@ reference or a library.
 `test.py` runs three things and is not in `make test`, which stays C11 and
 `make`; run it by hand after changing anything here:
 
-- both grammars over every `.sol` and `.pro` file in the repository with a
+- both grammars over every `.sol` and `.psol` file in the repository with a
   small TextMate engine of its own, and over fixtures of lines tokenised by
   hand;
 - `messages.py --check`, that `selectors.json` is current;
 - `completion.js` and `dialect.js` under `osascript`, the JavaScript engine
   every Mac has, against cases written from the two references, and the
-  dialect reader over every `.pro` header. No `node` is needed, here or to
+  dialect reader over every `.psol` header. No `node` is needed, here or to
   install.
 
 ## What a language server could add
@@ -191,7 +191,7 @@ reference or a library.
 Not built, and not on the roadmap. Listed so that the boundary is recorded:
 go-to-definition and completion for selectors bound with `:=` in the open
 files, hover on such a definition, and diagnostics by running `solas` or
-`proto` on save and mapping their errors to lines. What it could not add is
+`parasol` on save and mapping their errors to lines. What it could not add is
 completion by receiver beyond the literal in front of the colon, because
 there is no receiver type to read. The dialect reader above is the one piece
 of a server's work that needed no server: a header is small, declarative and

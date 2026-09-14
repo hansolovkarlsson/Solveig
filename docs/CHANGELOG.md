@@ -11,23 +11,23 @@ What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
 [editors/vscode](../editors/vscode/README.md) is a VS Code extension, built
 in one day and installed from the folder: a TextMate grammar for `.sol`
-written from [GRAMMAR.md](GRAMMAR.md) and one for `.pro` from Proto's token
+written from [GRAMMAR.md](GRAMMAR.md) and one for `.psol` from Parasol's token
 table, a language configuration, and completion of the selector after a
 colon from `selectors.json`, which `messages.py` writes from the reference's
 Message index and every exported `lib/` definition, 186 selectors and 262
-signatures with none typed in. After `@` it offers Proto's eight directive
+signatures with none typed in. After `@` it offers Parasol's eight directive
 forms and after a hole's colon the five kinds. `dialect.js` reads the header
-of an open `.pro` file and everything it `@use`s, offers the dialect's forms
+of an open `.psol` file and everything it `@use`s, offers the dialect's forms
 as snippets, and shows on hover which file gave an operator its meaning,
 which is the half of a language with declared syntax that a grammar cannot
 see. There is no language server, for the reason the README gives. `test.py`
-runs the grammars over every tracked `.sol` and `.pro` file and the
+runs the grammars over every tracked `.sol` and `.psol` file and the
 completion under `osascript`, since there is no `node` here; it stays out of
 `make test`, which stays C11 and `make`.
 
-**`make` writes Proto's compiler to `bin/proto`**, beside `solas`, `solvm`,
-`solis` and `solid`; `proto/bin/` is gone, and Proto's `clean` removes only
-the file it put there. Proto's own [changelog](../proto/docs/CHANGELOG.md)
+**`make` writes Parasol's compiler to `bin/parasol`**, beside `solas`, `solvm`,
+`solis` and `solid`; `parasol/bin/` is gone, and Parasol's `clean` removes only
+the file it put there. Parasol's own [changelog](../parasol/docs/CHANGELOG.md)
 has that and the bignum, its seventh program. The document checker empties
 its sandbox before every document rather than once a pass, which turns the
 one-in-eight failure of 2026-09-12 into one that would fail every run, and
@@ -42,39 +42,39 @@ touched, so the bundles were not reloaded.
 
 ### `bin/` holds five binaries — `f4dd0d3`, 2026-09-13
 
-**`make` now writes Proto's compiler to `bin/proto`**, beside `solas`,
-`solvm`, `solis` and `solid`, instead of to `proto/bin/`. One directory on
+**`make` now writes Parasol's compiler to `bin/parasol`**, beside `solas`,
+`solvm`, `solis` and `solid`, instead of to `parasol/bin/`. One directory on
 `PATH` reaches the whole toolkit; `make install` already put the five
-together. Proto's `clean` removes only its own file there. The change is
-[Proto's](../proto/docs/CHANGELOG.md), and this entry is here because the
+together. Parasol's `clean` removes only its own file there. The change is
+[Parasol's](../parasol/docs/CHANGELOG.md), and this entry is here because the
 directory is this repository's.
 
-### VS Code reads a Proto dialect — `6b490af`, 2026-09-13
+### VS Code reads a Parasol dialect — `6b490af`, 2026-09-13
 
-**`dialect.js` reads the header of an open `.pro` file and of everything it
-`@use`s**, resolved beside the file and then along `PROTO_PATH`, read once,
-ending at the first statement as Proto's own reader does. A bare word then
+**`dialect.js` reads the header of an open `.psol` file and of everything it
+`@use`s**, resolved beside the file and then along `PARASOL_PATH`, read once,
+ending at the first statement as Parasol's own reader does. A bare word then
 offers the dialect's forms as snippets built from their declarations,
 `while <c> <b: block>` inserting the hole as a tab stop and the block with
 its braces, and hovering an operator or a syntax word shows the declaration
 that gave it its meaning and the file that said so. `test.py` reads every
-`.pro` header with it under `osascript` and finds as many declarations as
-the files have directive lines; the cases run against `lib/clike.pro`
+`.psol` header with it under `osascript` and finds as many declarations as
+the files have directive lines; the cases run against `lib/clike.psol`
 through the example that uses it.
 
-### VS Code colours a `.pro` file — `cb04b91`, 2026-09-13
+### VS Code colours a `.psol` file — `cb04b91`, 2026-09-13
 
 **A second grammar in [editors/vscode](../editors/vscode/README.md), from
-Proto's token table**, which no dialect can change and which is therefore
+Parasol's token table**, which no dialect can change and which is therefore
 the part of a language with declared syntax that a grammar can see:
 Solveig's tokens with operators everywhere, a signless float, `@expr`
 refused, and the five directives with their parts, down to a hole's kind
 and whether it is one of the five. A syntax word a `@use`d file declared
 colours as a form used when a parenthesis follows and as an object when
 none does, because a grammar cannot read the other file. The selector list
-applies unchanged, Proto's messages being Solveig's; after `@` the eight
+applies unchanged, Parasol's messages being Solveig's; after `@` the eight
 directive forms are offered and after a hole's colon the five kinds, both
-lists drawn from Proto's reference by the generator. All 24 `.pro` files
+lists drawn from Parasol's reference by the generator. All 24 `.psol` files
 balance and none is refused.
 
 ### VS Code completes the selector after a colon — `25b2dba`, 2026-09-13
@@ -122,13 +122,13 @@ every run instead of one in eight. 1,066 claims, unchanged.
 
 ## 0.44.0 — 2026-09-12
 
-**Proto is in the tree, and the roadmap is empty again.**
+**Parasol is in the tree, and the roadmap is empty again.**
 
-[Proto](../proto/), the compiler whose syntax arrives with the file it
-compiles, is now `proto/`, brought in by `git subtree add` with its 86 commits.
+[Parasol](../parasol/), the compiler whose syntax arrives with the file it
+compiles, is now `parasol/`, brought in by `git subtree add` with its 86 commits.
 It keeps its own Makefile, records and version; the root `make` builds it,
-`make test` runs its suite after Solveig's, and `make install` puts `proto` and
-its dialects beside the four binaries. The boundary did not move: Proto reaches
+`make test` runs its suite after Solveig's, and `make install` puts `parasol` and
+its dialects beside the four binaries. The boundary did not move: Parasol reaches
 Solveig through `bin/` and nothing else, and the case for leaving it outside is
 in the journal next to the decision that overruled it.
 
@@ -189,16 +189,16 @@ change. The fork is gone and the stamp is `plusSeconds(system:utcOffset(t))`
 per file; 24 agree cases and every `apply.sh` pair are unchanged, which is the
 point: they never held the file that showed it.
 
-### Proto arrives as `proto/` — `dbca185`, 2026-09-12
+### Parasol arrives as `parasol/` — `dbca185`, 2026-09-12
 
-**Proto, the compiler whose syntax arrives with the file it compiles, is now a
+**Parasol, the compiler whose syntax arrives with the file it compiles, is now a
 subproject of this repository**, brought in by `git subtree add` with its 86
-commits. It keeps its own Makefile, records under `proto/docs/`, version and
-`CLAUDE.md`. The root `make` builds `proto/bin/proto`, `make test` runs Proto's
-suite after Solveig's, `make install` installs `proto` and its dialects, and
-`make clean` recurses. Proto's Makefile now defaults `SOLVEIG` to `..` and no
+commits. It keeps its own Makefile, records under `parasol/docs/`, version and
+`CLAUDE.md`. The root `make` builds `parasol/bin/parasol`, `make test` runs Parasol's
+suite after Solveig's, `make install` installs `parasol` and its dialects, and
+`make clean` recurses. Parasol's Makefile now defaults `SOLVEIG` to `..` and no
 longer checks a minimum version, the parent being the version by construction.
-The boundary is unchanged: Proto reaches Solveig only through `bin/`. The case
+The boundary is unchanged: Parasol reaches Solveig only through `bin/`. The case
 on both sides is in [journal.md](journal.md); the recommendation was to leave
 it outside, and Hans decided otherwise.
 
