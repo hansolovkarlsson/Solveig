@@ -11,6 +11,93 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-09-14, later: the engine, read off two games and then built
+
+**Hans asked for the reading the morning's entry had left open: the two
+files side by side, and what the engine is.** The reading came first and
+the building after, in that order, and the answer was smaller than the
+word *engine* suggests. Both games had the same frame, the same drained
+queue with `'quit` and Escape ending it, held keys as booleans set on
+`'keyDown` and cleared on `'keyUp`, a byte-identical 3×5 font with a
+two-digit score routine in Pong that was a special case of Breakout's
+any-digit one, a ball in floats with an integer shadow crossed once a frame
+by `truncated`, a wall bounce with flush placement and a beep, a rectangle
+overlap test written four times between them, the paddle-angle formula
+with the axes swapped, sounds as named pairs, and a state held in a symbol.
+What only one had was the game: the machine paddle and the two scores in
+Pong, the bricks and the rules in Breakout. Nothing in either column was
+the engine.
+
+**So the engine is five things and a tone, none of them C, about a
+hundred lines.** The frame, which opens the window and drains and shows
+while the loop stays the program's own. Held keys, which the standup had
+listed as something the *binding* lacked; two games composed it in the
+language in six lines each, and by the README's own rule that puts it in
+the engine and keeps it out of `sdl.c`. The font, which is the *text* on
+the same list, and two scores say a cell font is text enough. A rect, so
+the overlap test is written once. A ball, whose float-to-integer line had
+been a rule in a comment in each header and is a slot now: `settle` copies
+the position into `box`, and everything that compares, collides or draws
+uses the box. And a tone, which is a pitch and a length. What Pong and
+Breakout share that Asteroids would want none of, the wall bounce and the
+paddle angle, went into a second file beside the first rather than the
+bottom of it, since a third game is where the boundary would be tested and
+it should be able to take one file without the other. What the engine is
+not is also worth writing down: no sprite, no sample, no scene, no
+`run(block)`. Neither game asked, and the README's argument against a loop
+that calls back stands at this boundary as it does at the binding's.
+
+**Hans said build it, in `solveig-sdl/examples`**, and the shape was one he
+had already chosen when the games were written whole: `@include`, one flat
+namespace, prototypes hung off six names, the way `lib/re.sol` is brought
+in. `engine.sol` is 195 lines with its header and 104 without; `kit.sol`
+is 43 and 21. Both games were then rewritten over them, and the measure
+was the one the reading had named: Pong went from 290 lines to 184 and
+Breakout from 339 to 232, a hundred each, and the four files together are
+654 against the two games' 629, so the whole is a few lines longer and
+every line of it is written once. What is left in each file is the game.
+The brick became `rect:new` with a row, painting through
+`self:via(rect):paint`, which is the first use of `via` in either
+repository's examples and the reason it exists.
+
+**The language said two things on the way**, and both are in the engine's
+comments now. A first assignment inside a block does not bind a global,
+which the machine says in so many words (*declare it with `| width |` or
+assign it at the top level*), so `engine:open` could not bring `screen`,
+`width`, `height`, `running` and `frames` into being and they are bound at
+the file's top level for `open` to fill in. And `running := false` written
+in a game reads to the compiler as a *claim* on a name the engine bound,
+which draws the rebinding warning the reference describes, so `engine:stop`
+is the way to end the loop from inside and the drain uses it too. Neither
+was a defect; both were the namespace rules doing what the reference says
+they do, met for the first time by a file that binds state for another to
+use.
+
+**Checked as the games were**, by self-playing copies under SDL's dummy
+drivers: Pong to 11-5 with the speed reaching its ceiling of 12, Breakout
+to three balls lost at 187 and the second wall built and cleared. One false
+start in the checking, which was mine and not the code's: the copies now
+went through `engine:show`, which waits sixteen milliseconds a frame, so
+thirty thousand frames was eight minutes with `display` buffered until
+exit, and it read as a hang in C until it did not. Hans played both and
+said they work. The commit is `solveig-sdl` `46673e5`.
+
+**What this settles, and what it does not.** The midday assessment of the
+13th had said the engine's shape was the extension's already, a frame
+handed to the program, and that it lacked textures, text, sound and
+held-key state, *every one a primitive in `sdl.c`*. Two games later, one of
+the four was C (the beep) and two were the language (held keys, text as a
+cell font), and textures were never asked for. The prediction was right
+about the shape and wrong about where three of the four would live, which
+is the kind of thing `ideas.md` is for; it is noted here because that page
+holds predictions made there, and this one was made in the journal. The
+engine is on no roadmap and closes nothing; the next thing that could move
+it is a third game, and Asteroids is the one that would ask the questions
+these two did not: `sdl:line`, the trigonometry, and whether `ball` and
+`rect` survive a shape that is neither.
+
+---
+
 ## 2026-09-14: the second game, and it added nothing
 
 **Hans asked what the next game could be, and chose Breakout.** The
