@@ -11,7 +11,7 @@ that a document was still true. That is what this is for.
 
 ---
 
-## 2026-09-15, later: the reading of six, and the engine held still
+## 2026-09-14, ten past eight: the reading of six, and the engine held still
 
 **Hans asked for the reading over six files**, and the finding was that
 the list did not move. Six for six: the frame, `keys`, `font:number`,
@@ -38,8 +38,8 @@ game.
 **The recommendation was the smallest yet**, and made only because the
 rule says so: `rng` and `up` bound in the engine beside `tau`, `mote` on
 the shared generator, six lines out of four games; nothing else. Hans
-said very nice, and later: the games continue another day, and this
-one closes here. Not built; a scoping is not a queued build, and the
+said very nice, and then: the games continue another time, and the
+morning closes here. Not built; a scoping is not a queued build, and the
 engine stands as it was after five. Six games, and the sixth added
 nothing to the list and confirmed three things on it: the first reading
 where the engine held still, which is what an engine read off games
@@ -47,7 +47,7 @@ rather than designed ahead of them should eventually do.
 
 ---
 
-## 2026-09-15: Lunar Lander, the first game that is not a fight, and the first that wanted words
+## 2026-09-14, eight: Lunar Lander, the first game that is not a fight, and the first that wanted words
 
 **Hans said keep pushing the engine, make a sixth game**, and took the
 recommendation, Lunar Lander, chosen against what was one game's after
@@ -101,7 +101,7 @@ and all, and still the language's.
 
 ---
 
-## 2026-09-14, end: the reading of five, and the line layer moved in
+## 2026-09-14, twenty to eight: the reading of five, and the line layer moved in
 
 **Hans asked for the reading over five files.** Five for five: the frame,
 `keys`, `font:number`, `tone`, unchanged since the first reading. Three or
@@ -146,13 +146,13 @@ that wraps; a craft; lines and debris; a tone and its channel. Beside it
 the kit, still Pong's and Breakout's. What it is not: gravity, hyperspace,
 a texture, a sample, a scene, a loop that calls back, or anything from
 `sdl.c`, which after five games has taken one message from a game. The
-14th, by the count: five games, an engine read off them five times, and
-the binding the same size at the end of the day as at the start, but for
+morning, by the count: five games, an engine read off them five times, and
+the binding the same size after five games as before the first, but for
 one call that stops a Mac from raising a popup.
 
 ---
 
-## 2026-09-14, later still: Spacewar!, the second game drawn with lines
+## 2026-09-14, half past seven: Spacewar!, the second game drawn with lines
 
 **Hans asked for a fifth game and took the recommendation, Spacewar!**,
 chosen against what the reading of four had left waiting: `thing`, the line
@@ -200,7 +200,7 @@ thing's or Spacewar's is one game's question still.
 
 ---
 
-## 2026-09-14, last: the reading of four, and three things moved in
+## 2026-09-14, seven: the reading of four, and three things moved in
 
 **Hans asked for the reading over four files.** The counts have settled
 into tiers. Four for four: the frame, held keys, `font:number` and `tone`,
@@ -253,7 +253,7 @@ game that wraps, draws lines, erodes or ripples.
 
 ---
 
-## 2026-09-14, late: Space Invaders, and the trigger not met by a number
+## 2026-09-14, five to seven: Space Invaders, and the trigger not met by a number
 
 **Hans asked for one more, Space Invaders, which was the game the first
 reading had said would push on the binding**: an invader is a picture, and
@@ -317,7 +317,7 @@ so the one-channel sound policy has its second customer; and that
 
 ---
 
-## 2026-09-14, night: the reading of three, and a mover
+## 2026-09-14, twenty to seven: the reading of three, and a mover
 
 **Hans asked for the reading again, over three files now.** All three use
 four of the engine's six names unchanged, `engine`, `keys`, `font` and
@@ -347,7 +347,7 @@ copies ran over the new engine as before, Breakout to the identical score.
 not reach the build: Breakout's brick delegates to `rect`, not to `mover`,
 so it keeps its own `alive` rather than taking a rock's.
 
-**And one fix to the binding earlier in the evening, its own commit.**
+**And one fix to the binding a few minutes earlier, its own commit.**
 Holding a key on macOS raised the accent popup instead of repeating, which
 is a paddle stopping dead. SDL turns text-input mode on with the video
 subsystem on a desktop, and nothing in the binding answers a text-input
@@ -357,7 +357,7 @@ twelve stand. `solveig-sdl` `d09eefd`.
 
 ---
 
-## 2026-09-14, evening: Asteroids, the first game to test the engine's boundary
+## 2026-09-14, half past six: Asteroids, the first game to test the engine's boundary
 
 **Hans said "now Asteroids", and it was the game the morning's entry had
 named as the one to ask the questions the first two had not.** Three
@@ -422,7 +422,7 @@ for.
 
 ---
 
-## 2026-09-14, later: the engine, read off two games and then built
+## 2026-09-14, six: the engine, read off two games and then built
 
 **Hans asked for the reading the morning's entry had left open: the two
 files side by side, and what the engine is.** The reading came first and
@@ -509,7 +509,7 @@ these two did not: `sdl:line`, the trigonometry, and whether `ball` and
 
 ---
 
-## 2026-09-14: the second game, and it added nothing
+## 2026-09-14, half past five: the second game, and it added nothing
 
 **Hans asked what the next game could be, and chose Breakout.** The
 evening before had ended with *one game first, Pong or Breakout, and the
