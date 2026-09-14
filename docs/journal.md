@@ -11,6 +11,57 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-09-14, ten past three: Centipede, the second grid, and a rule of mine the pilot found
+
+**Hans said Centipede next**, the last of the three candidates, and two
+scoping answers: the shooter by the keys or the mouse, whichever moved
+last, which is Breakout's rule and gives it a second game, rather than
+the trackball alone, which would have been the reading of eight's other
+trigger; and the whole 1981 roster, the spider, the flea, the scorpion and
+its poison, the restore, the extra shooter.
+
+**The prediction went into the header first**, and it held entire. The
+field is a grid of counts as Tetris's well was a grid of colours, the
+second game drawn from a table rather than from things, and the centipede
+reads the table as its walls. A segment is a cell and a direction and not
+a mover, since it moves a cell at a time on a tick, and a chain moves by
+each segment taking the cell of the one ahead, tail first so that the
+head moves last. The spider, the flea and the scorpion are `mover`s bare
+as Missile's were. `sprite` carries a third game, ten pictures at two
+pixels a cell. `keys` is back, and `font:word` draws nothing, the first
+game since Lander with no word. The binding was asked for nothing, a
+ninth time, and this time neither was the engine.
+
+**Checked as the others were**, and the pilot, a shooter that only slides
+along the bottom row and never stops firing, found one rule wrong, and it
+was mine and not the cabinet's. The cabinet sends extra heads in from the
+sides while the centipede is in the shooter's rows, and I had them come
+every four to eight seconds; the pilot killed a head about every four
+hundred frames, and at that rate the wave sat at five heads for sixty
+thousand frames and never ended. At seven to twelve seconds a wave ends,
+and the immortal run cleared wave two at frame 10,893 and wave three at
+15,385 with the extra shooter at 12,000. Mortal, the pilot lasts a minute
+a life and dies to all three visitors, and the restore paid five a
+mushroom, 1,568 to 1,593 for five, before the game over and the restart.
+What a bottom-row pilot never reaches was checked directly: a scorpion
+crossing a row leaves 14 and 13 where 4 and 3 stood, a head meeting the
+poisoned one dives to the bottom row and bounces, a flea leaves about a
+third of its column, four then seven, ten, twelve and nine, and a chain of
+five shot in the third is two chains of two, both headed, with a mushroom
+where the shot landed. It is the slowest of the nine at about 0.9 ms a
+frame, 1,120 cells walked every frame for the drawing, a sixteenth of the
+budget. Hans played it and said it works. `solveig-sdl` `63c1a1b`, 458
+lines, `make centipede` plays it and `make test` counts fourteen examples.
+
+**What is left for the reading of nine**, which is not done here: that
+the grid has its second game, Tetris's well and this field, and what the
+two have in common is a table of rows with `at` and `atPut` under two
+names each; that Breakout's pointer rule has its second game; that the
+five-colour palette by wave is written the same way in Tetris, Missile
+and Centipede; and that `keys` came back.
+
+---
+
 ## 2026-09-14, half past two: the reading of eight, and the engine held still a second time
 
 **Hans asked for the reading over eight files**, and the count was made by
