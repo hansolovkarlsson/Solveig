@@ -11,6 +11,56 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-09-14, half past three: the reading of ten, with two seams and the camera held
+
+**Hans asked for the reading over ten files**, and the script counted
+thirty-six names and lines. Ten for ten: the frame, `font:number`, `tone`,
+the `final score` line, a `frames:mod` blink. Nine: `keys`. Eight: `rng`.
+Seven: an `'attract` state and a `newGame`. Six: `hum`. Five: `font:word`,
+`rect`, and a reward at every so many points, which Asteroids, Invaders,
+Missile, Centipede and Scramble each keep as a `nextLife` and three lines,
+though the reward is a cannon, a city, a shooter or a ship by the game.
+Four: `sprite:make`, and a palette by wave. Three: `mover` bare, `craft`,
+`mote`, the pointer on `'mouseMove`, and `tint` over `palettes`. Two:
+`ball`, `thing`, `draw`, the kit, an empty table of rows by columns, and
+a box at a mover's position. One: the camera, the tune, the count screen.
+
+**Two seams by the rule, and the recommendation is that both move.**
+`tint` first: Missile, Centipede and Scramble carry the same four lines
+byte for byte, a table of colour triples indexed by a set and a slot and
+`sdl:colour` from it, and Tetris has the two-colour variant of the same.
+It goes in as an object beside `font`, `tint:sets` and `tint:set` for the
+game to fill, and `tint:value(which)` as it is called today, so that the
+fifty-odd call sites stand; `value` on an object is a method like any
+other. The tables stay in the games, since a game's colours are its own
+the way its tones are. Then the grid: Tetris's well and Centipede's field
+are the same thing, rows of integer counts with `at` and `atPut` under
+different names, and each writes its own maker of rows by columns of
+zeros. A `grid:make(cols, rows)` with `at(c, r)` and `atPut(c, r, v)`
+beside `rect` is what the two wrote. Scramble's ground is a list of pairs
+made one at a time as the camera comes to it, and is not that.
+
+**Two things held, with the reasons written down.** The camera is eight
+subtractions in one game, and the first thing a game has wanted that the
+engine cannot say. The shape it would take is worth a sentence because it
+costs nothing: a `cam` the engine binds at zero and subtracts in every
+paint would leave nine games as they are and let Scramble drop its eight
+lines. Held anyway, because that is designing ahead of a second customer,
+and the trigger is a second game that scrolls. The reward at every so
+many points has five customers, more than anything moved so far, but
+moving it means the engine holding `score` and `lives`, and every one of
+the ten claims those names at its own top level, so the engine binding
+them would draw the rebinding warning in ten files. Held on that, and
+named as the largest thing held. The box at a mover's position, in
+Centipede and Scramble, is a line each and the same idea as `ball`'s
+shadow; one line is not a seam, as the reading of six said.
+
+**Not built.** A scoping is not a queued build. Ten games; after this
+reading the engine would be twelve names and two more, and the camera
+would still be Scramble's.
+
+---
+
 ## 2026-09-14, twenty to four: Scramble, the first world wider than the screen
 
 **Hans asked what a tenth game could test that nine had not**, and the
