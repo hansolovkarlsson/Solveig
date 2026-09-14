@@ -11,6 +11,41 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-09-14, twenty to six: half the jumps swallowed, and the engine's wait measured
+
+**Hans played Mario longer and said the jumping was very slow and that
+several times it would not jump at all.** The second was a defect the
+scenario could not have seen, because the scenario pressed the button on
+frames of its own choosing. Standing still, gravity moved him 0.9 pixels
+into the ground every frame and the landing check read his bottom pixel,
+which on alternate frames was still in the air row, so `onGround` was
+true, false, true, false, and a press on a false frame did nothing: half
+of all jumps, and the goomba in the earlier trace had been breathing the
+same 0.9 pixels for the same reason. The check probes the pixel under the
+feet now, which is what standing on a surface means, and a scenario that
+presses on eight consecutive frames is honoured eight times.
+
+**The slowness I first laid at the engine's door, and the measurement
+took it back.** `engine:show` presented and then waited a whole sixteen
+milliseconds regardless of what the frame had cost, which on a display
+`present` waits for would be thirty frames a second, and I said so in the
+commit before measuring. Measured on the window here, Mario ran at
+fifty-four with the old wait and fifty-nine with the wait made the
+remainder of the sixteenth by `sdl:ticks`. The change stays, since it is
+right and protects a display that does wait, and the engine's comment
+carries the measured numbers rather than my guess; but what Hans felt was
+the swallowed presses, not the rate. Twelve games run through a start on
+the paced engine. `solveig-sdl` `835c4c3`.
+
+**Two lessons in one report.** A check that presses the button when it
+likes cannot find a defect that depends on which frame the button is
+pressed, and only a person pressing at random did. And a cause named
+before it is measured is a guess with a commit message; the measurement
+was one line of `sdl:ticks` and thirty seconds, and should have come
+first.
+
+---
+
 ## 2026-09-14, ten to five: Super Mario Bros. 1-1, the first console game, and the first jump
 
 **Hans asked what the next game was, and the console games were now the
