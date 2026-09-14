@@ -11,6 +11,33 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-09-14, twenty to one: 0.46.0 cut, with the flag as its headline
+
+**Four loose entries and two of them breaking**, `switch` and the `@expr`
+default, and the extension repositories' READMEs saying *after 0.45.0* for
+a flag that had no version yet, so Hans cut it. The procedure in
+[releasing.md](releasing.md) was followed as written. `git diff
+--name-status v0.45.0..HEAD` over twenty-five commits held nothing that did
+not belong. Nothing under `solum/` or `extensions/` had changed, and the
+compatibility check said so rather than the notes asserting it: 0.45.0's
+compiler and this one write byte-identical `.sob` files for all 35
+examples, `operators.sol` compiled with `--expr` on this side and bare on
+the other, which is the release's own claim checked at the byte; and each
+runs the same on both machines both ways round, `system.sol` differing in
+its timings. One false start in the checking, a different one from
+yesterday's: the crosswise loop unpacked its pairs with `set --`, which zsh
+does not word-split, so the first pass compared thirty-five files against
+names that did not exist and called every one different. Explicit loops
+found thirty-four agreeing and the one that always does not.
+
+The page rendered with four paragraphs and no `<br>`, the one link
+answered 200 at the tag, the tarball is attached, and `site.sh` found
+nothing to look at across 31 pages. What the front-page read found was the
+file releasing.md names as the one nothing checks: `_config.yml`'s
+description still said *no operators outside `@expr`*, the sentence the
+README had dropped that morning. Fixed after the tag, so the release is
+what it says it is.
+
 ## 2026-09-14, half past eleven: `@expr` is behind a flag, which was neither of the two answers scoped
 
 **Hans said he likes Parasol, that its infix collides with `@expr`, and asked
