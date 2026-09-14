@@ -359,17 +359,16 @@ static void test_a_half_typed_line_survives_browsing(void)
     printf("  a half-typed line survives browsing away and back\n");
 }
 
-/* ctrl-h lists the last few lines -- and only on an empty line, because ctrl-h
-   *is* backspace: it sends the same byte 8 that a backspace key sends on many
-   terminals. Taking the key over outright would break deleting for those
-   keyboards. On an empty line there is nothing to delete, so it is free exactly
-   there. */
-static void test_ctrl_h_lists_recent_lines(void)
+/* Left-arrow lists the last few lines -- and only on an empty line, where the
+   cursor has nowhere to go and the key is free. It was ctrl-h until
+   2026-09-14, on the same reasoning, and moved because backspace on an empty
+   line is what one delete too many does by accident. */
+static void test_left_lists_recent_lines(void)
 {
     Session s;
-    if (!session_start_with_home(&s, "build/tests/home-ctrl-h")) return;
-    mkdir("build/tests/home-ctrl-h", 0700);
-    remove("build/tests/home-ctrl-h/.solis_history");
+    if (!session_start_with_home(&s, "build/tests/home-left")) return;
+    mkdir("build/tests/home-left", 0700);
+    remove("build/tests/home-left/.solis_history");
 
     assert(ready(&s));
     session_send(&s, "#7:mul(#6):print.\r");
@@ -379,18 +378,35 @@ static void test_ctrl_h_lists_recent_lines(void)
     assert(session_expect(&s, "#5"));
 
     assert(ready(&s));
-    session_send(&s, "\x08");
+    session_send(&s, LEFT);
     /* Numbered, oldest of the shown first. */
     assert(session_expect(&s, "1  #7:mul(#6):print."));
     assert(session_expect(&s, "2  #2:add(#3):print."));
 
     session_end(&s);
-    remove("build/tests/home-ctrl-h/.solis_history");
-    printf("  ctrl-h on an empty line lists the recent ones\n");
+    remove("build/tests/home-left/.solis_history");
+    printf("  left on an empty line lists the recent ones\n");
 }
 
-/* And with something typed it is still backspace, which is the whole reason the
-   listing is bound where it is. */
+/* Backspace on an empty line does nothing at all now, which is the point: the
+   accidental press that used to bring the listing up. */
+static void test_backspace_on_empty_line_is_quiet(void)
+{
+    Session s;
+    if (!session_start(&s)) return;
+
+    assert(ready(&s));
+    session_send(&s, "\x7f");
+    session_send(&s, "\x08");
+    /* The prompt is still the prompt, and a line typed after runs. */
+    session_send(&s, "#7:mul(#6):print.\r");
+    assert(session_expect(&s, "#42"));
+
+    session_end(&s);
+    printf("  backspace on an empty line does nothing\n");
+}
+
+/* And with something typed ctrl-h is still backspace, which it always was. */
 static void test_ctrl_h_still_deletes(void)
 {
     Session s;
@@ -578,7 +594,8 @@ int main(void)
     test_up_recalls_the_last_line();
     test_the_cursor_goes_where_it_is_told();
     test_a_half_typed_line_survives_browsing();
-    test_ctrl_h_lists_recent_lines();
+    test_left_lists_recent_lines();
+    test_backspace_on_empty_line_is_quiet();
     test_ctrl_h_still_deletes();
     test_read_key_does_not_wait_for_return();
     test_the_history_file_is_under_home();

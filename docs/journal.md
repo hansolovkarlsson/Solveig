@@ -84,6 +84,17 @@ no `switch` in this language and now says the library has one for conditions.
 The `format`→`fill` rename is the pattern: a *Breaking* entry in the
 changelog, and the history left as it was written.
 
+### And the history listing moved off backspace
+
+Hans finds it distracting: backspace on an empty line in `solis` brought up
+the last ten lines, and backspace on an empty line is what one delete too
+many does by accident. He asked for ← instead. The reasoning that put it on
+backspace, that an empty line has nothing to delete so the key is free there,
+holds for ← just as well, an empty line having nowhere for the cursor to go,
+and an arrow press is deliberate where an extra delete is not. Backspace on
+an empty line does nothing now, and the pty test in `tests/test_line.c` says
+so beside the one that lists.
+
 ## 2026-09-14, ten past eight: the reading of six, and the engine held still
 
 **Hans asked for the reading over six files**, and the finding was that

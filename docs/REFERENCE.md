@@ -142,12 +142,12 @@ bindings, so they are the ones bash has taught you.
 | key | does |
 | --- | --- |
 | **↑ ↓** | back and forward through the lines already entered |
-| **← →** | one character within the line |
+| **← →** | one character within the line; **←** on an **empty** line lists the last 10 entered |
 | **home**, **ctrl-a** | to the start of the line |
 | **end**, **ctrl-e** | to the end of it |
 | **backspace** | delete the character before the cursor |
 | **delete** | delete the character under it |
-| **ctrl-h** | on an **empty** line, list the last 10 entered; otherwise backspace |
+| **ctrl-h** | backspace, which is the byte it sends on many keyboards |
 | **ctrl-u** | discard the whole line and start it again |
 | **ctrl-l** | clear the screen, keeping the line being typed |
 | **ctrl-d** | **end the session** on an empty line; delete forwards otherwise |
@@ -155,12 +155,13 @@ bindings, so they are the ones bash has taught you.
 | **ctrl-z** | suspend |
 | **return** | run it, if what has been typed could compile — otherwise a `..` prompt and keep going |
 
-**`ctrl-h` is backspace**, and on many keyboards it is the byte the backspace
-key sends. It lists history only on an empty line, where there is nothing to
-delete and the key is otherwise doing nothing:
+**← lists history only on an empty line**, where the cursor has nowhere to go
+and the key is otherwise doing nothing. It lived on backspace until 2026-09-14,
+and moved because backspace on an empty line is what one delete too many does
+by accident, and a listing that appears unasked is a distraction:
 
 ```
-> [ctrl-h]
+> [←]
   1  #7:mul(#6):print.
   2  "hello":display.
 >

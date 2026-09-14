@@ -201,12 +201,12 @@ static void refresh(const char *prompt, const Line *line)
 
 /* The last few lines, printed above the prompt.
  *
- * On ctrl-h, and only when nothing has been typed. ctrl-h *is* backspace -- it
- * sends the same byte 8 that a backspace key sends on many terminals -- so
- * taking the key over would break deleting for anybody whose keyboard sends BS
- * rather than DEL. On an empty line there is nothing to delete, so the key is
- * free exactly there and nowhere else, which is the whole of why this is bound
- * the way it is.
+ * On left-arrow, and only when nothing has been typed. On an empty line the
+ * cursor has nowhere to go, so the key is free exactly there and nowhere else.
+ * It lived on backspace for the same reason until 2026-09-14, and moved
+ * because backspace on an empty line is what a finger does by accident --
+ * one delete too many -- and a listing that appears unasked is a distraction.
+ * An arrow on an empty line is a deliberate press.
  */
 static void show_history(const SolisHistory *history, const char *prompt,
                          const Line *line)
@@ -302,10 +302,7 @@ bool sol_line_read(SolisInput *input, SolisHistory *history, const char *prompt)
         }
 
         if (c == 127 || c == 8) {              /* backspace, or ctrl-h */
-            /* Nothing to delete means the key is spare, and that is where the
-               history listing lives. See show_history. */
-            if (line.length == 0) show_history(history, prompt, &line);
-            else                  { line_delete_before(&line); refresh(prompt, &line); }
+            if (line.length > 0) { line_delete_before(&line); refresh(prompt, &line); }
             continue;
         }
 
@@ -357,8 +354,13 @@ bool sol_line_read(SolisInput *input, SolisHistory *history, const char *prompt)
                 continue;
             }
             if (two == 'D') {                  /* left */
-                if (line.cursor > 0) line.cursor--;
-                refresh(prompt, &line);
+                /* Nowhere to go means the key is spare, and that is where the
+                   history listing lives. See show_history. */
+                if (line.length == 0) show_history(history, prompt, &line);
+                else {
+                    if (line.cursor > 0) line.cursor--;
+                    refresh(prompt, &line);
+                }
                 continue;
             }
             if (two == 'H') { line.cursor = 0; refresh(prompt, &line); continue; }

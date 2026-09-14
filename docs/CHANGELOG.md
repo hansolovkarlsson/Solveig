@@ -5,6 +5,17 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### The history listing moved from backspace to ← — `pending`, 2026-09-14
+
+**In `solis`, ← on an empty line lists the last ten lines entered; backspace
+on an empty line now does nothing.** The listing had lived on backspace since
+it existed, on the reasoning that an empty line has nothing to delete so the
+key is free there. It is also what one delete too many does by accident, and
+a listing that appears unasked is a distraction. Hans asked for the arrow. On
+an empty line ← has nowhere to go, so the same reasoning holds and the press
+is deliberate. `tests/test_line.c` drives both through a pty, and ctrl-h with
+something typed is still backspace.
+
 ### `ifElseIf` is now `switch` — `e7d34f0`, 2026-09-14
 
 **Breaking: `[...]:ifElseIf` in `lib/control.sol` is now `[...]:switch`.**
