@@ -5,7 +5,7 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-### The history listing moved from backspace to ← — `pending`, 2026-09-14
+### The history listing moved from backspace to ← — `010aa8c`, 2026-09-14
 
 **In `solis`, ← on an empty line lists the last ten lines entered; backspace
 on an empty line now does nothing.** The listing had lived on backspace since
