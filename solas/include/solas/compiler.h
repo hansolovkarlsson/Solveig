@@ -54,6 +54,29 @@ void sol_search_path_free(SolSearchPath *search);
 bool sol_compile_file(const char *source, const char *path,
                       const SolSearchPath *search, SolChunk *chunk);
 
+/* What a front end may turn on that the language does not have by default.
+ *
+ * `expr` is the `@expr(...)` infix region. It is notation -- every operator
+ * lowers to the send it reads as, and the bytes are the chain's -- but it is a
+ * second grammar with a ladder fixed in the compiler, and since 2026-09-14 the
+ * general form of that lives in Parasol, where a module declares its own. So
+ * the region is off unless asked for: `solas --expr`, `solis --expr`, or this
+ * struct from a host. Off, `@expr` is refused as a directive the language does
+ * not have, and the stray-operator messages say what would turn it on.
+ *
+ * A program that was written to the region keeps working with the flag, which
+ * is why it is a flag and not a removal. */
+typedef struct {
+    bool expr;
+} SolCompileOptions;
+
+/* `sol_compile_file` with `options`. NULL is every option off, which is what
+   the three entry points above pass. The options hold for every file the
+   compilation reaches through `@include`. */
+bool sol_compile_options(const char *source, const char *path,
+                         const SolSearchPath *search,
+                         const SolCompileOptions *options, SolChunk *chunk);
+
 /* Reads a whole file into a NUL-terminated heap buffer, or answers NULL.
    Says nothing on failure: the caller knows how it wants to report one. */
 char *sol_read_file(const char *path);

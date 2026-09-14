@@ -34,6 +34,8 @@ static void usage(FILE *out)
         "               name with .sob in place of .sol\n"
         "  -I <dir>     where an @include falls back to when the file is not\n"
         "               beside the one including it; repeatable, first wins\n"
+        "  --expr, -e   turn on the @expr(...) infix region, which is off by\n"
+        "               default; a file written to it needs this\n"
         "  --dump       disassemble the chunk as well as writing it\n"
         "  --version    show the version and the .sob format, and stop\n"
         "  --help, -h   show this and stop\n"
@@ -60,6 +62,7 @@ static char *default_output_path(const char *source_path)
 int main(int argc, char *argv[])
 {
     bool dump = false;
+    SolCompileOptions options = { false };
     const char *path = NULL;
     const char *output = NULL;
 
@@ -77,6 +80,8 @@ int main(int argc, char *argv[])
             return 0;
         } else if (strcmp(argv[i], "--dump") == 0) {
             dump = true;
+        } else if (strcmp(argv[i], "--expr") == 0 || strcmp(argv[i], "-e") == 0) {
+            options.expr = true;
         } else if (strcmp(argv[i], "-o") == 0) {
             if (++i >= argc) { usage(stderr); sol_search_path_free(&search); return 64; }
             output = argv[i];
@@ -108,7 +113,7 @@ int main(int argc, char *argv[])
     sol_chunk_init(&chunk);
 
     int status = 0;
-    if (sol_compile_file(source, path, &search, &chunk)) {
+    if (sol_compile_options(source, path, &search, &options, &chunk)) {
         if (dump) sol_chunk_disassemble(&chunk, path);
 
         char *owned = NULL;

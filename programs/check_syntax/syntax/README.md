@@ -7,8 +7,10 @@
 grammar held it against `GRAMMAR.md`: two documents written by hand from one
 understanding, which by this repository's own rule is not a comparison.
 
-Every file here must be accepted by **both** `solas` and `check_syntax` with
-`solum.bnf`. `tests/test_cli.c` requires it, so a construct added without the
+Every file here must be accepted by **both** `solas --expr` and `check_syntax`
+with `solum.bnf`. The flag is there for the two region files: `solum.bnf` is the
+grammar of the larger front end, and a bare `solas` refuses a region at the
+directive. `tests/test_cli.c` requires it, so a construct added without the
 grammar following fails the build.
 
 **Valid programs only.** The two are allowed to disagree in the other

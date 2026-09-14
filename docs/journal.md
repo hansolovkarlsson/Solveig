@@ -11,6 +11,69 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-09-14, half past eleven: `@expr` is behind a flag, which was neither of the two answers scoped
+
+**Hans said he likes Parasol, that its infix collides with `@expr`, and asked
+whether the region should leave solas so that syntax lives in one tool.** It
+was scoped first, as [an entry in ideas.md](ideas.md#taking-expr-out-of-solas-now-that-parasol-has-the-general-form),
+and the scoping recommended the removal: Parasol already refuses `@expr` on
+the ground that supporting both would be supporting two; three files use the
+region and none is a program; and the same three formulas as a `.psol`
+header and as regions compile to identical instructions, checked rather than
+argued, with only line numbers differing. What would go was the REPL's infix
+and the lexer's one context-sensitivity, `-` being a sign outside a region
+and an operator inside.
+
+### The third answer
+
+Hans took neither the removal nor the status quo: **put it under an option**.
+Bare `solas`, `solis` and `solid` have no `@expr`; with `--expr`, or `-e`,
+they have it as before. The reason is the one the scoping had listed as the
+cost of removal without weighing it as an argument: the SDL extension's
+`engine.sol` is written to the region, and so may anything else outside this
+tree, and a flag keeps every one of those compiling while the default
+language draws the line. It is a smaller change than a removal, it breaks
+nothing that adds the flag, and it is the toolkit's answer rather than
+solas's alone: the language has no operators, solas carries a fixed ladder
+of them for the programs that asked, and Parasol is where operators are
+declared.
+
+### What it is
+
+`SolCompileOptions { bool expr }` and `sol_compile_options(...)` in the
+compiler's header; the three older entry points pass NULL, which is every
+option off. The `Compiler` carries the pointer and an included file inherits
+it. The gate is one function, `region_allowed`, called at the two places a
+region may open, the expression form and the block form a loop inlines, and
+the refusal is at the directive: *the '@expr' region is off; --expr turns it
+on*. The stray-operator message changed with it, since a file written to the
+region compiled bare meets that message before anything else: with the flag
+it still points into the region, without it it names the flag. The operators
+stay scanned either way, so the lexer is unchanged and `-3` is what it was.
+
+### What followed it
+
+More than the compiler, as the scoping said it would be. The conformance
+corpus follows the default language, since that is what a second front end
+is held to: the three region-internal refusals and the lowering case are out,
+covered already in `test_expr.c`, and `refused/expr/` holds two cases now, an
+infix operator, and the region itself off by default. 87 cases from 90.
+`examples/operators.sol` is the one shipped file that needs the flag, its
+first line says so, and the Makefile and `test_compile.c` both give it that
+line rather than turning the flag on for everything, so that nothing else can
+come to depend on it unnoticed. `dictionaries.sol` lost its one region and
+gained the send. `expect.sol` compiles every claim with `--expr`, because the
+documents show the region where they explain it, and the flag takes nothing
+away that a claim could notice. `solum.bnf` keeps `region`, stated now as the
+grammar of `solas --expr`, and the construct sweep compiles with the flag. A
+CLI test drives the three tools bare and flagged, and `test_expr.c` opens
+with the test that the default is off. The reference, guide, cheatsheet,
+grammar, PRODUCING.md, design.md, README and front page each say it once,
+where they introduce the region.
+
+The suite is green at 1070 claims. What is outside the tree, the SDL and GTK
+extensions' build lines, adds `--expr` when they next compile.
+
 ## 2026-09-14, ten to ten: a region held, a hole that is not a selector, and Proto is Parasol
 
 **Hans read `engine.sol` in the SDL extension and proposed a syntax**: a

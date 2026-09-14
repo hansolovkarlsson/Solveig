@@ -234,6 +234,14 @@ the page it was copied from: a send chain runs left to right and precedence does
 not, so `a^2 + 3*(sin(a/2) + sqrt(b))` written as sends puts its outermost
 operation in the middle of the line.
 
+**And the region is a front-end option.** Since 2026-09-14 it is off unless
+`solas --expr` asks for it, so this page is the grammar of `solas --expr`,
+which is the larger one: a bare `solas` refuses `@expr` at the directive and
+admits everything else here. A second front end need not have the region at
+all, and the [conformance corpus](../conformance/README.md) says so with a
+case. The general form of the region, where a module declares its own
+operators, is [Parasol](../parasol/README.md).
+
 **What did not change is the semantics.** Every operator lowers to the send it
 reads as — `+` to `add`, `^` to `pow` — and the region emits the bytes the chain
 would have emitted, which a test compares rather than takes on trust. That is
@@ -241,7 +249,7 @@ the rule an array literal already lives under: `[a, b]` is `array:of(a, b)`, and
 two spellings of the same thing mean the same thing. `a:add(b)` is a send like
 every other, and so is `@expr( a + b )`.
 
-**Two things are refused by the compiler rather than by the grammar**, so a file
+**Three kinds of thing are refused by the compiler rather than by the grammar**, so a file
 may match this page and still not compile:
 
 | | |
@@ -249,3 +257,4 @@ may match this page and still not compile:
 | `self` outside a block | there is no receiver at the top level of a script |
 | an escape that is not one of the five | `"\q"` scans as a string and is then refused |
 | an operator, or `f(x)`, outside `@expr` | the ladder and `call` above are written once and reached everywhere, because a region is lexical; the compiler is what knows where one begins |
+| `@expr` itself, without `--expr` | the region is an option of the front end, and the grammar has no way to say which options are on |

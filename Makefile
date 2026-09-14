@@ -260,6 +260,11 @@ EXAMPLE_SOBS = $(EXAMPLE_SRCS:.sol=.sob)
 examples/%.sob: examples/%.sol $(BIN)/solas
 	@$(BIN)/solas $< -o $@
 
+# The one example written to the `@expr` region, which is off unless asked for.
+# Its first line says so, and this rule is that line kept true.
+examples/operators.sob: examples/operators.sol $(BIN)/solas
+	@$(BIN)/solas --expr $< -o $@
+
 # The benchmark programs under comparisons/ are compiled by `make test` and not
 # run by it. Compiled, because a program that stops compiling is exactly the rot
 # that happens to code nothing builds -- and these are cited by

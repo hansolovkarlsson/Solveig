@@ -68,7 +68,7 @@ point:show:print.               ; #3
 | `{ x \| body }` | a block; `{ x, y \| \| t \| body }` takes two and has a temp |
 | `; to end of line` | a comment |
 | `@include "file.sol".` | splices another file in, once, before compiling |
-| `@expr( a^2 + b/2 )` | infix operators — sugar for the sends they read as |
+| `@expr( a^2 + b/2 )` | infix operators — sugar for the sends they read as; off unless `solas --expr` |
 | `@expr( sqrt(x) )` | inside a region, `f(x)` is `x:f` — one argument, any name |
 | `@expr( a < b & ~c )` | `= <> < > <= >=`, then `~`, then `&` and `\|` |
 | `@expr{ a < b }` | the same region over a block — a loop's condition or body |
@@ -511,6 +511,7 @@ v:asJson:display.               ; {"port":8080}
 ```sh
 solas prog.sol              # compile to prog.sob
 solas prog.sol -o out.sob   # somewhere else
+solas --expr prog.sol       # with the @expr region on; solis and solid take it too
 solvm prog.sob              # run it
 solvm prog.sob a b          # with arguments, seen as system:arguments
 solvm --trace prog.sob      # write the call tree

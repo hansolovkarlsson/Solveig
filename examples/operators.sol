@@ -1,6 +1,8 @@
 ; `@expr(...)` writes an expression the way it is written on paper, and lowers
-; it to the sends it reads as. Nothing else in the language has operators.
-; Run with:  ./bin/solas examples/operators.sol && ./bin/solvm examples/operators.sob
+; it to the sends it reads as. Nothing else in the language has operators, and
+; the region itself is off unless the compiler is asked for it: this is the one
+; example that needs a flag.
+; Run with:  ./bin/solas --expr examples/operators.sol && ./bin/solvm examples/operators.sob
 
 ; The problem it is for. A send chain reads strictly left to right, and
 ; arithmetic precedence does not -- so the outermost operation of a nested

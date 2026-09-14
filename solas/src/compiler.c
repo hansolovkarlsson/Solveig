@@ -79,7 +79,13 @@ typedef struct {
        the literal's own and not a stray operator. Saved and restored around the
        key rather than set once, so `#[#["a" = #1] = "x"]` nests. */
     bool            in_dictionary_key;
+
+    /* What the front end turned on. Never NULL: a caller passing none gets
+       `no_options`, so every read is a plain field access. */
+    const SolCompileOptions *options;
 } Compiler;
+
+static const SolCompileOptions no_options = { false };
 
 static void expression(Compiler *c);
 static void send_expression(Compiler *c);
@@ -92,6 +98,8 @@ static void send_chain(Compiler *c);
 static int  emit_jump(Compiler *c, uint8_t op);
 static void patch_jump(Compiler *c, int slot);
 static void math_directive(Compiler *c);
+static bool region_allowed(Compiler *c);
+static const char *stray_operator_message(const Compiler *c);
 static void statement(Compiler *c);
 static void note_global_binding(Compiler *c, const SolToken *name);
 static void block_literal(Compiler *c, bool infix_after);
@@ -520,7 +528,10 @@ static void primary(Compiler *c)
        buried in an expression, where a file compiled in would have nowhere to
        go. */
     if (p->current.type == TOK_DIRECTIVE) {
-        if (token_is(&p->current, "@expr")) { math_directive(c); return; }
+        if (token_is(&p->current, "@expr")) {
+            if (region_allowed(c)) math_directive(c);
+            return;
+        }
         sol_parser_error(p, &p->current,
                          "a directive must stand alone as a statement");
         return;
@@ -534,9 +545,10 @@ static void primary(Compiler *c)
     case TOK_PLUS: case TOK_MINUS: case TOK_STAR: case TOK_SLASH: case TOK_CARET:
     case TOK_EQ: case TOK_NE: case TOK_LT: case TOK_GT: case TOK_LE: case TOK_GE:
     case TOK_AMP:
-        sol_parser_error(p, &p->current,
-                         "an operator needs something to its left; inside "
-                         "'@expr(...)' only '-' and '~' may open one");
+        sol_parser_error(p, &p->current, c->options->expr
+                         ? "an operator needs something to its left; inside "
+                           "'@expr(...)' only '-' and '~' may open one"
+                         : stray_operator_message(c));
         return;
     default:
         break;
@@ -625,18 +637,14 @@ static void send_chain(Compiler *c)
            literal consumes it itself. */
         case TOK_EQ:
             if (!c->in_dictionary_key) {
-                sol_parser_error(p, &p->current,
-                                 "this is written as a send here; '@expr(...)' is "
-                                 "where the operators are");
+                sol_parser_error(p, &p->current, stray_operator_message(c));
             }
             break;
         case TOK_PLUS: case TOK_STAR: case TOK_SLASH: case TOK_CARET:
         case TOK_NE: case TOK_LT:
         case TOK_GT: case TOK_LE: case TOK_GE:
         case TOK_AMP: case TOK_TILDE:
-            sol_parser_error(p, &p->current,
-                             "this is written as a send here; '@expr(...)' is "
-                             "where the operators are");
+            sol_parser_error(p, &p->current, stray_operator_message(c));
             break;
         default:
             break;
@@ -651,6 +659,34 @@ static void send_expression(Compiler *c)
        rather than made. Everything else starts here. */
     if (!inline_while(c) && !inline_do_until(c)) primary(c);
     send_chain(c);
+}
+
+/* The region is off unless the front end turned it on -- see
+   `SolCompileOptions`. Reported at the directive rather than at the first
+   operator, so that a file written to the region gets one message naming the
+   flag rather than one per line. The message is the same in every place a
+   region may open, which is the two expression forms and the block form a
+   loop inlines. */
+/* The sentence for an operator met where a send was expected. The language
+   has none, and where they are depends on what the front end turned on: with
+   the region on, the message points into it; off, it names the flag, since a
+   file written to the region compiled with `solas file.sol` meets this before
+   anything else. */
+static const char *stray_operator_message(const Compiler *c)
+{
+    return c->options->expr
+        ? "this is written as a send here; '@expr(...)' is where the operators are"
+        : "this is written as a send here; the '@expr(...)' region has the "
+          "operators, and --expr turns it on";
+}
+
+static bool region_allowed(Compiler *c)
+{
+    SolParser *p = &c->parser;
+    if (c->options->expr) return true;
+    sol_parser_error(p, &p->current,
+                     "the '@expr' region is off; --expr turns it on");
+    return false;
 }
 
 /* ---- @expr: infix operators ----------------------------------------- *
@@ -1395,6 +1431,7 @@ static void inline_branch(Compiler *c)
        the first token of the body is scanned inside the region, and
        `block_body` puts it back before the closing brace. */
     if (p->current.type == TOK_DIRECTIVE && token_is(&p->current, "@expr")) {
+        if (!region_allowed(c)) return;
         sol_parser_advance(p);
         p->lexer.infix = true;
     }
@@ -1908,6 +1945,7 @@ static bool compile_included(Compiler *parent, const char *source, const char *p
     c.path = path;
     c.includes = parent->includes;
     c.search = parent->search;
+    c.options = parent->options;
     c.assigning = NULL;
     c.assigned_name_was_read = false;
     sol_parser_init(&c.parser, source, path);
@@ -2227,6 +2265,13 @@ bool sol_compile_source(const char *source, const char *path, SolChunk *chunk)
 bool sol_compile_file(const char *source, const char *path,
                       const SolSearchPath *search, SolChunk *chunk)
 {
+    return sol_compile_options(source, path, search, NULL, chunk);
+}
+
+bool sol_compile_options(const char *source, const char *path,
+                         const SolSearchPath *search,
+                         const SolCompileOptions *options, SolChunk *chunk)
+{
     Scope top;
     top.enclosing = NULL;
     top.chunk = chunk;
@@ -2254,6 +2299,7 @@ bool sol_compile_file(const char *source, const char *path,
     c.path = path;
     c.includes = &includes;
     c.search = search;
+    c.options = options != NULL ? options : &no_options;
     c.assigning = NULL;
     c.assigned_name_was_read = false;
     sol_parser_init(&c.parser, source, path);

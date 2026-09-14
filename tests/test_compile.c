@@ -176,15 +176,28 @@ static void test_the_old_form_would_not_have_verified(void)
    writes `@include "control.sol"` the way a program would rather than reaching
    for it by a relative path nobody else would type. Tests run from the repo
    root, which is where `lib` is. */
+/* `examples/operators.sol` is the one shipped file written to the `@expr`
+   region, which is off unless asked for; its first line says so, and this is
+   the asking. Everything else compiles bare, which is the check that nothing
+   else quietly depends on the flag. */
+static SolCompileOptions options_for(const char *path)
+{
+    SolCompileOptions options = { false };
+    options.expr = path != NULL && strcmp(path, "examples/operators.sol") == 0;
+    return options;
+}
+
 static void must_verify(const char *what, const char *source, const char *path)
 {
     SolSearchPath search;
     sol_search_path_init(&search);
     sol_search_path_add(&search, "lib");
 
+    SolCompileOptions options = options_for(path);
+
     SolChunk chunk;
     sol_chunk_init(&chunk);
-    if (!sol_compile_file(source, path, &search, &chunk)) {
+    if (!sol_compile_options(source, path, &search, &options, &chunk)) {
         printf("  did not compile: %s\n", what);
         assert(false);
     }
@@ -645,9 +658,10 @@ static bool compiles_saying_nothing(const char *path, char *said, size_t size)
     assert(saved >= 0);
     assert(dup2(fd, STDERR_FILENO) >= 0);
 
+    SolCompileOptions options = options_for(path);
     SolChunk chunk;
     sol_chunk_init(&chunk);
-    bool ok = sol_compile_file(source, path, &search, &chunk);
+    bool ok = sol_compile_options(source, path, &search, &options, &chunk);
 
     fflush(stderr);
     assert(dup2(saved, STDERR_FILENO) >= 0);

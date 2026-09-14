@@ -50,14 +50,22 @@ slot 0 is the receiver.
 
 ### Inside `@expr`
 
-The infix region is a second grammar, and three rules live in the compiler
-rather than in it:
+The infix region is a second grammar, and since 2026-09-14 it is off unless
+`solas --expr` asks for it, so a producer need not have it at all. With it on,
+three rules live in the compiler rather than in it:
 
-| what | `solas` says |
+| what | `solas --expr` says |
 | --- | --- |
 | `@expr( a < b < c )` | `comparisons do not chain; the left of this one is a boolean` |
 | `@expr( * a )` | `an operator needs something to its left; inside '@expr(...)' only '-' and '~' may open one` |
 | `a + b` outside a region | `this is written as a send here; '@expr(...)' is where the operators are` |
+
+And two without it:
+
+| what | `solas` says |
+| --- | --- |
+| `@expr( a + b )` | `the '@expr' region is off; --expr turns it on` |
+| `a + b` anywhere | `this is written as a send here; the '@expr(...)' region has the operators, and --expr turns it on` |
 
 ### Directives
 

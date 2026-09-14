@@ -37,6 +37,8 @@ static void usage(FILE *out)
         "Runs a program and stops at the first line, ready for commands.\n"
         "\n"
         "  -I <dir>     where an @include falls back to; repeatable\n"
+        "  --expr, -e   turn on the @expr(...) infix region when compiling a\n"
+        "               .sol; it is off by default\n"
         "  --exports    do not stop: run the file, then say what it put into\n"
         "               the machine and what may be sent to it. Reads a .so\n"
         "               named with --extension= as readily as a .sob, and with\n"
@@ -126,6 +128,8 @@ int main(int argc, char *argv[])
     /* Reporting rather than stepping -- see solid/exports.h. */
     bool exports = false, exports_all = false;
 
+    SolCompileOptions options = { false };
+
     int at = 1;
     while (at < argc) {
         if (strcmp(argv[at], "--help") == 0 || strcmp(argv[at], "-h") == 0) {
@@ -139,6 +143,11 @@ int main(int argc, char *argv[])
             free(extensions);
             sol_search_path_free(&search);
             return 0;
+        }
+        if (strcmp(argv[at], "--expr") == 0 || strcmp(argv[at], "-e") == 0) {
+            options.expr = true;
+            at++;
+            continue;
         }
         if (strcmp(argv[at], "--exports") == 0 ||
             strcmp(argv[at], "--exports=all") == 0) {
@@ -205,7 +214,7 @@ int main(int argc, char *argv[])
             sol_search_path_free(&search);
             return 74;
         }
-        bool compiled = sol_compile_file(source, path, &search, &chunk);
+        bool compiled = sol_compile_options(source, path, &search, &options, &chunk);
         free(source);
         if (!compiled) {
             sol_chunk_free(&chunk);

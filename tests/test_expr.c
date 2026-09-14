@@ -21,10 +21,20 @@
 #include "solum/bytecode.h"
 #include "solum/vm.h"
 
+/* Every compile in this file asks for the region, which is off by default --
+   `test_the_region_is_off_by_default` is the one that does not, and is the
+   only reason the default matters here. */
+static const SolCompileOptions with_expr = { true };
+
+static bool compile(const char *source, SolChunk *chunk)
+{
+    return sol_compile_options(source, NULL, NULL, &with_expr, chunk);
+}
+
 static SolResult run(SolVM *vm, SolChunk *chunk, const char *source)
 {
     sol_chunk_init(chunk);
-    if (!sol_compile(source, chunk)) return SOL_COMPILE_ERROR;
+    if (!compile(source, chunk)) return SOL_COMPILE_ERROR;
     return sol_vm_run(vm, chunk);
 }
 
@@ -163,8 +173,8 @@ static void test_the_bytes_are_the_chain_s_bytes(void)
 
         sol_chunk_init(&left);
         sol_chunk_init(&right);
-        assert(sol_compile(one, &left));
-        assert(sol_compile(two, &right));
+        assert(compile(one, &left));
+        assert(compile(two, &right));
 
         if (left.count != right.count ||
             memcmp(left.code, right.code, (size_t)left.count) != 0) {
@@ -449,7 +459,7 @@ static void expect_compile_error(const char *source)
 {
     SolChunk chunk;
     sol_chunk_init(&chunk);
-    if (sol_compile(source, &chunk)) {
+    if (compile(source, &chunk)) {
         fprintf(stderr, "compiled and should not have: %s\n", source);
         assert(false);
     }
@@ -513,8 +523,44 @@ static void test_it_is_an_expression_everywhere_one_may_be(void)
     sol_vm_free(&vm);
 }
 
+/* The region is a front-end option, not the language: bare, `@expr` is refused
+   at the directive with a message naming the flag, in each of the three places
+   a region may open. The operators are scanned either way, so a stray one is
+   refused either way, and the message is the only thing that changes. */
+static void test_the_region_is_off_by_default(void)
+{
+    static const char *regions[] = {
+        "x := @expr( 1 + 2 ).",
+        "@expr( 1 + 1 ):print.",
+        "i := 0. @expr{ i < 3 }:whileTrue({ i := i:add(1) }).",
+        "f := @expr{ 1 + 1 }.",
+        "a := 1. b := a + 2.",
+    };
+    for (size_t i = 0; i < sizeof regions / sizeof regions[0]; i++) {
+        SolChunk chunk;
+        sol_chunk_init(&chunk);
+        assert(!sol_compile(regions[i], &chunk));
+        sol_chunk_free(&chunk);
+
+        /* And the same text compiles once asked for -- except the stray
+           operator, which is stray in either mode. */
+        sol_chunk_init(&chunk);
+        assert(compile(regions[i], &chunk) == (i < 4));
+        sol_chunk_free(&chunk);
+    }
+
+    /* Through the file entry point and with no options, which is what a host
+       that has not heard of the flag gets. */
+    SolChunk chunk;
+    sol_chunk_init(&chunk);
+    assert(!sol_compile_options("x := @expr( 1 + 2 ).", NULL, NULL, NULL, &chunk));
+    sol_chunk_free(&chunk);
+    printf("  the region is off by default and on with the option\n");
+}
+
 int main(void)
 {
+    test_the_region_is_off_by_default();
     test_the_bytes_are_the_chain_s_bytes();
     test_precedence();
     test_a_term_is_an_ordinary_expression();

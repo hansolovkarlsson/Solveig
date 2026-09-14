@@ -1188,6 +1188,9 @@ static void test_check_syntax_reads_solum_itself(void)
     system("printf 'a := #1 & #2.\n' > " DIR "/s5.sol");
     assert(run("bin/solas " DIR "/s5.sol -o " DIR "/s5.sob 2>&1",
                out, sizeof out) != 0);
+    assert(strstr(out, "--expr turns it on") != NULL);
+    assert(run("bin/solas --expr " DIR "/s5.sol -o " DIR "/s5.sob 2>&1",
+               out, sizeof out) != 0);
     assert(strstr(out, "'@expr(...)' is where the operators are") != NULL);
     assert(run("bin/solvm " DIR "/check_syntax.sob"
                " programs/check_syntax/solum.bnf " DIR "/s5.sol 2>&1",
@@ -1758,6 +1761,54 @@ static void test_every_front_end_that_runs_takes_the_flag(void)
     printf("  solvm, solis and solid all take --extension; solas does not\n");
 }
 
+/* The `@expr` region is off unless asked for, in every front end that
+   compiles: the same file is refused bare and accepted with the flag, and the
+   refusal names the flag. Written against the tools rather than the library
+   because the flag is the tools' half of it -- test_expr.c holds the
+   library's. */
+static void test_the_expr_region_is_behind_a_flag(void)
+{
+    char out[4096];
+
+    system("printf '@expr( #2 + #3 * #4 ):print.\n' > " DIR "/region.sol");
+
+    assert(run("bin/solas " DIR "/region.sol -o " DIR "/region.sob 2>&1",
+               out, sizeof out) == 65);
+    assert(strstr(out, "the '@expr' region is off; --expr turns it on") != NULL);
+
+    assert(run("bin/solas --expr " DIR "/region.sol -o " DIR "/region.sob 2>&1",
+               out, sizeof out) == 0);
+    assert(run("bin/solvm " DIR "/region.sob", out, sizeof out) == 0);
+    assert(strcmp(out, "#14\n") == 0);
+
+    /* The short spelling, and the other two tools. */
+    assert(run("bin/solas -e " DIR "/region.sol -o " DIR "/region.sob 2>&1",
+               out, sizeof out) == 0);
+
+    assert(run("bin/solis " DIR "/region.sol 2>&1 >/dev/null",
+               out, sizeof out) == 65);
+    assert(strstr(out, "--expr turns it on") != NULL);
+    assert(run("bin/solis --expr " DIR "/region.sol", out, sizeof out) == 0);
+    assert(strcmp(out, "#14\n") == 0);
+
+    /* At the prompt too: it is one compiler for the file and the line. */
+    assert(run("printf '@expr( #1 + #1 ):print.\n' | bin/solis 2>&1",
+               out, sizeof out) == 0);
+    assert(strstr(out, "--expr turns it on") != NULL);
+    assert(run("printf '@expr( #1 + #1 ):print.\n' | bin/solis -e 2>&1",
+               out, sizeof out) == 0);
+    assert(strstr(out, "#2") != NULL);
+
+    assert(run("printf 'quit\n' | bin/solid " DIR "/region.sol 2>&1 >/dev/null",
+               out, sizeof out) == 65);
+    assert(strstr(out, "--expr turns it on") != NULL);
+    assert(run("printf 'quit\n' | bin/solid --expr " DIR "/region.sol 2>&1",
+               out, sizeof out) == 0);
+
+    printf("  @expr is refused bare and taken with --expr, by solas, solis"
+           " and solid\n");
+}
+
 int main(void)
 {
     test_help_is_not_an_error();
@@ -1789,6 +1840,7 @@ int main(void)
     test_the_net_extension_carries_a_datagram();
     test_a_bundle_that_will_not_load_is_refused();
     test_every_front_end_that_runs_takes_the_flag();
+    test_the_expr_region_is_behind_a_flag();
     printf("test_cli: ok\n");
     return 0;
 }

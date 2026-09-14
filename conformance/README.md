@@ -119,7 +119,7 @@ number is not repeated anywhere that would have to be kept in step with it.
 | --- | --- |
 | `00-lexis` | literals and their tags, statement separation, comments, escapes, `#[` as one token, identifiers |
 | `01-values` | value against reference equality, floored division, bits, IEEE floats, printing, strictness, absence |
-| `02-sends` | left-to-right chaining, grouping, the `@expr` lowering, name lookup, reflection |
+| `02-sends` | left-to-right chaining, grouping, evaluation order, name lookup, reflection |
 | `03-blocks` | parameters and temporaries, lexical capture, control flow as messages, escaping |
 | `04-objects` | slots and delegation, methods, `via`, one hierarchy, `asString` and reflection |
 | `05-errors` | what `onError` answers, `raise` and re-raise, `ensure`, `system:exit` |
@@ -131,7 +131,7 @@ number is not repeated anywhere that would have to be kept in step with it.
 | --- | --- |
 | `scope` | `self` outside a block; assigning to `self` |
 | `names` | a duplicate temporary; one shadowing a parameter; a duplicate parameter |
-| `expr` | a chained comparison; an operator opening a region; an infix outside one |
+| `expr` | an infix operator, which the language does not have; the `@expr` region, which is off unless asked for |
 | `directives` | a directive not standing alone; an unknown directive |
 | `limits` | 256 elements, 128 pairs, 256 arguments, 256 slots — each at N+1 |
 

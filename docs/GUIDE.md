@@ -110,6 +110,14 @@ i:print.                                ; #3
 `@expr{...}` answers the block, so it goes where a block goes: the condition of
 a loop, the body of one, or a block kept in a name for later.
 
+**The region has to be asked for.** It is off by default: `solas --expr` (or
+`-e`, and the same on `solis` and `solid`) turns it on, and without the flag
+`@expr` is refused with a message that names it. The language has no
+operators; the region is a fixed set of them the compiler carries for the
+programs written to it, and the general form, where a file declares its own
+operators, is [Parasol](../parasol/README.md). Everything else in this guide
+compiles bare.
+
 > **Run:** [examples/hello.sol](../examples/hello.sol)
 
 ## 2. Names and binding

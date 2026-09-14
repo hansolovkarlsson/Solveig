@@ -158,7 +158,8 @@ A program reads and writes files, reads its input, times itself, stops with a
 status, and is split across files with `@include`.
 
 Around it: a [debugger](docs/programs.md), `@expr` for infix arithmetic where
-the notation is worth it, [extensions](docs/extensions.md) loaded from a C
+the notation is worth it (behind `solas --expr`; declared operators are
+[Parasol](parasol/README.md)'s), [extensions](docs/extensions.md) loaded from a C
 binary at run time, and a host API for embedding the machine. Measured against
 CPython 3.14 on nine matched programs it comes out
 [a little ahead](docs/performance.md).

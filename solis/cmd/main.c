@@ -21,6 +21,10 @@
 
    The temporary root covers the window before the first frame refers to it, so
    a collection triggered while compiling could not sweep it. */
+/* What `--expr` turned on. One for the prompt and the file alike, since they
+   share the compiler as they share the machine. */
+static SolCompileOptions options = { false };
+
 static SolResult submit(SolVM *vm, const SolSearchPath *search, const char *source)
 {
     SolResult result = SOL_COMPILE_ERROR;
@@ -30,7 +34,7 @@ static SolResult submit(SolVM *vm, const SolSearchPath *search, const char *sour
     /* NULL for the path: the prompt is not a file, so a relative include
        resolves against the working directory -- and then against the search
        path, so `@include "control.sol"` reaches the library from here too. */
-    if (sol_compile_file(source, NULL, search, &code->chunk)) {
+    if (sol_compile_options(source, NULL, search, &options, &code->chunk)) {
         result = sol_vm_run(vm, &code->chunk);
     }
     sol_gc_pop_temp(vm);
@@ -159,7 +163,7 @@ static int run_file(SolVM *vm, SolChunk *chunk, const char *path,
             return 74;
         }
         sol_chunk_init(chunk);
-        loaded = sol_compile_file(source, path, search, chunk);
+        loaded = sol_compile_options(source, path, search, &options, chunk);
         free(source);
         if (!loaded) {
             sol_chunk_free(chunk);
@@ -202,6 +206,8 @@ static void usage(FILE *out)
         "so a script with a #! line and no extension runs as what it is.\n"
         "\n"
         "  -I <dir>     where an @include falls back to; repeatable\n"
+        "  --expr, -e   turn on the @expr(...) infix region, at the prompt and\n"
+        "               in the file; it is off by default\n"
         "  --interactive after running the file, stay at the prompt with what\n"
         "               it left behind -- including after it fails\n"
         "  --trace      write the call tree to stderr as it runs\n"
@@ -247,6 +253,11 @@ int main(int argc, char *argv[])
         }
         if (strcmp(argv[at], "--trace") == 0) {
             trace = true;
+            at++;
+            continue;
+        }
+        if (strcmp(argv[at], "--expr") == 0 || strcmp(argv[at], "-e") == 0) {
+            options.expr = true;
             at++;
             continue;
         }

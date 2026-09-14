@@ -30,12 +30,8 @@ seen := [].
 array:of(#1:mark:add(#2:mark), #3:mark):size:print.
 seen:print.
 
-; An @expr region lowers to these same sends and compiles to the same bytes, so
-; the two forms could not differ.
-seen := [].
-@expr( #1:mark + #2:mark * #3:mark ):print.
-seen:print.
-
+; The nested send finishes before the outer one's argument list is complete,
+; whichever argument it is.
 seen := [].
 #1:mark:add(#2:mark:mul(#3:mark)):print.
 seen:print.

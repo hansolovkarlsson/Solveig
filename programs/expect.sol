@@ -495,10 +495,16 @@ sandbox := "build/expect-run".
 ; `rm -rf` on a literal path this file chose, never on anything from a document.
 system:run(["rm", "-rf", sandbox]).
 
+; **Compiled with `--expr`.** The region is off unless a front end is asked
+; for it, and the documents show it where they explain it, so every claim here
+; is checked with it on. Nothing is hidden by that: the flag adds a grammar and
+; takes none away, so a line that holds with it holds without it unless it
+; opens a region -- and the one that shows the refusal without the flag is
+; written as a session, which this program does not run.
 runFile := { sol, tag, mergeErrors, sandboxed | | sob, result, where |
     sob := "build/expect-":concat(tag):concat(".sob").
 
-    system:run(["./bin/solas", sol, "-o", sob]):equals(#0):ifElse(
+    system:run(["./bin/solas", "--expr", sol, "-o", sob]):equals(#0):ifElse(
         { ; **Run somewhere it cannot do any harm.** This executes
           ; documentation, and documentation shows how to delete things:
           ; `system:run(["rm", name])`, `system:remove("build")`,

@@ -5,8 +5,8 @@
 A small object-oriented language and its toolkit — bytecode compiler (Solas),
 virtual machine (SolVM), REPL (Solis) and debugger (Solid). Prototype-based,
 everything is a message send, 146<!--count messages--> messages, no control-flow
-syntax and no operators outside `@expr(a^2 + b/2)`, which is notation for the
-same sends. 20k lines of C11, no dependencies.
+syntax and no operators. `@expr(a^2 + b/2)` is notation for the same sends,
+and the compiler carries it behind a flag. 20k lines of C11, no dependencies.
 
 **Documentation: <https://hansolovkarlsson.github.io/Solveig/>** — a
 [tutorial](https://hansolovkarlsson.github.io/Solveig/docs/TUTORIAL.html) that
@@ -343,6 +343,9 @@ rather than asserted.
 **`@expr(a^2 + b/2)`** is infix arithmetic, comparison and logic inside a marked
 region, and every operator lowers to the send it already read as — the bytes are
 the chain's, so the notation costs nothing and adds nothing to the language.
+Since 2026-09-14 it is off unless `solas --expr` asks for it: the general form,
+where a module declares its own operators, is [Parasol](parasol/README.md), and
+the region stays for the programs written to it.
 **Extensions** give the machine a capability it could not grow: a C file
 compiled on its own, named with `--extension=` when a program is started and
 never from inside one, since native code runs past every limit.

@@ -229,9 +229,12 @@ static void test_the_grammar_matches_the_compiler(void)
     /* The sweep is a shell loop rather than `opendir`, because `DIR` is already
        a macro for the build directory in this file -- and because running the
        binaries as a shell would is what the rest of this suite does. */
+    /* With `--expr`, because solum.bnf is the grammar of the larger front end:
+       the region is a production there and an option here, and the two
+       construct files that open one are as much a construct as the rest. */
     int status = run(
         "n=0; for f in programs/check_syntax/syntax/*.sol; do "
-        "  bin/solas \"$f\" -o " DIR "/one.sob >/dev/null 2>&1 || "
+        "  bin/solas --expr \"$f\" -o " DIR "/one.sob >/dev/null 2>&1 || "
         "    { echo \"solas refuses $f\"; exit 1; }; "
         "  bin/solvm " DIR "/cs.sob programs/check_syntax/solum.bnf \"$f\" "
         "    >/dev/null 2>&1 || "

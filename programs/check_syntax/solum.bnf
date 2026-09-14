@@ -169,6 +169,13 @@ primary = identifier | integer | float | string | symbol | block | array | dicti
  * semantics: `+` is `add`, `^` is `pow`, and the bytes are the bytes the chain
  * would have produced.
  *
+ * **It is a front-end option, not the language.** Since 2026-09-14 the region
+ * is off unless `solas --expr` asks for it, and a second front end need not
+ * have it at all; the general form, where a module declares its own operators,
+ * is Parasol's. This grammar is the grammar of `solas --expr`, which is the
+ * larger of the two, and a file that opens a region is refused by a bare
+ * `solas` at the directive rather than by any rule here.
+ *
  * A term is an ordinary expression, which is why there is no prefix-call form
  * -- `(a/2):sin` needs no rule that `sin(x)` would have needed, and the rule
  * `sin(x)` wants breaks on `atan2`, which is class-side, and on `pow`, which

@@ -15,9 +15,10 @@ sizes:size:print.                ; #2
 sizes:at("large"):print.         ; #9
 #[]:size:print.                  ; #0   -- the empty one
 
-; `=` pairs a key with its value here and is still equality inside @expr: the
-; token is scanned always, and what it means is decided by whoever is parsing.
-@expr(sizes:at("small") = #1):print.     ; true
+; `=` pairs a key with its value here, and is equality inside an `@expr` region
+; when `--expr` turns one on: the token is scanned always, and what it means is
+; decided by whoever is parsing. Without the flag, equality is the send.
+sizes:at("small"):equals(#1):print.      ; true
 
 ; The literal nests, and keys and values are expressions like any other.
 n := #2.

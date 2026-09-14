@@ -387,7 +387,9 @@ native back end would actually cost and why a program *written in* Parasol can
 already emit anything it likes.
 
 **`@expr`.** Solveig's fixed infix region is the special case of what `@infix`
-generalises. Supporting both would be supporting two.
+generalises. Supporting both would be supporting two. Solveig drew its side of
+the same line on 2026-09-14: the region is off there unless `solas --expr`
+asks for it, on this sentence, and a `.psol` needs nothing.
 
 **A signed bare number — `-3` rather than `#-3`.** Solveig's scanner gives the
 sign to the number outside a `@expr` region and treats it as the operator inside

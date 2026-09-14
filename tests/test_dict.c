@@ -502,10 +502,14 @@ static void test_what_the_literal_refuses(void)
     assert(!sol_compile("a := #1. b := a = #2.", &chunk));   /* still a stray operator */
     sol_chunk_free(&chunk);
 
-    /* And still equality where equality lives. */
+    /* And still equality where equality lives, which is the region, when a
+       front end has turned it on. */
+    SolCompileOptions expr = { true };
     SolVM vm; sol_vm_init(&vm);
     sol_chunk_init(&chunk);
-    assert(run(&vm, &chunk, "a := #1.\nsame := @expr(a = #1).\n") == SOL_OK);
+    assert(sol_compile_options("a := #1.\nsame := @expr(a = #1).\n", NULL, NULL,
+                               &expr, &chunk));
+    assert(sol_vm_run(&vm, &chunk) == SOL_OK);
     assert(SOL_IS_BOOL(global(&vm, "same")) && global(&vm, "same").as.boolean);
     sol_chunk_free(&chunk);
     sol_vm_free(&vm);

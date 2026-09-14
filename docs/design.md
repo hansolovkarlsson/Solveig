@@ -159,6 +159,16 @@ a term inside a region is an ordinary expression, and the bytes are the same
 bytes: `a & b` compiles to what `a:and({ b })` compiles to, short-circuiting
 included, because that is where the block's body would have gone.
 
+**And since 2026-09-14 it is a front-end option rather than the language.**
+The region is off unless `solas --expr` asks for it, because the toolkit had
+two mechanisms for one thing: a ladder fixed in the compiler, and
+[Parasol](../parasol/README.md), where a module declares its own operators and
+Parasol emits the sends. Parasol had already refused to carry `@expr` on the
+ground that supporting both would be supporting two; the flag is solas drawing
+its side of the same line without breaking a program written to the region.
+Bare, the language has one shorthand, `[...]`, and a lexer that is never told
+where it is.
+
 **One operator, one meaning.** `:=` binds a name to an evaluated value, whether
 the name is a global, a temporary, or a slot on a class. An earlier design had it
 mean something different on the left of a method definition, and removing that
@@ -299,7 +309,8 @@ p := point:new(#3, #4)
 a:print.         ; ':' sends a message; '.' terminates a statement
                  ; ';' starts a comment, running to end of line
 @include "lib.sol".   ; '@' marks a directive: compile time, never a message
-@expr(a + b / 2)      ; the other one, and the only directive that is a value
+@expr(a + b / 2)      ; the other one, and the only directive that is a value;
+                      ; off unless `solas --expr`
 ```
 
 `:` is the send operator throughout: `object:message`. Parentheses group a

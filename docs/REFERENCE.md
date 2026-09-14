@@ -531,7 +531,9 @@ compile error:
 is an expression and may stand wherever one may — as a receiver, an argument, an
 array element, a statement of its own. `@include` cannot be any of those because
 a file compiled in has nowhere to go inside an expression; `@expr` has nowhere
-*else* to be. See [infix operators](#infix-operators) below.
+*else* to be. It is also the one directive that has to be asked for: the
+region is off unless the compiler is run with `--expr`. See
+[infix operators](#infix-operators) below.
 
 There are two directives, and an unknown one is refused rather than passed
 through, since `@` is the compiler's own space and a name in it that the
@@ -2406,6 +2408,23 @@ compiles to the bytes the chain would have compiled to.
 #1:add(#2:mul(#3)):print.           ; #7 -- the same bytecode, not just the same answer
 ```
 
+**The region is off unless asked for.** `solas --expr`, `solis --expr` and
+`solid --expr` turn it on (`-e` is the same), and a file that opens one under
+a bare `solas` is refused at the directive:
+
+```
+[prog.sol:1:1] solas: the '@expr' region is off; --expr turns it on at '@expr'
+  @expr( #1 + #2 * #3 ):print.
+  ^^^^^
+```
+
+It is a flag rather than part of the language because the language has no
+operators, and the region is one fixed ladder of them compiled in. The general
+form of that, where a module declares its own operators and their precedence,
+is [Parasol](../parasol/README.md), which emits the sends and needs no flag.
+The region stays for the programs written to it, and a host embedding the
+compiler turns it on through `SolCompileOptions`.
+
 | | | |
 | --- | --- | --- |
 | `a + b` | `a:add(b)` | groups to the left |
@@ -2533,10 +2552,14 @@ trigonometry are float-only.
 ```
 
 **And outside a region there are no operators at all**, which the compiler says
-by name rather than leaving you to guess:
+by name rather than leaving you to guess. With the flag on, the message points
+into the region; without it, the message names the flag:
 
 ```
-[prog.sol:2:8] solas: arithmetic is written as sends here; '@expr(...)' is where the operators are
+[prog.sol:2:8] solas: this is written as a send here; '@expr(...)' is where the operators are at '+'
+  b := a + 2.
+         ^
+[prog.sol:2:8] solas: this is written as a send here; the '@expr(...)' region has the operators, and --expr turns it on at '+'
   b := a + 2.
          ^
 ```

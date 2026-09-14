@@ -56,6 +56,7 @@ marked as a sketch.
 | Infix operators, `@expr(a^2 + b/2)` | **Built**, on 2026-08-28 — [scoped in the morning and in by the evening](#infix-arithmetic-as-a-compile-time-notation): arithmetic, then `sin(x)` once *limiting* it turned out to be the expensive half, then comparison and logic, and the name with them |
 | `@expr{...}`, a region that is a block | **Built on 2026-08-29**, the day after it was scoped — [the sentence was tried first and lost](#expr-a-region-that-is-a-block-rather-than-a-group); the entry predicted one hard part and the second was the one that mattered, a notation that silently stopped inlining |
 | `@with obj { ... }`, a region where `x := e` writes a slot | **Held, with a trigger**: asked on 2026-09-14 from engine.sol; [same class as `@expr` and judged by the same sentence](#with-obj----a-region-where-an-assignment-is-a-slot-write): switchless and no `.sob` change, but it puts a second meaning on `:=` and takes `grep 'rect:paint'` away from every program. Trigger: the paste bug, or a reading that the long form hid something |
+| Taking `@expr` out of solas, now that Parasol is in-tree | **Scoped as a removal on 2026-09-14 and built the same morning as a flag**, [the third answer](#built-the-same-morning-as-a-third-answer-the-entry-had-not-weighed): bare `solas`, `solis` and `solid` refuse `@expr`, `--expr` turns it on, and a program outside the tree written to the region adds one word to its build line. Parasol already refused `@expr` because *supporting both would be supporting two*; three files used it and none was a program; a `.psol` header reproduces the region instruction for instruction, checked. The entry's *one real cost*, the REPL, was not one: `solis -e` |
 | Phoenix — a second language whose output Solum uses | **Defer** — the machinery is proven three times over; [the unexplored half](#programs-that-would-press-on-something) is whether a hosted language can publish a *library* rather than a program |
 | A conformance suite for a second implementation | **Built, both halves, on 2026-09-03** — [conformance/](../conformance/README.md), **89 cases** scored on their bytes with both tools taken from `SOL_COMPILE` and `SOL_RUN`, and in `make test`. Three kinds and not two: a refusal is compile-time and a **trap is run-time**, which the scoping had run together — 13 of the 15 demonstrations in `examples/` turn out to be the machine's business, not the front end's. Every answer written from the documentation before it was run. **Two findings, both in the documentation**: a REFERENCE.md paragraph wrong about `onError` in both halves, and a **self-including file that PRODUCING.md filed as a refusal when it is a warning** — it compiles, leaves with 0, and runs. [The scoping](#a-conformance-suite--a-corpus-a-second-implementation-can-score-itself-against) has the shape; what is left is the five 65,535 limits, which are a generator's business |
 | Programs that would press on something — Pascal, predicate logic, a parser toolkit, `tail`, and [which Unix tool next](#which-unix-tool-next-and-what-each-would-press-on--surveyed-2026-08-31) | **Defer, and none needs permission** — each is [predicted to find one thing](#programs-that-would-press-on-something), written down before it is written. **The editor was written**, and found what this page said it would. **So was `sha256sum`, on 2026-08-31**, the first off the Unix survey and the first program here with no I/O in its inner loop: [the prediction held in both halves](#it-was-written-on-2026-08-31-and-the-prediction-held-in-both-halves) and produced the number it was written for — **208 bytecode instructions a byte, 4.3 ns each, 234M a second**. **And `diff` on 2026-09-02**, where [one prediction of four held](#it-was-written-on-2026-09-02-and-one-of-the-four-predictions-held) — the output format, which was the whole difficulty — and the three that did not are more useful than the one that did. **And `gzip -d` on 2026-09-04**, the last of the three the survey named and [the one whose prediction measured the wrong thing](#it-was-written-on-2026-09-04-and-the-prediction-measured-the-wrong-thing): it asked for the cost of a 32 KB window as boxed values, and the window is 4.8% of the program. **And `sort` the same day**, which had been filed among the also-rans and is [promoted to an entry of its own](#sort--filed-below-as-pressing-on-less-and-written-anyway): the gap it was predicted to find was not there, because a write is not the reverse of a read — a producer knows what comes next — and what its merge wanted was the ranged read, already built |
@@ -4618,6 +4619,222 @@ If it is built, the name should be `@with`, with the Pascal difference stated,
 since `@using` reads as C#'s resource disposal and the region disposes of
 nothing.
 
+### Taking `@expr` out of solas, now that Parasol has the general form
+
+**Asked on 2026-09-14, from reading the two compilers' front pages side by
+side.** The toolkit has two ways to write `a + b * c`. In solas it is a region,
+`@expr(...)`, with one ladder fixed in `compiler.c`; in Parasol it is whatever
+the module's header declares, and `lib/arith.psol` declares the same ladder.
+Parasol has already refused to carry `@expr`, and
+[its roadmap](../parasol/docs/ROADMAP.md) says why in one sentence: *Solveig's
+fixed infix region is the special case of what `@infix` generalises. Supporting
+both would be supporting two.* So the line between the tools is drawn on one
+side only. The question is whether solas should draw its side too, and become a
+compiler with no operators at all, leaving every piece of syntax that is not the
+language to the tool whose job that is.
+
+The proposal is a removal, which this page has not scoped before: the region
+goes, the lexer stops being told where it is, and infix is spelled in a `.psol`
+file that Parasol turns into the sends solas always compiled.
+
+#### What the region costs solas today, counted
+
+The compiler carries 337 lines between the `@expr` section comment and
+`expression` at [compiler.c:656](../solas/src/compiler.c), plus the parts that
+are harder to see because they are threaded through code that is not about
+infix: `block_literal` and `block_body` take an `infix_after` argument so a
+block can hand back the mode of where it was written; `probe_block` re-reads a
+block in its own mode so that inlining is not silently lost inside a region;
+and the lexer has a flag, `infix`, that
+[lexer.h](../solas/include/solas/lexer.h) describes as *the only character
+that has to be told which region it is in*. `-` is a literal's sign outside a
+region and an operator inside one, with one token of lookahead in the fold so
+that `-2^2` negates the power and not the `2`. That is the whole of what makes
+the lexer context-sensitive.
+
+Around it: [test_expr.c](../tests/test_expr.c) is 533 lines, of which the
+eighteen byte-identity pairs are the part worth keeping in spirit; a
+`region` production in [GRAMMAR.md](GRAMMAR.md) and `solum.bnf`, with two
+`check_syntax` fixtures; three refused conformance pairs under
+`conformance/refused/expr/` and two accepted cases that cite the region; four
+cheatsheet rows, a guide section, twenty-one mentions in the reference, three
+in the README and one on the front page; three colouring rules in the VS Code
+extension; and the sentence in [design.md](design.md) that *there are two of
+those shorthands and they are the only two*, written because the second has
+operators in it.
+
+#### What uses it, counted
+
+Three files that are not tests of the feature itself. [operators.sol](../examples/operators.sol)
+is the exhibit, and exists to show the region. [dictionaries.sol](../examples/dictionaries.sol)
+has one line, there to show that `=` is still equality inside a region while it
+pairs a key outside one. [sha256sum.sol](../programs/sha256sum.sol) mentions it
+in a comment only, to record that the region has no bit operators and so could
+not be used by the one program here that is nothing but arithmetic. Nothing in
+`lib/` uses it, no program uses it, and Phoenix emits `.sob` and never sees the
+front end.
+
+That is thinner than the trigger that put it in. The
+[entry above](#infix-arithmetic-as-a-compile-time-notation) says so itself:
+*partly fired already, from use rather than from a program, which is a weaker
+report than this document usually acts on*, and *what would have settled it is
+a file in `programs/` or `lib/` that transcribes formulas from a reference*.
+That file never arrived. Seventeen days on, the customer the region was built for
+is still the example that prompted it.
+
+#### What Parasol covers, run rather than argued
+
+Everything the region does, in a header. The ladder is `arith.psol`; `&` and
+`|` are `&&` and `||` there, as templates over `and` and `or` so that the
+right-hand side is a block and stops early; `~` is `!`, a prefix; `f(x)` is a
+`@syntax` form; and `@expr{...}` needs nothing, because a block whose body is
+infix is just a block in a module that declares operators. `^` is the one
+operator `arith.psol` does not declare, and it is one line, right-grouping as
+the region's is:
+
+```parasol
+@use "arith.psol".
+@infixr ^ 80 pow.
+a := 3.0. b := 4.0.
+(a ^ 2.0 + b / 2.0):print.           ; 11
+(a < b && !(a == b)):print.          ; true
+(#2 + #3 * #4):print.                ; #14
+```
+
+Against the same three lines written as regions:
+
+```
+a := 3.0. b := 4.0.
+@expr( a^2.0 + b/2.0 ):print.        ; 11
+@expr( a < b & ~(a = b) ):print.     ; true
+@expr( #2 + #3 * #4 ):print.         ; #14
+```
+
+The two `.sob` files were compared instruction by instruction on 2026-09-14
+and are the same program: every opcode and every operand agree, and the only
+bytes that differ are line numbers, because Parasol's output puts each
+statement on a line of its own. The byte-identity the region's test holds
+against `a:add(b)` holds for Parasol's output too, which is what one would hope
+from two things that both lower to the same sends, and is now checked rather
+than hoped.
+
+`-3` stays a difference between the tools, and becomes a simpler one. Parasol
+cannot fold a sign into a number while `-` is declarable, which
+[its roadmap](../parasol/docs/ROADMAP.md) records as forced rather than
+missing. Without the region, solas has *one* reading of `-`: it belongs to the
+digits after it, always, and the lexer's mode flag goes with the region.
+
+#### What is lost, and it is the REPL
+
+`@expr(#2 + #3 * #4):print.` answers `#14` at the solis prompt today, because
+solis compiles through solas. After the removal, solis has sends only, and
+`#2:add(#3:mul(#4))` is what interactive arithmetic looks like until something
+puts a Parasol front on the REPL, which is a separate question with its own
+cost and is not being scoped here. For a file the loss is one pipeline step,
+`parasol` before `solas`, and `--map` already writes the table that carries a
+generated line back to the `.psol` line that caused it. That step is what Parasol is *for*, so calling it a
+cost is calling the tool a cost.
+
+The other loss is a sentence that reads well: `README.md:8` says *no operators
+outside `@expr(a^2 + b/2)`*. It becomes *no operators*, which is the sentence
+`solum.bnf` opened with before 2026-08-28 and the one the region's own entry
+called *a sentence somebody has to be willing to write*. Somebody was, and now
+nobody has to.
+
+#### What is gained
+
+**Each tool answers to one description.** Solas is the language and only the
+language: sends, literals and blocks, `@include`, and the collection literals
+that lower to `of`. Parasol is syntax, all of it, and
+nothing in it is not syntax. Today a reader who meets `+` has to ask which
+compiler they are in before they know whether it is a fixed ladder or a
+declared one; afterwards `+` in a `.sol` file is a compile error and in a
+`.psol` file is what the header says.
+
+**The `@` namespace gets its rule back.** The test this page applies is that
+[`@` is for a thing nothing in the language already does](#more--directives-define-ifdef-once).
+`@expr` passed it on 2026-08-28 because nothing did: there was no other way to
+write a formula in the order it is read. Since 2026-09-12 there is, in-tree,
+built by `make`, and on that day the region stopped passing its own test.
+
+**The lexer is context-free again**, `design.md`'s principle drops its
+qualifier, and the `@with` entry above is answered without being built: a
+region where an assignment writes a slot is a `@syntax` pattern in Parasol, and
+the grep cost and the second meaning for `:=` land on a module that asked for
+them rather than on every program in the tree.
+
+#### What it would take
+
+**The compiler is the small half, and it is a deletion.** The section from
+`compiler.c:656` to `expression`, the `infix` flag and the `-` case in the
+lexer, the `infix_after` threading through the block functions, the mode in
+`probe_block`. The operator tokens can stay scanned, so that `a + b` in a `.sol`
+file is refused by the compiler with a sentence that names the other tool,
+*there are no operators in Solveig; a `.psol` module declares them*, rather
+than by the lexer with *unexpected character*. About half a day, and the
+byte-identity test goes with the region since there is no longer a second
+spelling to compare.
+
+**The documents are the longer half.** `region` leaves GRAMMAR.md and
+`solum.bnf`, held against each other by the suite; the two `check_syntax`
+fixtures go; the three refused pairs in `conformance/refused/expr/` are
+rewritten as refusals of an operator, since that is what they become, and the
+two accepted cases lose a sentence each; the cheatsheet rows, the guide section
+and the reference's twenty-one mentions go or point at Parasol; the README,
+the front page and design.md lose their qualifier; the VS Code rules go. Then
+`operators.sol` moves to Parasol as an example if it is not already one, which
+it is: `arith.psol` and `clike.psol` are the exhibit now. And the counts in
+`programs.md` are re-synced, because every one of those documents carries
+claims.
+
+**It is a language change, so a minor version**, with a changelog entry that
+names the REPL loss in its first paragraph rather than its last. Nothing in
+`.sob` moves: the region never reached the format, which was the point of it.
+
+**Recommended, and not built.** This page runs on the trigger rule, and the
+rule is that a program asks. No program is asking for this; a reading is, and
+the reading is that the toolkit has two of something it says it has one of.
+That is the same standing `@expr` went in on, so the symmetry is honest: it
+arrived on a reading that a formula should be checkable against its page, and
+it can leave on a reading that a language should have one syntax mechanism and
+that the mechanism is the other tool. What would make the case stronger either
+way is a program: a `.psol` that wants infix and shows the pipeline step is
+bearable, which would settle it *for*; or a `.sol` that wants `@expr` and
+cannot reasonably be a `.psol`, which would settle it *against*. Neither exists,
+and the call is the owner's. If it is made, the changelog should quote Parasol's
+sentence, because it is the whole argument.
+
+#### Built the same morning, as a third answer the entry had not weighed
+
+**Neither removed nor kept: behind a flag.** Hans's call, within the hour, was
+that the region should leave the *default* and stay in the tool: bare
+`solas`, `solis` and `solid` refuse `@expr`, and `--expr` (or `-e`) turns it
+on. The reason was the one this entry filed under cost and did not weigh as
+an argument: a program outside this tree, the SDL extension's `engine.sol`
+among them, is written to the region, and a flag keeps it compiling while the
+language draws its line. So the two tools now answer to one description each
+without a removal: solas is the language, and carries a fixed ladder for the
+programs that asked for it, behind a flag that says so; Parasol is where
+operators are declared.
+
+**What the entry got right.** The compiler was the small half and the
+documents the longer, as written; the gate is one function at the two places
+a region opens, and the refusal is at the directive with the flag named. The
+conformance corpus follows the default, so the region-internal cases went out
+and a case saying *the region is off unless asked for* went in, which is the
+sentence a second front end needs. `examples/operators.sol` is the one shipped
+file that needs the flag, and the Makefile and `test_compile.c` give it and
+nothing else the flag, so nothing else can come to depend on it unnoticed.
+
+**What it got wrong.** The REPL loss the entry called the one real cost is not
+a loss: `solis -e` has the region, and a prompt that wants infix says so once.
+And the lexer's context-sensitivity, which the entry counted as what would be
+gained back, stays: the operators are scanned either way and `-` is still told
+where it is, because a flag that could be on has to leave the lexer able to
+serve it. What went was the default, not the mechanism. The `@with` question
+is answered the same way this one was, by which tool syntax belongs to, and
+the entry above stands as held.
+
 ### Programs that would press on something
 
 These are programs rather than language features, and they are here because what
@@ -6255,7 +6472,7 @@ program can read it. No `make` target, no `bin/solvm`, no wording of ours.
 | | what it holds | why it is not a conformance suite |
 | --- | --- | --- |
 | `tests/*.c` — 40 files | the C API, the compiler and the VM | internal by construction; a second implementation has none of these symbols |
-| [expect.sol](../programs/expect.sol) — 1067<!--count claims--> claims | the examples and the documents against their own comments | **the author's corpus, matched as a subsequence** — its own header says why, and why that is right for a document |
+| [expect.sol](../programs/expect.sol) — 1070<!--count claims--> claims | the examples and the documents against their own comments | **the author's corpus, matched as a subsequence** — its own header says why, and why that is right for a document |
 | [oracle.sh](../programs/oracle.sh) — six corpora | `sed`, `diff`, `sort` against BSD's | a second implementation of a **program**, not of the language |
 
 **The subsequence rule is the sharp one.** `expect.sol` requires each claim to
