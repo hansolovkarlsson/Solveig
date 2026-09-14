@@ -11,6 +11,55 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-09-14, quarter to six: the reading of twelve, and the camera has a shape
+
+**Hans asked for the reading over twelve files.** Twelve for twelve: the
+frame, `font:number`, `tone`, the `final score` line. Eleven: `keys` and
+a `frames:mod` blink. Nine: `rng`, an `'attract` state, a `newGame`.
+Seven: `font:word`, `rect`. Six: `hum`, `sprite:make`, `tint`, and the
+reward at every so many points, still held for the reason the reading
+of ten gave. Five: `mover` bare, and an `earn`. Three: `grid`, `craft`,
+`mote`, the pointer, a title centred by hand, the camera, and a box at a
+mover's position, which is the seam of this reading. Two: `colOf` and
+`rowOf` in Centipede and Mario, apart from a `truncated`; `ball`,
+`thing`, `draw`, the kit. One: the body resolved against tiles, the
+level as rows of text, the safe frames, the scanner.
+
+**The camera has three shapes and one number.** Scramble advances `cam`
+by a pace and subtracts it at eight paints; Mario moves it forward only
+with a floor and subtracts it at fourteen; Defender eases it toward the
+ship's lead, wraps the world, and subtracts through `toScreen`, which
+brings the difference the near way round first. What the three share is
+one number, a world x subtracted at the paint, and a rule of their own
+for moving it; what Defender adds is the wrap before the subtraction.
+The shape that fits all three is an object: `camera`, with `x` at zero
+and `screenX(wx)` as `(wx - x):truncated`, which the games that do not
+scroll never touch, and which Defender overrides with its wrapped one by
+assigning the slot, as Lander overrode `thing:wrap`, with no rebinding
+and no warning. The reason to move it now rather than hold it a third
+time is the box beside it: Scramble and Mario write
+`rect:make(@expr(self:x - cam):truncated, self:y:truncated, self:w,
+self:h)` byte for byte and Defender the same through `toScreen`, and a
+`mover:box(w, h)` in the engine over `camera:screenX` is the three
+games' line once, and takes Defender's wrap with it because the engine
+asks the camera rather than doing the subtraction itself.
+
+**Two small seams beside it.** `colOf` and `rowOf`, the column and row a
+pixel is in, belong to the grid with a `cell` size it does not yet have:
+one assignment in each of the two games where four lines were. And a
+word centred: Missile, Defender and Mario each compute a title's left
+edge by hand, two of them arriving at 212 for GAME OVER, and
+`font:centred(text, top)` is one line.
+
+**Held, with the reasons as before.** The reward at every N has six
+customers and would still put `score` and `lives` in the engine, which
+every game claims for itself at its own top level. The body against
+tiles is one game's, and so is the level as rows of text, though that is
+`sprite:make`'s idea over a grid and a second map game would make it the
+grid's to offer. **Not built**; a scoping is not a queued build.
+
+---
+
 ## 2026-09-14, twenty to six: half the jumps swallowed, and the engine's wait measured
 
 **Hans played Mario longer and said the jumping was very slow and that
