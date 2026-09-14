@@ -11,6 +11,65 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-09-14, ten past four: Defender, the scanner as a second camera, and what the games after will ask for
+
+**Hans asked what the next game was**, and the answer was Defender,
+because the reading of ten held the camera with a second scrolling game
+as its trigger, and Defender is the second scroller that tests a camera
+hardest rather than merely again: the world wraps, the view moves both
+ways at the ship's own speed and leads it the way it faces, and the
+scanner along the top draws the whole world at another scale, a second
+camera on the same world. Pac-Man was the other candidate, the grid's
+third game and the first opponents that decide by distance, and it
+fires nothing that is held. Hans said Defender.
+
+**The prediction went into the header first**, and it held. `toScreen`
+and `toScanner` are the two blocks every paint goes through, and the
+world's wrap is one block under both, `nearest`, which brings a
+difference to the near way round so that a thing just behind the wrap is
+just off the edge. The ship is the first thing in eleven games with
+inertia under a key rather than a heading, so `craft` does not fit and
+`mover` bare does, with thrust and drag as two lines of the game. A
+humanoid is attached to the lander carrying it or to the ship, which is
+a slot and not an engine question. `sprite`, `font:word`, `tint` and
+`keys` carry another game each. The binding was asked for nothing, an
+eleventh time, and neither was the engine.
+
+**The check that mattered was a scenario with the ship's hands off**,
+before the pilot. The pilot, immortal, had cleared a wave every
+twenty-three seconds without a lander ever reaching a humanoid, which
+left half the game untested and said nothing about why. Hands off for
+forty seconds showed why: no lander ever picked one up, because the
+line meant to keep landers off the ground held them at 390 and a
+pick-up needed 406, sixteen pixels the cabinet's landers do not leave.
+With the line gone and the general floor keeping them off the ground,
+the humanoids went from ten to two in forty seconds, mutants appeared,
+the baiter came at 2,400 frames, a shot lander dropped its humanoid, the
+ship put under it caught it for 500 and set it down for 500, and losing
+the last turned every lander into a mutant. The pilot then played
+seventeen waves immortal, the planet lost in wave seven and given back
+in wave twelve with ten new humanoids, and died in a wave or two
+mortal, flying into things at speed. Half a millisecond a frame. Not
+seen by any check: hyperspace, and a mine killing, since the immortal
+ship destroys what it touches. Hans played it and said it works.
+`solveig-sdl` `34e5a74`, 468 lines, `make defender` plays it and
+`make test` counts sixteen examples.
+
+**Two things for later, said by Hans and written into the binding's
+README where the rule for growing it lives**: a game controller, since
+every cabinet here had a stick and the arrows stand in for it; and more
+of the sound, a second channel, a volume, a note that is not a square
+wave, since one `beep` has carried eleven games and a tune and would not
+carry a console's music. Neither is a trigger yet. The famous console
+games come first, and they are what will ask.
+
+**What is left for the reading of eleven**, which is not done here: the
+camera with its second game, and the shape it took here, two blocks and
+a wrap, against Scramble's one subtraction in three places; and whether
+a second view of the world is a camera at all or a drawing at a scale.
+
+---
+
 ## 2026-09-14, quarter to four: tint and the grid move in
 
 **Hans said build both**, and the engine took the reading of ten's two
