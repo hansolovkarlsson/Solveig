@@ -11,6 +11,80 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-09-14: the second game, and it added nothing
+
+**Hans asked what the next game could be, and chose Breakout.** The
+evening before had ended with *one game first, Pong or Breakout, and the
+engine is what is left after the second*, and the candidates were weighed
+against that rule rather than against what would be fun to write. Breakout
+shares the most with Pong, a ball, a paddle, walls, the font, the beep, and
+adds one thing Pong has none of, many objects of one kind. Asteroids would
+have tested the half of the binding no program has touched, `sdl:line`
+with the trigonometry the machine already has, and was put forward for
+that reason; Space Invaders would have fired the trigger for textures,
+which grows the surface, the opposite of what a second game is for. Hans
+took Breakout first, which leaves the other reading for a third.
+
+**Three scoping questions before a line was written**, as Pong's right
+paddle had been one. The paddle moves by held keys and by the mouse both,
+whichever moved last, since the 1976 machine had a knob and the mouse is
+its descendant. Nothing plays it for you: Breakout is one player, and the
+self-playing copy that checked the physics was thrown away rather than
+kept behind a key. And the rules are the original's, not a simplification:
+eight rows of fourteen worth 7, 5, 3 and 1, three balls, four speed-ups
+(the fourth hit, the twelfth, the first orange, the first red), the paddle
+halved the first time the ball reaches the top wall, and a second wall
+once, so 896 is the most a game can score.
+
+**`examples/breakout.sol` in the SDL repository is 339 lines, and nothing
+went into `sdl.c`.** That was the expected outcome and it is still worth
+saying, because the trigger at the end of that README fired for Pong on
+the third thing Pong wanted, and Breakout wanted nothing the twelve
+messages and the language between them could not supply. Nor was anything
+lifted out of `pong.sol`, and that was the deliberate part: the frame
+loop, the drained queue, the held keys, the 3×5 font, the beep and the
+line between float physics and integer drawing are written out again in
+Pong's shape, so that the engine can be read off two whole games side by
+side. A library extracted from a sample of one would have been Pong's
+parts with a name on them. What the file has that Pong never needed is a
+hundred and twelve things of one kind: a brick is an object delegating to
+one prototype with `make`, `points`, `paint` and `touches` on it, and the
+wall is one `do` that paints and one `do` that collides. That is the
+whole of the new part, and it is the language's own premise doing the
+work rather than the binding's.
+
+**It was checked without being seen**, as Pong was, since the window
+cannot be captured from this shell. SDL's dummy video and audio drivers
+let the program run headless, which Pong's check did not know about. A
+copy with the paddle following the ball, wobbled so that it returns at
+angles rather than straight up the same column forever, played 9,085
+frames to a score of 394 with the speed stepping from 4 to 8 and the
+three balls lost in order; a second copy with only the bottom row standing
+built the second wall and ended the game on clearing it. Twenty thousand
+frames took 3.7 seconds on the `-g` build, so a hundred and twelve `touches`
+a frame is nothing against the 4.7 million instructions a frame the midday
+budget allowed. The first self-playing run found a defect in the checker
+and not the game: a paddle that centres itself under the ball returns it
+with no sideways component, and the ball then goes up and down one cleared
+column for as long as you like. Hans played it and said it works.
+
+**Two things the rules leave open were decided and written into the
+file's header** rather than left for a reader to discover: the speed-ups
+and the halved paddle reset with each new wall and not with each new ball,
+and the tones are this file's, since Breakout's original pitches are not
+recorded anywhere that could be read, where Pong's were.
+
+**So the second game exists, and the engine is now a question that can be
+asked.** The rule said it is what is left after the second, and the two
+files are there to be read against each other. Nothing is on any roadmap
+for it, by the same reasoning as before: a scoping is not a queued build,
+and whether the reading happens, and whether what it finds is a module in
+the language or a message in C, is Hans's to say. The commit is
+`solveig-sdl` `0f07b72`; the extension keeps no records, so this entry is
+the record.
+
+---
+
 ## 2026-09-13, evening: 0.45.0 cut, then Pong, and the first message a program asked an extension for
 
 **The release first.** Twenty-two commits had gone in during the day with
