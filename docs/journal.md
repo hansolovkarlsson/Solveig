@@ -11,6 +11,70 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-09-14, late: Space Invaders, and the trigger not met by a number
+
+**Hans asked for one more, Space Invaders, which was the game the first
+reading had said would push on the binding**: an invader is a picture, and
+nothing in the twelve messages draws a picture. Three scoping questions
+first. The rules are the 1978 machine's: fifty-five invaders in five rows
+of eleven, three kinds worth 30, 20 and 10 with two frames each, one shot
+in the air at a time, three bombs at a time from the lowest invader of a
+column, three cannons and one more at 1,500, the next wave a row lower,
+and the game lost at the ground. The four bunkers, eroding cell by cell,
+which is the one thing in the game that is a picture that changes. And the
+mystery ship, worth 50, 100 or 150, or 300 on the twenty-third shot and
+every fifteenth after, as the original counted. Two simplifications stated
+in the file's header: the three bomb kinds are one drawing, and the siren
+is a beep.
+
+**The prediction went into the header before the body, and it went
+against the earlier reading.** The file would not ask the binding for
+anything, even here, because a picture at this scale is rows of text
+compiled once to horizontal runs, a run is one `sdl:fill`, and fifty-five
+invaders are then about six hundred fills a frame and not three thousand;
+a bunker that erodes is a grid of cells whose runs are recomputed only
+when it is bitten. And the header named what would be asked for if that
+failed, so that the trigger could not drift: *a bitmap in one call*, not a
+texture. Then the measurement, which is what the trigger rule wants when
+the question is cost: a self-playing game ran 26,913 frames in 14.6
+seconds on the `-g` build under SDL's dummy renderer, about half a
+millisecond a frame against the sixteen available. Not close. So the
+trigger was not met, by a number rather than a guess, and the twelve
+messages stand after four games. The 13th's midday assessment had put
+textures first among what the engine lacked; four games later, no game
+has wanted one, and the reason is the same as for the held keys and the
+text: the language composes it from what is there.
+
+**Two things in the file that no game had.** A `sprite`, which is what
+`font:digit` does, done once at start rather than every frame, with
+`fromCells` over rows of booleans for the picture that changes. And a
+block that moves one thing a frame: the cursor walks the fifty-five,
+skipping the dead, and when it comes round past the last one standing the
+pass is complete, the march plays its next note, and an edge reached
+during the pass turns the block and drops it on the next. That is the
+original's mechanism, it is where the ripple and the quickening both come
+from, and it cost nothing to write. There is not a float in the game:
+everything on the screen is a `rect` that steps by whole pixels, so `rect`
+carries its third game and `mover` and `ball` are untouched, as the
+header predicted.
+
+**Checked as the others were**, by a self-playing copy under the dummy
+drivers, the cannon chasing whichever invader the cursor was on and firing
+every third frame. Kills, bombs, deaths, the mystery ship crossing and
+being hit, the extra cannon arriving at 1,500, a second wave a row lower,
+and games ending and returning to attract. `min` and `max` are not
+integer messages here, which cost a clamp written out; nothing else was
+asked of the language that it did not have. Hans played it and said it
+works great. The commit is `solveig-sdl` `c64f942`, 460 lines.
+
+**What is left for the reading of four**, which is not done here: that
+`font:digit` is the slow special case of `sprite:paint`, a 3×5 picture
+drawn cell by cell every frame; that Invaders is the second game to hum,
+so the one-channel sound policy has its second customer; and that
+`sprite` is one game's until it is not.
+
+---
+
 ## 2026-09-14, night: the reading of three, and a mover
 
 **Hans asked for the reading again, over three files now.** All three use
