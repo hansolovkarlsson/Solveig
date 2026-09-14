@@ -5,7 +5,7 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
-### `ifElseIf` is now `switch` — `pending`, 2026-09-14
+### `ifElseIf` is now `switch` — `e7d34f0`, 2026-09-14
 
 **Breaking: `[...]:ifElseIf` in `lib/control.sol` is now `[...]:switch`.**
 The behaviour is unchanged: pairs of condition and action blocks, the first
