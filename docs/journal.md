@@ -26,6 +26,16 @@ and `make clean` inside `proto/` leaving four. Proto's boundary sentence
 changed by a clause: it reaches Solveig only through `bin/`, reading four
 and writing one.
 
+**Then whether the two Makefiles should merge.** No, and the reason is now
+where it can be found: on [Proto's roadmap](../proto/docs/ROADMAP.md) under
+an entry for its version, which had never existed, the *version stays its
+own* hold having lived only in standups since the subtree came in. The
+separate file is the *needs no Solveig* claim kept mechanical, every Proto
+target collides with a root one, and `dist` cuts a tarball under Proto's
+own number; a merge before the version question is answered would answer
+it by the back door. When one version for the tree is decided, the
+Makefiles merge in the same move.
+
 ## 2026-09-13, mid-afternoon: Proto in the editor, and the line a grammar cannot cross
 
 **Hans asked for the same for `.pro` files**, and the answer turned on one
