@@ -11,6 +11,75 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-09-14, ten to five: Super Mario Bros. 1-1, the first console game, and the first jump
+
+**Hans asked what the next game was, and the console games were now the
+list.** The answer was Super Mario Bros., World 1-1, for three things none
+of the eleven had: a jump, a body that leaves the ground under a key and
+comes down with the gravity itself under the key; collision against a
+map, the grid's fourth game and its first as a map, a moving body
+resolved against the tiles it overlaps on each axis in turn; and a third
+camera, forward only with a floor at the left edge, so the reading of
+twelve has three to read against each other. Pitfall! was the smaller
+alternative. Hans said Mario. One thing was stated rather than asked: the
+tune is Nintendo's and stays theirs; the sounds are pitches chosen for
+the file, as every game's have been.
+
+**The prediction went into the header first**, and it held. The jump is
+a dozen lines over `mover`: an impulse by the run, a lighter gravity
+while the button is held and he is rising, a heavier one otherwise, and
+a ceiling on the fall. The level is 212 tiles of text, one character a
+tile, read into a `grid` at the start the way a sprite's rows are
+compiled, from memory of the cartridge's 1-1 rather than from its data,
+which the README says. A `body` is a mover with a box, moved sideways
+and pushed out of any tile its edge is in, then up or down the same way,
+with landing and bumping told from there; what is solid and what a bump
+does are the game's. The enemies, the shell and the mushroom are bodies
+under the same rule. The binding was asked for nothing, a twelfth time,
+and neither was the engine.
+
+**Two things found, and by different means.** The pilot, running right
+and jumping at walls, gaps and enemies, fell into the first pit and the
+program stopped: the flagpole check read the map below its last row. The
+tile lookups are bounded now, and a pit is a death and nothing else.
+Arithmetic found the second: my first jump rose 116 pixels held and the
+third pipe is 130, so the pilot stood at its foot until the clock ran
+out; the jump takes the run into account now and rises two tiles tapped,
+four and a half standing, five and a quarter running, which the trace
+confirmed by flying it at the pipe from five places. A third was a rule
+of mine against the cartridge's: a still shell landed on was another
+stomp for 100 where the cartridge kicks it; it kicks now, and a moving
+shell landed on stops for 100.
+
+**Checked directly, on clear ground**, after the pilot had shown it was
+the weakest yet: it clears the pipes and the pits and dies to the second
+of a pair of goombas at column 93 every life, landing beside it and
+jumping into its side, which the rule rightly counts as a hit, and I
+stopped tuning it. The scenario did the rest: the coin and the used
+block, the mushroom chased and caught for 1,000, the brick broken for 50
+when big, the stomp and the bounce, the shrink with its safe frames, the
+Koopa to a shell, the kick that took a goomba and came back off a pipe,
+the flag by row and the clock paid at 50 a count, 1-1 again at round two
+with the first goomba arriving sooner, and the clock at nought. The
+scenario itself misled twice before it said anything true: its columns
+were a tile off, which put a goomba inside a pipe, from which a body is
+rightly pushed out upward; and it kept its own copy of the game's frame
+loop and I rebuilt it without refreshing that copy, so a trace ran the
+rule I had just changed. A check that copies the thing it checks has to
+be rebuilt from the thing every time, which is the pilot lesson again in
+another form. About 0.9 ms a frame. Hans played it and said it works.
+`solveig-sdl` `00b1fc9`, 464 lines, `make mario` plays it and
+`make test` counts seventeen examples.
+
+**What is left for the reading of twelve**, which is not done here: the
+camera at three games and three shapes, Scramble's one subtraction,
+Defender's two blocks and a wrap, Mario's forward-only with a floor; the
+body, a mover with a box resolved against a grid, which is one game's;
+and the level as rows of text, which is `sprite:make`'s idea over a
+grid and might be the grid's to offer.
+
+---
+
 ## 2026-09-14, ten past four: Defender, the scanner as a second camera, and what the games after will ask for
 
 **Hans asked what the next game was**, and the answer was Defender,
