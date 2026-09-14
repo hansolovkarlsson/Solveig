@@ -48,14 +48,14 @@ integer:timesCollect := { body | | out, i |
 }.
 
 ; ---------------------------------------------------------------------------
-; ifElseIf -- a chain of alternatives, written flat
+; switch -- a chain of alternatives, written flat
 ;
 ;     kind := [
 ;         { c:equals("#") },  { self:integer },
 ;         { c:equals("\"") }, { self:string },
 ;         { c:equals("'") },  { self:symbol },
 ;                             { self:error("unexpected character") }
-;     ]:ifElseIf.
+;     ]:switch.
 ;
 ; Pairs of blocks: a condition and what to do when it holds. The first condition
 ; that answers true wins, its action's value is the answer, and nothing after it
@@ -64,8 +64,11 @@ integer:timesCollect := { body | | out, i |
 ; it: a list of pairs with one left over is exactly a list of pairs and a
 ; default. With an even number and no match, the answer is nil.
 ;
-; Lisp calls this `cond` and has since 1958. The name here says what it is to
-; somebody who has not met that.
+; Lisp calls this `cond` and has since 1958. It was `ifElseIf` here until
+; 2026-09-14, a name that said what it is to somebody who has not met that and
+; that nobody liked typing; `switch` is Go's tagless `switch { case x < 0: }`
+; and BASIC's `SELECT CASE` with `CASE IS > 5`, a list of boolean arms and a
+; default, which is what this is. There is nothing being switched on.
 ;
 ; **This is the thing nested `ifElse` is bad at.** Written as a chain, six
 ; alternatives are six levels of nesting and a wall of `}) }) })` at the end;
@@ -114,7 +117,7 @@ integer:timesCollect := { body | | out, i |
 ;          takes three to **two** and no lower.
 ;
 ; **Two is still twice one.** `basic.sol` read 60 brackets deep with a staircase
-; in its `primary` and 39 with `ifElseIf` there; a primitive would put that near
+; in its `primary` and 39 with `switch` there; a primitive would put that near
 ; 46. (Both numbers moved down by one when that program grew a prompt, for a
 ; reason that had nothing to do with this: the ratio is the point.) So the advice above does not change -- a recursive descent still
 ; wants the staircase -- which is the useful half of the measurement, because it
@@ -155,7 +158,7 @@ integer:timesCollect := { body | | out, i |
 ; and that entry has since stopped counting them: the number went stale twice and
 ; was never what the case rested on.
 
-array:ifElseIf := { | i, answer, done |
+array:switch := { | i, answer, done |
     i := #1.
     done := false.
     answer := nil.

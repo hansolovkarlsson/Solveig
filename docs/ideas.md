@@ -41,7 +41,7 @@ marked as a sketch.
 | JIT to native code | **No** — possible, and it would dwarf the project; the cheap alternative it named was measured in the end and is [slower than the `switch`](#computed-goto-dispatch--measured-and-refused) |
 | More examples covering everything | **Audited** — the guide was clean; four messages had no demonstration and now have one |
 | `doUntil` | **Built in** — and inlined, so a definition in Solum would now be bypassed |
-| switch / case | **Already writable**, and now written — [`array:ifElseIf`](REFERENCE.md#the-library) in control.sol, once an interface turned up worth committing to |
+| switch / case | **Already writable**, and now written — [`array:switch`](REFERENCE.md#the-library) in control.sol, once an interface turned up worth committing to |
 | `#10:repeat({...})` | **Built in** — a primitive, measured 3.2x the version written in Solum |
 | `for` loop with start/end/step | **Built in** — `[#a, #b, #step]:loop` |
 | `forIn` | **It is `do`** |
@@ -199,7 +199,7 @@ reached into with `pair:at(#1)` is not an interface worth committing to. A
 library is a promise, and the bar is higher than "it works".*
 
 **That judgement was right, and what changed is the interface.**
-[`array:ifElseIf`](REFERENCE.md#the-library) went into `control.sol` on
+[`array:switch`](REFERENCE.md#the-library) went into `control.sol` on
 2026-08-23 in this shape:
 
 ```
@@ -208,8 +208,11 @@ library is a promise, and the bar is higher than "it works".*
 n := #2.
 [{ n:equals(#1) }, { "one" },
  { n:equals(#2) }, { "two" },
-                   { "many" }]:ifElseIf:display.        ; two
+                   { "many" }]:switch:display.        ; two
 ```
+
+(As `ifElseIf`; it was renamed `switch` on 2026-09-14, and the sample is kept
+runnable under the current name.)
 
 Three differences from `caseOf`, and each is why it cleared the bar:
 

@@ -1049,17 +1049,6 @@
    ]
   },
   {
-   "name": "ifElseIf",
-   "signatures": [
-    {
-     "receiver": "array",
-     "signature": "ifElseIf",
-     "answers": "a chain of alternatives, written flat",
-     "source": "lib/control.sol"
-    }
-   ]
-  },
-  {
    "name": "ifFalse",
    "signatures": [
     {
@@ -2261,6 +2250,17 @@
      "signature": "substitutionIn(text, replacement, all)",
      "answers": "**The empty-match rule is the one that has to be got exactly right**, and it is lib/pattern.sol's, unchanged: a zero-width match where the last one ended is not a match, or `s/x*/-/g` would loop for ever on the same position",
      "source": "lib/re.sol"
+    }
+   ]
+  },
+  {
+   "name": "switch",
+   "signatures": [
+    {
+     "receiver": "array",
+     "signature": "switch",
+     "answers": "a chain of alternatives, written flat",
+     "source": "lib/control.sol"
     }
    ]
   },

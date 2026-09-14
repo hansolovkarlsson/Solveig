@@ -5,6 +5,32 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### `ifElseIf` is now `switch` — `pending`, 2026-09-14
+
+**Breaking: `[...]:ifElseIf` in `lib/control.sol` is now `[...]:switch`.**
+The behaviour is unchanged: pairs of condition and action blocks, the first
+true condition wins, an odd block at the end is the else.
+
+```
+@include "control.sol".
+
+n := #2.
+[{ n:equals(#1) }, { "one" },
+ { n:equals(#2) }, { "two" },
+                   { "many" }]:switch:display.        ; two
+```
+
+Hans wanted a name nearer `switch`, `case` or `select`. `select` is filter
+already; `case` is singular for a list of arms; `switch` reads right after
+the bracket and is honest about the shape, since Go's tagless
+`switch { case x < 0: }` and BASIC's `SELECT CASE` with `CASE IS > 5` are
+exactly a list of boolean arms and a default, with nothing switched on.
+Thirty call sites in `sola.sol`, `basic.sol`, `check_syntax.sol` and
+`disasm.sol` respelled, the reference, cheatsheet and README with them, and
+the selector table regenerated. The `dictionaries.sol` example, which had
+said there is no `switch` in this language, now says the library has one for
+conditions and a dictionary of blocks is the faster shape for values.
+
 ### Proto is Parasol, and `proto/` is `parasol/` — `ebdc8bc`, 2026-09-14
 
 **The second compiler changed its name, and nothing in either language

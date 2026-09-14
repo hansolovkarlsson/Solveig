@@ -1448,7 +1448,7 @@ read it. Every earlier measurement on
 [ROADMAP 3.5](ROADMAP.md#35-recursion-is-limited-to-about-254-levels) needed a
 generator to reach the limit. And the shape that did it is the shape
 [control.sol](../lib/control.sol) *recommends* — a staircase written instead of
-`ifElseIf`, precisely to save frames. Both are right: a staircase saves them in
+`switch`, precisely to save frames. Both are right: a staircase saves them in
 the program dispatching and costs them in anything walking the result as a tree.
 
 **So the matcher is an explicit stack machine.** The grammar compiles once to a

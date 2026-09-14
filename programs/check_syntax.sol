@@ -208,7 +208,7 @@ lineTextIn := { src, pos | | start, stop |
 ;
 ; It is still walked by recursion at *compile* time, and by every check in the
 ; section on grammars, all of which run once and none of which is hot. That is
-; where [control.sol](../lib/control.sol)'s rule still applies: `ifElseIf` costs
+; where [control.sol](../lib/control.sol)'s rule still applies: `switch` costs
 ; three frames a level and belongs outside a recursion, so it appears once in
 ; this file, in the grammar's own lexer, and nowhere else.
 ;
@@ -276,7 +276,7 @@ grammarWarning := { pos, text | | lc |
 ; ---------------------------------------------------------------------------
 ; Reading the grammar file: characters to meta-tokens
 ;
-; This is the flat, cool, many-armed dispatch `ifElseIf` was built for -- run
+; This is the flat, cool, many-armed dispatch `switch` was built for -- run
 ; once per token of a file that is a few kilobytes, with nothing recursive about
 ; it. The matcher below is the other case and uses the staircase.
 
@@ -361,7 +361,7 @@ metaLex := { src | | s, out, c, start |
             { ")]}":indexOf(c):notNil },
                 { s:step. out:add(makeMtok:value('close, c, start)) },
             { error:raise("'{}' has no meaning in a grammar":fill([c])) }
-        ]:ifElseIf }).
+        ]:switch }).
     out }.
 
 ; ---------------------------------------------------------------------------
@@ -483,7 +483,7 @@ readDirective := { | t, name, arg |
                 { grammarError:value(t:pos, "%skip wants the name of a token rule") }) },
         { grammarError:value(t:pos,
             "'%{}' is not a directive -- there are %tokens, %syntax, %fragment, %skip, %start and %ignorecase":fill([name])) }
-    ]:ifElseIf.
+    ]:switch.
     nil }.
 
 readProduction := { | t, r |
@@ -1033,7 +1033,7 @@ vmPush := { kind, pc, pos, name |
 ; ---------------------------------------------------------------------------
 ; The loop
 ;
-; A staircase rather than `ifElseIf`, and this is the site
+; A staircase rather than `switch`, and this is the site
 ; [control.sol](../lib/control.sol) describes as the one its own measurement
 ; rules out: many arms, and hot. Nothing here recurses, so the three frames
 ; would not accumulate -- they would simply be paid four million times.

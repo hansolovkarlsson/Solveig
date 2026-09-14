@@ -398,7 +398,7 @@ basic:fail := { message |
 ; file to use it and the first that is not a rewrite of a cursor it had already
 ; written for itself.
 ;
-; The dispatch is [control.sol](../lib/control.sol)'s `ifElseIf`, and this is
+; The dispatch is [control.sol](../lib/control.sol)'s `switch`, and this is
 ; the shape that file's own example is written in: a scanner deciding what a
 ; character starts. [disasm.sol](disasm.sol) reaches for it in the same place --
 ; deciding what a constant tag means -- which is two programs arriving at one
@@ -423,7 +423,7 @@ basic:tokenise := { text | | s, out, c |
                                   { out:add(self:numberToken(s)) },
           { isLetter:value(c) },  { out:add(self:wordToken(s)) },
           { c:equals("\"") },      { out:add(self:quotedToken(s)) },
-                                  { out:add(self:punctToken(s)) } ]:ifElseIf }).
+                                  { out:add(self:punctToken(s)) } ]:switch }).
     out }.
 
 ; A numeric literal: digits, an optional fraction, an optional exponent. The
@@ -637,7 +637,7 @@ basic:store := { number, rest | | st |
 ; return to leave a chain from, so it would be twenty levels deep and a wall of
 ; brackets at the end.
 ;
-; **[ifElseIf](../lib/control.sol)** is the library's answer to exactly that,
+; **[switch](../lib/control.sol)** is the library's answer to exactly that,
 ; and it is the right shape for a flat dispatch -- the tokeniser below uses it.
 ; It is the wrong shape *here* because it tests its conditions in order: with
 ; twenty keywords, recognising `STOP` means twenty block calls and twenty
@@ -1297,12 +1297,12 @@ basic:arguments := { | args |
 ; anything that costs a frame here costs it at every level -- which is the cost
 ; `manifest.sol` measured, 124 levels of JSON becoming 18 once its value
 ; dispatch went through a dictionary of blocks. [control.sol](../lib/control.sol)
-; says the same thing about `ifElseIf` in so many words: *use it for a flat
+; says the same thing about `switch` in so many words: *use it for a flat
 ; dispatch and not inside a recursion*, three frames a level, 254 becoming 84.
 ;
 ; **Measured in this program rather than taken on trust.** A listing nests as
 ; deep as its brackets, and the deepest one this reads is 59 -- see the
-; demonstration at the bottom. Written with `ifElseIf` in `primary` instead of a
+; demonstration at the bottom. Written with `switch` in `primary` instead of a
 ; staircase, the same measurement gives **39**. A third of the depth, for four
 ; lines that read better.
 ;
@@ -1764,14 +1764,14 @@ basic:continues := { frame | | v |
 ; text has no meaning in Minimal BASIC, and this refuses it rather than falling
 ; back on the byte order Solum would happily supply.
 ;
-; **This was written with `ifElseIf` first, and measured, and changed back.**
+; **This was written with `switch` first, and measured, and changed back.**
 ; It is the one dispatch in this program that is genuinely hot -- every `IF` in
 ; a running listing comes through here -- and a loop of 20,000 iterations
 ; driven by `IF` and `GOTO` ran in 0.246s as the staircase below and **0.30s**
-; through `ifElseIf`. Twenty-two per cent of the whole interpreter, for six arms
+; through `switch`. Twenty-two per cent of the whole interpreter, for six arms
 ; that a staircase holds legibly anyway.
 ;
-; So the niche `ifElseIf` has turns out to be narrow, and this program found
+; So the niche `switch` has turns out to be narrow, and this program found
 ; both of its edges in a day: it is out of the recursive dispatches on depth,
 ; and out of the hot one on speed. What is left for it is the flat, cool,
 ; many-armed case -- the tokeniser, and `disasm.sol`'s constant tags. That is a
@@ -1798,7 +1798,7 @@ basic:compare := { st | | l, r, op |
             { op:equals("<>") }, { l:equals(r):not },
                                  { self:fail(
                                      "'{}' compares numbers, not strings"
-                                         :fill([op])) } ]:ifElseIf }) }.
+                                         :fill([op])) } ]:switch }) }.
 
 ; ---------------------------------------------------------------------------
 ; Running

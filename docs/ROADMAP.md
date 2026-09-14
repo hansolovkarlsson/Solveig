@@ -627,7 +627,7 @@ out of frames on it. Every earlier measurement on this entry needed a generator
 come from a script emitting nesting nobody would type. This one was already
 sitting here. **And the shape that did it is the shape
 [control.sol](../lib/control.sol) recommends**, a staircase of `ifElse` written
-instead of `ifElseIf` precisely to save frames. Both are right: it saves them in
+instead of `switch` precisely to save frames. Both are right: it saves them in
 the program doing the dispatching and costs them in anything that walks the
 result as a tree.
 

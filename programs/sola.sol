@@ -451,7 +451,7 @@ sola:tokenise := { text | | s, out, c |
               out:at(out:size):text:equals("REM"):ifTrue({
                   s:skipWhile({ any | true }) }) },
           { c:equals("\"") },        { out:add(self:quotedToken(s)) },
-                                     { out:add(self:punctToken(s)) } ]:ifElseIf }).
+                                     { out:add(self:punctToken(s)) } ]:switch }).
     out }.
 
 ; **`D` is an exponent as well as `E`.** QBasic writes a Double's exponent with
@@ -718,7 +718,7 @@ parsers:atPut("END", { m, st |
         { m:takeToken. st:kind := 'endsub. m:expectEndOfLine("END SUB") },
       { m:nextIs("FUNCTION") },
         { m:takeToken. st:kind := 'endfunction. m:expectEndOfLine("END FUNCTION") },
-        { st:kind := 'end. m:expectEndOfLine("END") } ]:ifElseIf }).
+        { st:kind := 'end. m:expectEndOfLine("END") } ]:switch }).
 
 ; ---------------------------------------------------------------------------
 ; IF, in both of its shapes
@@ -882,7 +882,7 @@ sola:parseLoopTest := { st, what |
         { self:takeToken. st:test := 'while. st:expr := self:parseExpression },
       { self:nextIs("UNTIL") },
         { self:takeToken. st:test := 'until. st:expr := self:parseExpression },
-        { st:test := 'none } ]:ifElseIf.
+        { st:test := 'none } ]:switch.
     self:expectEndOfLine(what) }.
 
 parsers:atPut("WHILE", { m, st |
@@ -1152,7 +1152,7 @@ sola:typeName := { | t |
         { self:fail("SolaBasic has no SINGLE -- see docs/SOLABASIC.md. "
             :concat("DOUBLE is the one it has.")) },
         { self:fail("'{}' is not a type: INTEGER, LONG, DOUBLE or STRING"
-            :fill([t:text])) } ]:ifElseIf }.
+            :fill([t:text])) } ]:switch }.
 
 parsers:atPut("RANDOMIZE", { m, st |
     st:kind := 'randomize.
@@ -1431,7 +1431,7 @@ sola:parsePrimary := { | t, inner |
                 { callNode:value(t:text, array:new) },
                 { variableNode:value(t:text) }) }) },
         { self:fail("'{}' cannot start an expression":fill([t:text])) }
-    ]:ifElseIf }.
+    ]:switch }.
 
 ; ---------------------------------------------------------------------------
 ; Emitting
@@ -1608,7 +1608,7 @@ sola:constantValue := { n | | left, right |
         { left := self:constantValue(n:left).
           right := self:constantValue(n:right).
           self:constantArithmetic(n:op, left, right) },
-        { self:fail("this has to be a constant, and is not") } ]:ifElseIf }.
+        { self:fail("this has to be a constant, and is not") } ]:switch }.
 
 sola:constantArithmetic := { op, left, right |
     [ { op:equals("+") },
@@ -1619,7 +1619,7 @@ sola:constantArithmetic := { op, left, right |
       { op:equals("/") }, { self:asDouble(left):div(self:asDouble(right)) },
       { op:equals("\\") }, { self:asDouble(left):div(self:asDouble(right)):truncated },
         { self:fail("'{}' cannot be worked out at compile time":fill([op])) }
-    ]:ifElseIf }.
+    ]:switch }.
 
 sola:constantInteger := { n | | v |
     v := self:constantValue(n).
@@ -1708,7 +1708,7 @@ sola:typeBinary := { n | | left, right |
         { n:operandType := self:unify(left, right, "arithmetic").
           n:operandType:equals('string):ifTrue({
               self:fail("text cannot be used with '{}'":fill([n:op])) }).
-          n:type := n:operandType } ]:ifElseIf.
+          n:type := n:operandType } ]:switch.
     n:type }.
 
 ; ---------------------------------------------------------------------------
@@ -1726,7 +1726,7 @@ sola:coerce := { from, to |
               self:emitSend("notEquals", #1) },
           { from:equals('boolean) }, { self:materialise(to) },
           { to:equals('double) },    { self:emitSend("asFloat", #0) },
-                                     { self:emitSend("rounded", #0) } ]:ifElseIf }) }.
+                                     { self:emitSend("rounded", #0) } ]:switch }) }.
 
 ; **A comparison is `-1` or `0` when it is used as a number**, which is BASIC's
 ; rule and the reason there is no boolean type in the language. It costs a jump,
@@ -2017,7 +2017,7 @@ sola:emitExpression := { n |
         { self:emitTyped(n:left, n:operandType). self:emitSend("negated", #0) },
       { n:kind:equals('not) },
         { self:emitTyped(n:left, 'integer). self:emitSend("bitNot", #0) },
-        { self:emitBinary(n) } ]:ifElseIf }.
+        { self:emitBinary(n) } ]:switch }.
 
 sola:emitBinary := { n |
     [ { n:op:equals("MOD") }, { self:emitModulo(n) },
@@ -2032,7 +2032,7 @@ sola:emitBinary := { n |
           self:emitSend("concat", #1) },
         { self:emitTyped(n:left, n:operandType).
           self:emitTyped(n:right, n:operandType).
-          self:emitSend(selectors:at(n:op), #1) } ]:ifElseIf }.
+          self:emitSend(selectors:at(n:op), #1) } ]:switch }.
 
 ; **`\\` truncates towards nought and so does `MOD`'s remainder**, which is
 ; QBasic's rule and *not* the machine's: SolVM's integer `div` and `mod` are
@@ -2345,14 +2345,14 @@ sola:openerName := { kind |
       { kind:equals('select) }, { "SELECT CASE" },
       { kind:equals('for) },    { "FOR" },
       { kind:equals('do) },     { "DO" },
-                                { "WHILE" } ]:ifElseIf }.
+                                { "WHILE" } ]:switch }.
 
 sola:closerName := { kind |
     [ { kind:equals('if) },     { "END IF" },
       { kind:equals('select) }, { "END SELECT" },
       { kind:equals('for) },    { "NEXT" },
       { kind:equals('do) },     { "LOOP" },
-                                { "WEND" } ]:ifElseIf }.
+                                { "WEND" } ]:switch }.
 
 ; **Nothing may sit between SELECT CASE and its first CASE.** There is nowhere
 ; for it to go: the subject has been stored and the next thing control reaches
@@ -3769,7 +3769,7 @@ sola:emitBuiltin := { name, args | | entry, how |
             { self:builtinArg(args, #1, 'double).
               self:emitSend(entry:at(#4), #0).
               self:emitSend("asFloat", #0) }) },
-        { entry:at(#4):value(self, args) } ]:ifElseIf }.
+        { entry:at(#4):value(self, args) } ]:switch }.
 
 sola:checkBuiltinArity := { name, args, entry | | least, most |
     least := entry:at(#1):size.

@@ -267,7 +267,7 @@ readBody := { | chunk, count, i, tag, value, length, line, name, m |
     { i:lessThan(count) }:whileTrue({
         tag := byte:value.
         ; Flat rather than a chain of nested `ifElse`, which this was and which
-        ; ended in a wall of brackets four deep. `ifElseIf` costs a frame per
+        ; ended in a wall of brackets four deep. `switch` costs a frame per
         ; condition tested where the chain compiled to jumps, and that is the
         ; right trade here: this is a loop rather than a recursion, so the
         ; frames are transient, and the tags line up where a reader can see
@@ -278,7 +278,7 @@ readBody := { | chunk, count, i, tag, value, length, line, name, m |
             { tag:equals(#2) }, { { readFloat:value }:onError({ e | e:message }) },
             { tag:equals(#3) }, { byte:value:equals(#0):not },  ; undocumented
                                 { error:raise("constant tag {} is not one of 0, 1, 2, 3"
-                                      :fill([tag])) }]:ifElseIf.
+                                      :fill([tag])) }]:switch.
         chunk:at("constants"):add([tag, value]).
         i := i:add(#1) }).
 

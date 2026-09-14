@@ -105,9 +105,10 @@ repeated:sorted:print.           ; ["fox", "the"]
 ; A dictionary of blocks is a switch statement
 ;
 ; A block is a value and a dictionary holds values, so a table of blocks under
-; keys dispatches on one. There is no `switch` in this language and no need for
-; one -- and this is faster than a chain of comparisons, being one hash whatever
-; the number of cases. See docs/dispatch.md.
+; keys dispatches on one. There is no `switch` in the language; control.sol
+; has `array:switch` for a chain of conditions, and when the cases are values
+; this is the faster shape, being one hash whatever the number of cases. See
+; docs/dispatch.md.
 
 action := dictionary:new.
 action:atPut('red,   { "stop" }).

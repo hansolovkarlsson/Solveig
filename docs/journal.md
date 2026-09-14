@@ -69,6 +69,21 @@ mentions were on 2026-09-01, and the object model's `proto` was not touched.
 The suite here was green with the same 1067 claims before and after, and
 `editors/vscode/test.py` over 24 `.psol` files.
 
+### And `ifElseIf` is `switch`
+
+A second name, a quarter of an hour later: Hans wanted `array:ifElseIf` in
+`control.sol` called something nearer `switch`, `case` or `select`. `select`
+is filter already, `case` is singular for a list of arms, and `switch` is
+honest about the shape because Go's tagless `switch` and BASIC's
+`SELECT CASE` with `CASE IS` are a list of boolean arms and a default with
+nothing switched on, which is what this is. Thirty call sites in four
+programs, the definition's comment, which had defended `ifElseIf` against
+`cond` on legibility, the reference, cheatsheet and README, the ideas entry's
+runnable sample, and the `dictionaries.sol` example, which had said there is
+no `switch` in this language and now says the library has one for conditions.
+The `format`→`fill` rename is the pattern: a *Breaking* entry in the
+changelog, and the history left as it was written.
+
 ## 2026-09-14, ten past eight: the reading of six, and the engine held still
 
 **Hans asked for the reading over six files**, and the finding was that

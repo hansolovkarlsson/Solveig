@@ -701,13 +701,13 @@ lines:print.                                 ; #3
 | Message | Answers |
 | --- | --- |
 | `#n:timesCollect(block)` | an array of `n` answers, the block given the pass number |
-| `array:ifElseIf` | the first matching alternative's answer; see below |
+| `array:switch` | the first matching alternative's answer; see below |
 
 **None of it is language.** These are methods bound on `integer`, `array` and
 `block` by an ordinary Solum file, because control flow is message sending and a
 loop — or a chain of alternatives — is therefore something a library can add.
 
-`ifElseIf` is that chain, written flat instead of nested:
+`switch` is that chain, written flat instead of nested:
 
 ```
 @include "control.sol".
@@ -716,14 +716,16 @@ c := "'".
 [{ c:equals("#") },  { "integer" },
  { c:equals("\"") }, { "string" },
  { c:equals("'") },  { "symbol" },
-                     { "something else" }]:ifElseIf:display.   ; symbol
-[{ false }, { "no" }]:ifElseIf:print.                          ; nil
+                     { "something else" }]:switch:display.   ; symbol
+[{ false }, { "no" }]:switch:print.                          ; nil
 ```
 
 Pairs of blocks — a condition and what to do when it holds. The first condition
 answering true wins and nothing after it runs. **An odd number of blocks means
 the last is the else**; an even number with no match answers nil. Lisp calls
-this `cond`.
+this `cond`; the name here is Go's tagless `switch` and BASIC's `SELECT CASE`
+with `CASE IS`, a list of boolean arms and a default, since nothing is being
+switched on. It was `ifElseIf` until 2026-09-14.
 
 **It costs what nesting does not, and the numbers decide where to use it.** A
 nested `ifElse` written literally compiles to jumps; this makes a block call per

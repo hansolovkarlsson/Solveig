@@ -480,7 +480,7 @@ instances behind it than any other open entry — **the checker cannot catch a
 claim that stops being checked**, and three arrived in one day.
 
 **0.24.0** — a library and documentation release; no language change and `.sob`
-files are format version 14, unchanged. **`array:ifElseIf`** writes a chain of
+files are format version 14, unchanged. **`array:switch`** writes a chain of
 alternatives flat instead of as nested `ifElse`, measured at 5.8× a chain and
 three frames a level through a recursion, so it is for a flat dispatch and not a
 recursive descent. **[3.17](docs/COMPLETED.md#317-a-global-is-found-by-walking-a-list--done)**
