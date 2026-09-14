@@ -11,6 +11,65 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-09-14, quarter to two: the cosmetic pair, then Tetris, the first game drawn from a grid
+
+**The morning after the release opened with the two small items the
+standup carried**, and one of them was not one line. `test_cli` fed each of
+the twenty-one Pascal programs `< agree/NAME.in || … < /dev/null`, and only
+`reading` has an `.in` file, so the shell reported twenty failed
+redirections on its own stderr before `||` fell through: twenty lines of
+`No such file` in a green run, not one. An `if [ -r ]` says the same thing
+with nothing said, `0453c3a`. The two sibling READMEs now say *since 0.46.0*
+where they said *after 0.45.0*, `solveig-sdl` `4d20dda` and `solveig-gtk`
+`aa3df74`.
+
+**Then Hans took the recommendation for a seventh game**, Tetris, chosen
+because it is the one candidate that tests something none of the six did: a
+screen drawn from a table rather than from things. Two scoping answers: the
+1989 cartridge's rules rather than the 1984 original or the modern
+guideline, since those are the documented period rules and the other six
+are period games; and tones plus the tune, Korobeiniki whole, hummed note by
+note through the one-channel policy the way Invaders' four-note march is.
+
+**The prediction went into the header first**, and every part of it held.
+Of the engine's thirteen names, only `engine`, `keys`, `font` and `tone`
+carry this game: a piece is four cells in a grid and the grid is the state,
+so nothing here has a float position, a radius, a heading or a box, and
+`sprite` is not wanted either, a cell being two fills. `keys` took its first
+rule from a game, the sixteen-then-six repeat of a held key, written over
+the booleans it keeps rather than over the event stream's own repeat. And
+this is the second game to name a number, four of them, so `letters`,
+`glyphs` and `label` are copied from `lander.sol` with this game's twelve
+letters, as Spacewar copied Asteroids' `thing`, and the trigger the reading
+of six wrote down is met: the second word in a second game. The binding was
+asked for nothing, a seventh time.
+
+**Checked as the others were**, by a self-playing copy under the dummy
+drivers, and the check found two things before it found none. The first was
+the pilot's: a temp named `best`, which is also the game's top-score global,
+and whichever of the two won, the pilot aimed at the first turn of every
+piece until the rename. The second was the game's, and the pilot found it by
+still aiming at the first turn afterwards: `fits` refused any cell above row
+one, so no T, J, L or I could be turned where it enters, which the cartridge
+allows and does not draw. With that fixed the pilot, judging every turn and
+column by the lines it made, the holes it left and how low it lay, played
+204 pieces to 68 lines and level 7, every level-up on the tenth line and
+every clear scoring the table times the level after it; then played at
+random until the curtain, the restart and the top score. A four-line clear
+was checked directly, since greed never sets one up: 1,200 and an empty
+well. About half a millisecond a frame with the pilot's search in it. The
+window could not be captured from this shell, as before; Hans played it and
+said it works. `solveig-sdl` `07befc6`, 427 lines, `make tetris` plays it
+and `make test` counts twelve examples.
+
+**What is left for the reading of seven**, which is not done here: that the
+words have their second customer, the case the reading of six named; that
+the tune is one game's; and that the repeat of a held key is a rule of one
+game written over an engine name, which is a different kind of thing from a
+seam.
+
+---
+
 ## 2026-09-14, twenty to one: 0.46.0 cut, with the flag as its headline
 
 **Four loose entries and two of them breaking**, `switch` and the `@expr`
