@@ -11,6 +11,59 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-09-14, half past two: the reading of eight, and the engine held still a second time
+
+**Hans asked for the reading over eight files**, and the count was made by
+the same script as the seventh, over twenty-eight names and lines. Eight
+for eight: the frame, `font:number`, `tone`, the `final score` line and a
+`frames:mod` blink. Seven: `keys`, which sat out Missile Command because
+every input there is an event, and a name that one game does not need is
+not a name that six games wrote wrongly. Six: `rng`, bound once since the
+seventh reading. Five: `hum`, an `'attract` state, a `newGame`. Three:
+`font:word`, with Lander, Tetris and Missile; `rect`, `craft`, `mote`.
+Two: `sprite:make` in Invaders and Missile, now that the words have left
+the other two; `ball`, `thing`, `draw`, the kit; and the two things the
+Missile entry said to look at. One: `mover` bare, the tune, the count
+screen, THE END.
+
+**The pointer turned out to be two things and not one.** Breakout keeps
+it as `paddle:x := event:x - w/2` on the `'mouseMove` event; Missile as
+`aimX := event:x. aimY := event:y`. Read side by side they look like
+`keys`, a fact kept from the events, and a `mouse` object with `x` and
+`y` noted in `engine:drain` beside `keys:note` would be four lines. But
+Breakout's rule is *keys or mouse, whichever moved last*, and a paddle
+read from `mouse:x` every frame would snap to the pointer and the keys
+would never win again: Breakout wants the motion, Missile wants the
+position, and a `mouse:x` serves one of the two. So it is one game's, and
+the trigger is a second game that wants the position.
+
+**The disc has one game.** Missile's block is `circles.sol`'s to the
+letter apart from taking its centre and radius as parameters, and circles
+is an example that predates the engine and does not include it. The rule
+as every reading has applied it counts games over the engine, so this is
+one customer, held with its trigger written: a second game that draws a
+disc.
+
+**`mover` bare is a confirmation.** The reading of three said `ball` and
+`thing` were each a `mover` and a shape of motion; Missile is the first
+game to want the mover and no shape, and it fit without a line added,
+which is what a seam found right should eventually do. One note belongs
+to Missile rather than the engine: three of its movers aim at a point
+with the same `aim(atan2(ty - y, tx - x), speed)` line, and the other two
+games' `atan2` calls compute a heading for a craft to turn toward, which
+is a different thing; three copies in one file are that file's to fold
+or not.
+
+**The recommendation is nothing.** The second reading where the engine
+held still, and the first where the engine's one change of the day came
+during the writing rather than after it: the space in `font:word`, which
+the game asked for on its first count screen and which was in before the
+reading began. Eight games; the engine is thirteen names, a generator,
+two key lists and an alphabet, and every one of them is there because two
+games wrote it, except ten letters and a gap, and the file says so.
+
+---
+
 ## 2026-09-14, twenty to three: Missile Command, the first game aimed with the mouse, and the alphabet's first ask
 
 **Hans said Missile Command next**, the second of the three candidates, and
