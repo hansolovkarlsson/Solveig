@@ -10,7 +10,7 @@ piece of work as it was argued *before* the work is in
 
 ---
 
-### Proto is Parasol — 2026-09-14
+### Proto is Parasol — `ebdc8bc`, 2026-09-14
 
 **No version, and nothing in the language changed.** The compiler, the
 library, the headers, the directory and the source extension are spelled

@@ -5,6 +5,25 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### Proto is Parasol, and `proto/` is `parasol/` — `ebdc8bc`, 2026-09-14
+
+**The second compiler changed its name, and nothing in either language
+changed.** Hans was not sold on *Proto*, and the name had two collisions
+and an ambiguity: `.proto` and `protoc` are Protocol Buffers, `.pro` is
+qmake's and Prolog's, and in a prototype-based language the word points at
+the object model. *Parasol* is plain English with `sol` in its tail, and
+`para-` is *beside*: a paraphrase is what its output is. Its modules are
+`.psol`. The rename is [Parasol's to record](../parasol/docs/CHANGELOG.md)
+and it has, with the names put and not taken in its COMPLETED 18.
+
+What is Solveig's: the directory is `parasol/`, `make` writes
+`bin/parasol`, the root Makefile's target is `parasol`, and the editor's
+second language moved with the name, its id, its scopes, its grammar and
+snippet files. Every mention of the project by name in these documents was
+respelled, as the Phoenix mentions were on 2026-09-01; the object model's
+`proto` was not touched. The suite was green with the same 1067 claims
+before and after.
+
 ## 0.45.0 — 2026-09-13
 
 **The editor colours both languages, and `bin/` holds five binaries.**
