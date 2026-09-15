@@ -653,7 +653,7 @@ bite first and it did not; `programs/digest` predicted a template costs
 nothing at run time and it does not.
 
 **A finding is retracted in place, not edited away.** Parasol's
-[POSTMORTEM.md](../parasol/docs/POSTMORTEM.md) 11 exists because entries 7
+[POSTMORTEM.md](parasol/POSTMORTEM.md) 11 exists because entries 7
 and 9 were written down somewhere somebody could go back and disagree with
 them. A page that quietly stops claiming something teaches nothing, which is
 the rule `ideas.md` keeps by leaving the claim above the outcome.
@@ -681,7 +681,7 @@ matches before replacing, and fail when it is not the number expected.
 ## A new check is run against the unfixed code, and `make clean` goes between the two builds
 
 A check must fail if the thing it tests is removed;
-[POSTMORTEM.md](../parasol/docs/POSTMORTEM.md) 23 is that control passing when
+[POSTMORTEM.md](parasol/POSTMORTEM.md) 23 is that control passing when
 it should not have. `git stash`, `git checkout` and `git show >` all restore a
 file with its **original timestamp**, which is older than the object already
 built from it, so `make` rebuilds nothing and the control runs the code it was
@@ -693,7 +693,7 @@ than the reported defect, so it improved the test as well as verifying it.
 ## Everything is read once at the end of a day, and the sweep greps for the claim
 
 Whether or not anything is suspected. Parasol's
-[POSTMORTEM.md](../parasol/docs/POSTMORTEM.md) 13 said a claim about another
+[POSTMORTEM.md](parasol/POSTMORTEM.md) 13 said a claim about another
 document is re-derived when it is read; 19 is eight instances in one day of
 why that is not enough, because **nobody re-reads a document that is not being
 read**. A version heading is not consulted when adding a version, and a *Known
@@ -744,7 +744,7 @@ git worktree add ../Solveig-<name> -b <name>
 The suite cannot find a use of freed memory on its own: whether a stale
 pointer is a crash is the allocator's decision, so a check can hold the exact
 shape of the bug and pass. Parasol's
-[POSTMORTEM.md](../parasol/docs/POSTMORTEM.md) 15 was latent from its 0.1.0 to
+[POSTMORTEM.md](parasol/POSTMORTEM.md) 15 was latent from its 0.1.0 to
 0.10.0 with the invocation that catches it documented and unused in a Makefile
 the whole time. **A tool nobody runs is not a tool**, which is why `make
 sanitize` is a target of the one Makefile now, the whole suite under
@@ -765,7 +765,7 @@ search-and-replace across both trees would have taken. The same holds one
 step on for `Proto`, `proto_`, `PROTO_` and `.pro`, **except in the records of
 the first rename**, which keep the name they chose because they say what was
 chosen then; the names put and not taken are in Parasol's
-[COMPLETED.md](../parasol/docs/COMPLETED.md) 18. The archived repositories keep
+[COMPLETED.md](parasol/COMPLETED.md) 18. The archived repositories keep
 their names.
 
 ## A commit message carries the argument

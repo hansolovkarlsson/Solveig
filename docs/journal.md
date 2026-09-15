@@ -965,7 +965,7 @@ and one refusal later he offered *Parasol*, and that one held: plain English,
 *beside* and *paraphrase* as what the output is. The extension went to
 `.psol`, `.pro` having been half of what was wrong with the old name, it
 being qmake's and Prolog's. The rename is Parasol's to record and it has:
-[changelog](../parasol/docs/CHANGELOG.md), COMPLETED 18 with the names put
+[changelog](parasol/CHANGELOG.md), COMPLETED 18 with the names put
 and not taken, and its journal. What is Solveig's is the directory,
 `parasol/` now, `bin/parasol`, the root Makefile's target, and the editor's
 second language, whose id and scopes moved with the name. Every mention of
@@ -1650,7 +1650,7 @@ changed by a clause: it reaches Solveig only through `bin/`, reading four
 and writing one.
 
 **Then whether the two Makefiles should merge.** No, and the reason is now
-where it can be found: on [Parasol's roadmap](../parasol/docs/ROADMAP.md) under
+where it can be found: on [Parasol's roadmap](parasol/ROADMAP.md) under
 an entry for its version, which had never existed, the *version stays its
 own* hold having lived only in standups since the subtree came in. The
 separate file is the *needs no Solveig* claim kept mechanical, every Parasol

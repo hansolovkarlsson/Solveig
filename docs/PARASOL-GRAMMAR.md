@@ -97,7 +97,7 @@ not have a second one.
 | comment | `;` to the end of the line |
 
 Everything but `operator` is Solveig's own spelling **in shape, and not quite
-in full**. [POSTMORTEM.md](../parasol/docs/POSTMORTEM.md) 16 found nine differences and 0.11.0
+in full**. [POSTMORTEM.md](parasol/POSTMORTEM.md) 16 found nine differences and 0.11.0
 closed five of them — the sign on an integer, hexadecimal, float exponents, and
 the escape set, which Parasol had been *more* permissive about and was therefore
 emitting Solveig that `solas` rejected.

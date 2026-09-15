@@ -134,7 +134,7 @@ was nine — the four, plus `*` and `%` declared identically in both, plus `<`, 
 and `==` declared with the same message on a different rung. Since 0.10.0 it is
 seven: `~` and `\/` are no longer collisions at all, arith spelling them `!` and
 `||`. Running the case to check the number is what found
-[POSTMORTEM.md](../../parasol/docs/POSTMORTEM.md) 15 — the compiler segfaulted partway
+[POSTMORTEM.md](../../docs/parasol/POSTMORTEM.md) 15 — the compiler segfaulted partway
 through reporting them, and had done since 0.1.0. `sha2.psol` is standalone
 for that reason, which is `lib/clike.psol`'s reason with correctness behind it
 rather than taste.

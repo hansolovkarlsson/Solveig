@@ -1,4 +1,12 @@
-# Postmortem
+# Parasol's postmortem
+
+*Frozen on 2026-09-15 with its thirty-three entries, Parasol's defects from
+its first day to the day it became a member of Solveig's toolkit. Solveig
+keeps no postmortem and does not start one: a prediction is scored in
+[ideas.md](../ideas.md) with the claim kept above the outcome, and a defect
+found in Parasol after this date is recorded the way any other defect in the
+tree is. This page was moved in, not created, and is closed. Nothing is
+appended below this note.*
 
 Every defect this project has found in itself, what caused it, and — the part
 worth the paper — **what found it**. The tally at the end is the only real
@@ -139,9 +147,9 @@ comparing every form in Solveig's grammar against Parasol, one file each, gives
 | `-3` | a literal | needs `@prefix -` | **cannot be had** while `-` is declarable |
 
 **Why it is a defect and not a list of missing features.**
-[GRAMMAR.md](../../docs/PARASOL-GRAMMAR.md) says everything but `operator` is Solveig's own
+[GRAMMAR.md](../PARASOL-GRAMMAR.md) says everything but `operator` is Solveig's own
 spelling, *so that a file can be read by somebody who knows Solveig without a
-second set of habits*. [README.md](../README.md) goes further in its first
+second set of habits*. [README.md](../PARASOL.md) goes further in its first
 section: a module may *declare no operators at all and read exactly as Solveig
 does today*. **That is false in eight ways**, and a person who knows Solveig
 meets the first of them at `#-5`.
@@ -202,7 +210,7 @@ it had not, and nothing but the question would have said so.
 **What.** `x := "a\qb".` compiles without complaint and produces a `.sol` that
 `solas` refuses:
 
-```
+```text
 [q.sol:3:6] solas: unknown escape in a string; \" \\ \n \t \r are the escapes
 ```
 
@@ -212,7 +220,7 @@ escaping whatever follows.
 **Why it matters more than the other eight.** Every other divergence is Parasol
 refusing something Solveig accepts, which is a smaller language and an honest
 error message. This one is the other way: **Parasol accepting something Solveig
-does not, and emitting it.** [README.md](../README.md) says the examples are
+does not, and emitting it.** [README.md](../PARASOL.md) says the examples are
 compiled *and run* precisely because *a front end that emits text can be wrong
 in a way no unit test sees — Solveig-looking source that Solveig rejects*. This
 is that, and the discipline did not catch it because no example contains a bad
@@ -235,7 +243,7 @@ it stands, so the error lands on the `.psol` rather than on generated code.
 **What.** `lib/clike.psol`'s `else` hole is typed `block`, so a C-style chain is
 refused, which is intended and documented. What it says is not:
 
-```
+```text
 $ parasol chain.psol
 /…/lib/clike.psol:72:43: error: 'if' wants a block here, and this is a send
  72 | @syntax if <c> <t: block>            => c:ifTrue(t).
@@ -270,7 +278,7 @@ a dialect's own users hit and its author does not**, because the author knows
 the chain wants braces and never writes the version that does not.
 
 **Found by** checking a prediction rather than asserting it, while designing
-[second-reader.md](../../docs/PARASOL-SECOND-READER.md) — whose fourth prediction was going to be
+[second-reader.md](../PARASOL-SECOND-READER.md) — whose fourth prediction was going to be
 *the diagnostic will not name the fix* and had to become something else. It is
 the third defect in four days found by that habit, after the escape-set
 divergence and the 0.1.0 segfault.
@@ -329,7 +337,7 @@ rules built on that comparison failed, in opposite directions:
 **A diamond spelled two ways collided with itself.** Two dialects using a third,
 one arm writing `base.psol` and the other `./base.psol`, read it twice:
 
-```
+```text
 d/./base.psol:1:8: warning: operator '+' was already declared by d/base.psol
                   -- this one wins, and nothing else will say so
 d/base.psol:1:1: note: declared here
@@ -345,7 +353,7 @@ warnings, which are the 0.4.0 feature the whole composition story rests on.
 `./a.psol` never matched the cycle check, and every hop appended another `./`, so
 no path ever repeated. What stopped it was the recursion limit:
 
-```
+```text
 .../cyc/./././…/a.psol:1:1: error: @use is nested more than 64 deep
   ... used from .../cyc/././././…/b.psol, line 1        (× 64)
 ```
@@ -525,7 +533,7 @@ number that was never right.
 **What worked.** Reading everything once at the end, whether or not anything was
 suspected. That found four of the eight in about ten minutes, including two
 nobody would have opened for months. It is now
-[conventions.md](../../docs/method.md#what-came-in-from-parasols-conventionsmd-and-what-was-retired)'s standing agreement, because a defence that
+[conventions.md](../method.md#what-came-in-from-parasols-conventionsmd-and-what-was-retired)'s standing agreement, because a defence that
 depends on suspicion is not a defence — and the ninth instance above was found
 by the sweep finding a stale number in the paragraph describing the sweep.
 
@@ -585,7 +593,7 @@ found only because that table was being edited for another reason.
 
 **What worked.** Grepping for the claim. One search for *five programs* returned
 every instance at once, including three in `does-it-pay.md`; one for *declined
-twice* returned four files. It is [conventions.md](../../docs/method.md#what-came-in-from-parasols-conventionsmd-and-what-was-retired)'s standing
+twice* returned four files. It is [conventions.md](../method.md#what-came-in-from-parasols-conventionsmd-and-what-was-retired)'s standing
 agreement now, beside the sweep it sharpens.
 
 **Found by** the next session's closeout, one sweep after the sweep that missed
@@ -623,14 +631,14 @@ pointer to the entry that closed them.
 no commits in it — the previous day had already been closed and pushed — and
 found three defects anyway. **A sweep audits the documents, not the day**, which
 is an argument for running it even when there is nothing to write up, and the
-reason [conventions.md](../../docs/method.md#what-came-in-from-parasols-conventionsmd-and-what-was-retired) now says so.
+reason [conventions.md](../method.md#what-came-in-from-parasols-conventionsmd-and-what-was-retired) now says so.
 
 **Found by** a closeout run on an empty day, after being told there was nothing
 to close out.
 
 ### 25. A document's last sentence outlived the section that settled it — 2026-09-04
 
-**What.** [second-reader.md](../../docs/PARASOL-SECOND-READER.md) ends on *correcting for it is
+**What.** [second-reader.md](../PARASOL-SECOND-READER.md) ends on *correcting for it is
 what turns the third finding above from an inconvenience into the thing to fix
 first* — the substrate documentation gap, written about run 1 and true of it.
 Run 2 measured the one-line fix at **zero probes** and recorded the reader
@@ -668,7 +676,7 @@ only wrong against a later section of itself.**
 this language were put in front of it, and neither opened this page.* Written at
 10:42 on 2026-09-04 in `6bd7ef4`, after runs 1 and 2, and true of them. At 11:33,
 `dceee92` recorded run 3: that reader opened the page **first**, met *Not here*,
-and stopped, which [second-reader.md](../../docs/PARASOL-SECOND-READER.md) calls the first evidence
+and stopped, which [second-reader.md](../PARASOL-SECOND-READER.md) calls the first evidence
 that any part of the README has been load-bearing. The same commit swept the
 tree for the stale count, found *two strangers* in `does-it-pay.md`,
 `REFERENCE.md`, `targets.md` and the README's own table of documents at line
@@ -686,7 +694,7 @@ file's foot had already moved past twice.
 with nothing in the sentence to notice when the other document moved. 25's
 sentence disagreed only with itself; this one disagreed with `second-reader.md`
 and with line 721 of its own file. What is new is that the defence 20 wrote
-into [conventions.md](../../docs/method.md#what-came-in-from-parasols-conventionsmd-and-what-was-retired), *grep for the claim and not for the
+into [conventions.md](../method.md#what-came-in-from-parasols-conventionsmd-and-what-was-retired), *grep for the claim and not for the
 documents*, was applied that day and did not reach: the claim was spelled
 *two strangers* in four places and *Two readers* in one, and a grep for the
 phrase found the phrase.
@@ -728,7 +736,7 @@ was changed because `.psol` is five.
 
 **What it cost.** Nothing shipped. Four passages, in the changelog, COMPLETED
 13, POSTMORTEM 14 and the journal's 2026-09-01 morning, were put back from
-`HEAD` before the commit, and [conventions.md](../../docs/method.md#what-came-in-from-parasols-conventionsmd-and-what-was-retired) now says they
+`HEAD` before the commit, and [conventions.md](../method.md#what-came-in-from-parasols-conventionsmd-and-what-was-retired) now says they
 keep the old name on purpose.
 
 **Cause.** A rename rule is a rule about the present tense. A record of a
@@ -962,8 +970,8 @@ where somebody could go back and disagree with it, and somebody did.
 
 **What.** Run 2 of the second-reader experiment produced a sentence, and it was
 promoted to a headline rule in four documents the same evening —
-[ROADMAP.md](ROADMAP.md), [does-it-pay.md](../../docs/PARASOL-DOES-IT-PAY.md),
-[CHANGELOG.md](CHANGELOG.md) and [second-reader.md](../../docs/PARASOL-SECOND-READER.md):
+[ROADMAP.md](ROADMAP.md), [does-it-pay.md](../PARASOL-DOES-IT-PAY.md),
+[CHANGELOG.md](CHANGELOG.md) and [second-reader.md](../PARASOL-SECOND-READER.md):
 
 > A limitation explained where it is declared is not a limitation a reader pays
 > for. It is one its author paid for once.
@@ -1008,7 +1016,7 @@ that is a result about examples rather than about the diagnostic.*
 **What.** Reader runs 3 and 4 were handed a three-command toolchain in the
 prompt:
 
-```
+```text
 parasol FILE.psol -o FILE.sol
 solas FILE.sol -o FILE.sob
 solvm FILE.sob

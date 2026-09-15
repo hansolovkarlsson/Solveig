@@ -1571,8 +1571,7 @@ changelogHashes := #0.
 changelogPending := #0.
 changelogPlain := #0.
 
-checkChangelogHashes := { | path, n |
-    path := "docs/CHANGELOG.md".
+checkChangelogHashes := { path | | n |
     system:fileExists(path):ifTrue({
         n := #0.
         system:readFile(path):split("\n"):do({ line | | heading, at, tokens |
@@ -1606,7 +1605,13 @@ checkChangelogHashes := { | path, n |
                                                   :fill([t]), ""]) }) }) }) }) }) }) }) }).
     nil }.
 
-checkChangelogHashes:value.
+checkChangelogHashes:value("docs/CHANGELOG.md").
+
+; And not Parasol's, frozen under docs/parasol/ since 2026-09-15. It was tried:
+; 33 of its headings name a version or a date after the dash and no commit,
+; which was that page's convention for a release heading and is not this
+; one's. The rule here is the root changelog's rule, and a frozen page written
+; under another is read for its links and its blocks and not held to it.
 
 ; ---------------------------------------------------------------------------
 ; A link that points at a heading that is not there

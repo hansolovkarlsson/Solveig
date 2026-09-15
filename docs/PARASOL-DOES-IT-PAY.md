@@ -154,7 +154,7 @@ loop.
 
 Two measurements, and the second argues against the first's significance. The
 case for folding rests on the claim being made true, not on the number.
-[ROADMAP.md](../parasol/docs/ROADMAP.md) carries it.
+[ROADMAP.md](parasol/ROADMAP.md) carries it.
 
 ---
 
@@ -364,7 +364,7 @@ something they cannot recognise until they already have it.
 > you would have walked into believing you had succeeded.**
 
 It is kept rather than replaced, because it is true of what it was measured on.
-[POSTMORTEM.md](../parasol/docs/POSTMORTEM.md) 26 is why it should not have been stated wider
+[POSTMORTEM.md](parasol/POSTMORTEM.md) 26 is why it should not have been stated wider
 than that on one reader.
 
 **And it measured the first run's two fixes.** Both were one line, neither

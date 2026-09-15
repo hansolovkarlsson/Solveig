@@ -61,7 +61,7 @@ From Solveig's root, whose Makefile has held the Parasol rules since
 | --- | --- |
 | `make` | `bin/parasol`, beside Solveig's four binaries. A C11 compiler and `make`, and nothing else. |
 | `make test` | Solveig's suite, then this one: the unit tests, plus every example and program through `solas` and `solvm` |
-| `make sanitize` | the whole suite under AddressSanitizer and UBSan, from a clean build. **Worth doing before a release** — see [POSTMORTEM.md](../parasol/docs/POSTMORTEM.md) 15. It leaves an instrumented `bin/`; `make clean` restores a normal one. |
+| `make sanitize` | the whole suite under AddressSanitizer and UBSan, from a clean build. **Worth doing before a release** — see [POSTMORTEM.md](parasol/POSTMORTEM.md) 15. It leaves an instrumented `bin/`; `make clean` restores a normal one. |
 | `make examples` | every example, Solveig's and Parasol's, to a `.sob` |
 | `make ember` / `grammar` / `digest` / `ledger` / `prose` / `basic` / `bignum` | one program at a time, built and run |
 | `make install` | `bin/parasol` to `$PREFIX/bin` with the four, `lib/*.psol` to `$PREFIX/lib/solum` with Solveig's library; it prints the `PARASOL_PATH` to export |
@@ -370,7 +370,7 @@ programs/         seven directories beside Solveig's programs, each with its own
 build/            everything parasol generates: build/examples/, build/programs/<name>/
 tests/            test_parasol_reader, _expand, _map, _use, _sob, among Solveig's
 docs/             this page and the other PARASOL*.md beside Solveig's
-parasol/docs/     the five records, until the step that moves them
+docs/parasol/     the five records to 2026-09-15, frozen
 editors/          VS Code colours a .psol file and completes its directives: editors/vscode/README.md
 ```
 
@@ -400,11 +400,11 @@ wrong.
 | [PARASOL-PIPELINE.html](PARASOL-PIPELINE.html) | the same path drawn |
 | [PARASOL-GRAMMAR.md](PARASOL-GRAMMAR.md) | the core grammar, and which shape a form should have |
 | [PARASOL-DOES-IT-PAY.md](PARASOL-DOES-IT-PAY.md) | what seven programs and four strangers say about whether a declared grammar is worth it |
-| [ROADMAP.md](../parasol/docs/ROADMAP.md) | what is outstanding, and what is refused |
-| [COMPLETED.md](../parasol/docs/COMPLETED.md) | the case for each finished piece, as argued before it |
-| [CHANGELOG.md](../parasol/docs/CHANGELOG.md) | what landed, per version, with the commit |
-| [POSTMORTEM.md](../parasol/docs/POSTMORTEM.md) | every defect found here, and **what found it** |
-| [journal.md](../parasol/docs/journal.md) | what a day consisted of |
+| [ROADMAP.md](parasol/ROADMAP.md) | frozen: what was refused and retracted; what is outstanding is [section 7](ROADMAP.md#7-parasol) of Solveig's |
+| [COMPLETED.md](parasol/COMPLETED.md) | frozen: the case for each of nineteen finished pieces, as argued before it |
+| [CHANGELOG.md](parasol/CHANGELOG.md) | frozen at 0.17.0: what landed, per version, with the commit; since then, [Solveig's](CHANGELOG.md) |
+| [POSTMORTEM.md](parasol/POSTMORTEM.md) | frozen: thirty-three defects, and **what found it** |
+| [journal.md](parasol/journal.md) | frozen: what a day consisted of, to the day Parasol joined |
 | [method.md](method.md#what-came-in-from-parasols-conventionsmd-and-what-was-retired) | the standing agreements and the method, Parasol's folded into Solveig's |
 | [PARASOL-TARGETS.md](PARASOL-TARGETS.md) | what Parasol targets, and what a program in Parasol targets |
 | [PARASOL-RULES-AND-LOGIC.md](PARASOL-RULES-AND-LOGIC.md) | how far the rules could go, and where they stop |

@@ -1,4 +1,9 @@
-# Journal
+# Parasol's journal
+
+*Frozen on 2026-09-15: Parasol's journal from its first day to the day it
+became a member of Solveig's toolkit. From that day a day of work on Parasol
+is a day of work on Solveig and is in [Solveig's journal](../journal.md).
+Nothing is appended below this note.*
 
 *What a day of work on Parasol actually consisted of, newest first.*
 
@@ -400,7 +405,7 @@ for entry 28 anyway and now says five. The third is the README.
 language were put in front of it, and neither opened this page.* Written at
 10:42 on 2026-09-04 and true of runs 1 and 2. At 11:33 the third reader was
 recorded opening the page first, reading *Not here*, and stopping, and the same
-commit did what [conventions.md](../../docs/method.md#what-came-in-from-parasols-conventionsmd-and-what-was-retired) says to do: it grepped for the
+commit did what [conventions.md](../method.md#what-came-in-from-parasols-conventionsmd-and-what-was-retired) says to do: it grepped for the
 claim rather than opening documents, found *two strangers* in four places,
 including the README's own table of documents at line 721, and corrected all
 four. Then `d01ad10` moved them to four. Line 37 spelled the same count *Two
@@ -494,7 +499,7 @@ beforehand removes an option the reader was about to take. `:print` is a
 > **A warning prevents a failure you would have chosen. It does not prevent one
 > you would have walked into believing you had succeeded.**
 
-Which is [does-it-pay.md](../../docs/PARASOL-DOES-IT-PAY.md)'s own silence category arriving from
+Which is [does-it-pay.md](../PARASOL-DOES-IT-PAY.md)'s own silence category arriving from
 the documentation side, and it took a third reader because the second produced
 a sentence good enough to stop looking.
 
@@ -579,12 +584,12 @@ records is *for* and it is also how the day's two mistakes happened.
 
 There was no `scratch/daily-standup.md`. 2026-09-03 had been closed out three
 times and the standup was not among what survived, so the way in was `git log`
-and `docs/` — which is what [CLAUDE.md](../CLAUDE.md) says to do, and it worked
+and `docs/` — which is what [CLAUDE.md](../../parasol/CLAUDE.md) says to do, and it worked
 for everything except one item.
 
 **The catch-up reported the substrate documentation gap as the next thing to
 fix. It had been fixed and measured the previous afternoon.**
-[second-reader.md](../../docs/PARASOL-SECOND-READER.md)'s run 2 put the one-line `REFERENCE.md`
+[second-reader.md](../PARASOL-SECOND-READER.md)'s run 2 put the one-line `REFERENCE.md`
 pointer in front of a reader and got **zero** `does not understand` probes
 against run 1's six. That is in the middle of the file. Its **last sentence**
 still called the gap *the thing to fix first*, undated and present tense, and
@@ -610,8 +615,8 @@ outranks anything said about it from outside.
 ### The README was fixed for the readers who never opened it
 
 Two strangers used this language on 2026-09-03 and **neither opened the front
-page**. That was recorded in [second-reader.md](../../docs/PARASOL-SECOND-READER.md), again in
-[does-it-pay.md](../../docs/PARASOL-DOES-IT-PAY.md), and a third time in yesterday's journal entry
+page**. That was recorded in [second-reader.md](../PARASOL-SECOND-READER.md), again in
+[does-it-pay.md](../PARASOL-DOES-IT-PAY.md), and a third time in yesterday's journal entry
 noting it was *not on the roadmap and probably should be*.
 
 **A roadmap entry was the wrong shape for it**: the fix is twenty-five lines and
@@ -712,7 +717,7 @@ and neither had been checked in four days of sweeps.
 > next.**
 
 Which is the one thing this day suggests changing about the ritual, and it is
-not written into [conventions.md](../../docs/method.md#what-came-in-from-parasols-conventionsmd-and-what-was-retired) yet because one day is an
+not written into [conventions.md](../method.md#what-came-in-from-parasols-conventionsmd-and-what-was-retired) yet because one day is an
 anecdote and this project's own rule is that one customer is not enough.
 
 ### The numbers, written last
@@ -807,7 +812,7 @@ So *there is nothing to close out* was the wrong answer, and it was wrong for a
 reason worth writing down rather than a slip: it treated the closeout as a
 report on work done, when what it actually is is an audit of what the documents
 claim. **An empty day is not a reason to skip one**, and
-[conventions.md](../../docs/method.md#what-came-in-from-parasols-conventionsmd-and-what-was-retired) says so now.
+[conventions.md](../method.md#what-came-in-from-parasols-conventionsmd-and-what-was-retired) says so now.
 
 The grep agreement earned last night was what found two of the three, on its
 first use in anger. The third came from re-reading the entry that agreement was
@@ -832,7 +837,7 @@ The three-line invocation in that paragraph was run before it was written.
 
 ### Which made the second reader real, so the question was designed
 
-[does-it-pay.md](../../docs/PARASOL-DOES-IT-PAY.md) has ended on the same sentence since it was
+[does-it-pay.md](../PARASOL-DOES-IT-PAY.md) has ended on the same sentence since it was
 written: what no program had tried is a dialect used by somebody who did not
 write it. **A stranger arriving from Solveig's front page stopped being
 hypothetical the moment the link landed**, so the design and six predictions
@@ -843,7 +848,7 @@ went in first, per the rule.
 The fourth prediction was going to be *the else-if diagnostic will not name the
 fix*. Checking it found that it did not name the **file**:
 
-```
+```text
 /…/lib/clike.psol:72:43: error: 'if' wants a block here, and this is a send
 parasol: chain.psol -- 1 error
 ```
@@ -969,7 +974,7 @@ now points at it. That is not on the roadmap and probably should be.
 **This section read *one commit, this one, and no version* at midday, and *six
 commits* at teatime.** It is wrong for the second time in one day, in the entry
 whose own lesson is that this happens, four hours after
-[conventions.md](../../docs/method.md#what-came-in-from-parasols-conventionsmd-and-what-was-retired) gained the sentence **write the narrative to
+[conventions.md](../method.md#what-came-in-from-parasols-conventionsmd-and-what-was-retired) gained the sentence **write the narrative to
 last and the numbers to be replaced.** The agreement was vindicated faster than
 anything else written here.
 
@@ -1011,7 +1016,7 @@ learning.
 
 > Can parasol be used to create an interpreted language like BASIC?
 
-**Two questions wearing one sentence**, which is what [targets.md](../../docs/PARASOL-TARGETS.md)
+**Two questions wearing one sentence**, which is what [targets.md](../PARASOL-TARGETS.md)
 had to untangle a day earlier for the *compiler* version of the same ask. So the
 first answer was to separate them and then check both by running them:
 
@@ -1219,15 +1224,15 @@ and that is Parasol's own syntax.
 **Neither misreading is one a document written from the inside would think to
 correct.** GRAMMAR.md says what the syntax is; the README argues why. Nothing
 said *matching is not a scan*, because nobody on the inside would imagine it
-was. Both are now in [what-is-parasol.md](../../docs/PARASOL.md), kept as the questions
+was. Both are now in [what-is-parasol.md](../PARASOL.md), kept as the questions
 they were rather than rewritten into statements, and the pipeline is drawn four
-times in [pipeline.html](../../docs/PARASOL-PIPELINE.html) — `3156d26`.
+times in [pipeline.html](../PARASOL-PIPELINE.html) — `3156d26`.
 
 ### `@language` went, and a question is what unstuck it
 
 The roadmap had said for nine versions that it should select the reader, or the
 emitter, or stop existing. It had not moved because **two of those three depend
-on a build this project has already declined** — [targets.md](../../docs/PARASOL-TARGETS.md)
+on a build this project has already declined** — [targets.md](../PARASOL-TARGETS.md)
 refuses a second emitter, and a second reader is larger still. The entry was
 not waiting on a decision. It was waiting on something that was never coming.
 
@@ -1313,7 +1318,7 @@ in `test_use`'s process it does not. It fails under
 Which is the finding that should sting. **That invocation had been in the
 Makefile since the first commit and nothing had ever been run under it.** Not a
 missing test — a tool sitting in a comment, never picked up. It is a target now
-and a standing agreement in [conventions.md](../../docs/method.md#what-came-in-from-parasols-conventionsmd-and-what-was-retired), and the suite is
+and a standing agreement in [conventions.md](../method.md#what-came-in-from-parasols-conventionsmd-and-what-was-retired), and the suite is
 clean under `-fsanitize=address,undefined`.
 
 ### The fourth program, which argued against both entries it was written for
@@ -1441,14 +1446,14 @@ working copy is a hazard that cost nothing today by timing alone.
 
 ### The question this project exists to answer, finally written down
 
-[targets.md](../../docs/PARASOL-TARGETS.md) has said since 0.1.0 that the only thing this project
+[targets.md](../PARASOL-TARGETS.md) has said since 0.1.0 that the only thing this project
 exists to find out is **whether a grammar declared per module is a good idea**,
 and then left it to be answered elsewhere. Four programs had answered parts of
 it, each in its own README, each quoting the one before — and *a dialect pays
 per line it removes* appeared in four program folders and **nowhere in `docs/`
 or the README.**
 
-[does-it-pay.md](../../docs/PARASOL-DOES-IT-PAY.md) is the four weighed together, with the numbers
+[does-it-pay.md](../PARASOL-DOES-IT-PAY.md) is the four weighed together, with the numbers
 re-measured rather than carried across. Tabulating them showed something no
 single program could have:
 
@@ -1576,8 +1581,8 @@ this morning: *being asked whether a survey had been complete*, at two, and
 *somebody building the thing that could not be built*, at one.
 
 **Three documents arrived that had no home before**:
-[REFERENCE.md](../../docs/PARASOL-REFERENCE.md), the page you look a spelling up in;
-[does-it-pay.md](../../docs/PARASOL-DOES-IT-PAY.md), the answer to the only question the project
+[REFERENCE.md](../PARASOL-REFERENCE.md), the page you look a spelling up in;
+[does-it-pay.md](../PARASOL-DOES-IT-PAY.md), the answer to the only question the project
 exists to ask; and `programs/prose/README.md`, a document about a document.
 
 Those are the day's real output. The five versions were the easy part — four of
@@ -1868,8 +1873,8 @@ with 0.8.0, two real programs, three shipped dialects, and a retraction.
 Parasol 0.1.0 through 0.8.0. `lib/arith.psol`, `lib/control.psol`,
 `lib/clike.psol`. `programs/ember`, a compiler from a small language to ARM64
 assembly. `programs/grammar`, a grammar toolkit. Five design notes:
-[targets.md](../../docs/PARASOL-TARGETS.md), [rules-and-logic.md](../../docs/PARASOL-RULES-AND-LOGIC.md),
-[solveig-notes.md](../../docs/PARASOL-SOLVEIG-NOTES.md), and this document set. 5,187 lines of C11,
+[targets.md](../PARASOL-TARGETS.md), [rules-and-logic.md](../PARASOL-RULES-AND-LOGIC.md),
+[solveig-notes.md](../PARASOL-SOLVEIG-NOTES.md), and this document set. 5,187 lines of C11,
 103 unit checks, five examples and four programs run by `make test`.
 
 ### The first hour was spent not writing code
@@ -1965,13 +1970,13 @@ which is the most likely reason it was not followed.
 
 `@language` still records a name and acts on nothing, eight versions in. It is
 the only inert directive and it should either select something — a reader, or an
-emitter, as [targets.md](../../docs/PARASOL-TARGETS.md) argues — or stop existing. That is a
+emitter, as [targets.md](../PARASOL-TARGETS.md) argues — or stop existing. That is a
 decision, not a build.
 
 A guard on a rule was designed and not built: `solum/embed.h` is the door, and
 the rule to fix before writing any of it is that **a guard validates, it does not
 select** — otherwise parsing depends on evaluation and no tool can read a `.psol`
-without running it. [rules-and-logic.md](../../docs/PARASOL-RULES-AND-LOGIC.md) carries the whole
+without running it. [rules-and-logic.md](../PARASOL-RULES-AND-LOGIC.md) carries the whole
 argument.
 
 ### The number worth keeping

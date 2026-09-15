@@ -39,7 +39,7 @@ any compiler changed.
 
 **`parasol/Makefile` is gone and its rules are a section of this one**, the
 second of five steps by which Parasol becomes a member of the toolkit
-(the plan is in [parasol/docs/ROADMAP.md](../parasol/docs/ROADMAP.md),
+(the plan is in [parasol/docs/ROADMAP.md](parasol/ROADMAP.md),
 *A member of the toolkit*; the first, one version for the tree, waits on the
 next release). `make` builds five binaries; `make test` runs Parasol's
 suite in the same recipe after the conformance corpus and the C tests;
@@ -175,7 +175,7 @@ and an ambiguity: `.proto` and `protoc` are Protocol Buffers, `.pro` is
 qmake's and Prolog's, and in a prototype-based language the word points at
 the object model. *Parasol* is plain English with `sol` in its tail, and
 `para-` is *beside*: a paraphrase is what its output is. Its modules are
-`.psol`. The rename is [Parasol's to record](../parasol/docs/CHANGELOG.md)
+`.psol`. The rename is [Parasol's to record](parasol/CHANGELOG.md)
 and it has, with the names put and not taken in its COMPLETED 18.
 
 What is Solveig's: the directory is `parasol/`, `make` writes
@@ -208,7 +208,7 @@ completion under `osascript`, since there is no `node` here; it stays out of
 
 **`make` writes Parasol's compiler to `bin/parasol`**, beside `solas`, `solvm`,
 `solis` and `solid`; `parasol/bin/` is gone, and Parasol's `clean` removes only
-the file it put there. Parasol's own [changelog](../parasol/docs/CHANGELOG.md)
+the file it put there. Parasol's own [changelog](parasol/CHANGELOG.md)
 has that and the bignum, its seventh program. The document checker empties
 its sandbox before every document rather than once a pass, which turns the
 one-in-eight failure of 2026-09-12 into one that would fail every run, and
@@ -227,7 +227,7 @@ touched, so the bundles were not reloaded.
 `solvm`, `solis` and `solid`, instead of to `parasol/bin/`. One directory on
 `PATH` reaches the whole toolkit; `make install` already put the five
 together. Parasol's `clean` removes only its own file there. The change is
-[Parasol's](../parasol/docs/CHANGELOG.md), and this entry is here because the
+[Parasol's](parasol/CHANGELOG.md), and this entry is here because the
 directory is this repository's.
 
 ### VS Code reads a Parasol dialect — `6b490af`, 2026-09-13

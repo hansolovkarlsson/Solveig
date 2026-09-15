@@ -1,4 +1,10 @@
-# Changelog
+# Parasol's changelog
+
+*Frozen on 2026-09-15 at 0.17.0, which is the last version Parasol had of
+its own: from the next release the tree has one number, and what changes in
+Parasol after this note is in [Solveig's changelog](../CHANGELOG.md), where
+that release's entry says Parasol joined it here. Nothing is appended below
+this note.*
 
 Notable changes to Parasol, newest first.
 
@@ -322,7 +328,7 @@ the README, which today's run contradicts. `REFERENCE.md`, `targets.md` and
 
 **No version, no code, and not committed by the closeout itself.**
 
-**One defect, and the closeout found it.** [second-reader.md](../../docs/PARASOL-SECOND-READER.md)
+**One defect, and the closeout found it.** [second-reader.md](../PARASOL-SECOND-READER.md)
 ends on *the thing to fix first*, about the substrate documentation gap. That
 was true of run 1. Run 2 measured the one-line fix at **zero** probes sixty
 lines above it, and the closing sentence carries no date and no tense. **A
@@ -448,7 +454,7 @@ the change.
 opened it at all and volunteered that it was not load-bearing. Both wrote a
 correct program on the first compile-and-run regardless, out of the dialect
 file, the example and `REFERENCE.md`. That was recorded in
-[second-reader.md](../../docs/PARASOL-SECOND-READER.md) and [does-it-pay.md](../../docs/PARASOL-DOES-IT-PAY.md) as a
+[second-reader.md](../PARASOL-SECOND-READER.md) and [does-it-pay.md](../PARASOL-DOES-IT-PAY.md) as a
 finding, and [journal.md](journal.md) noted it was not on the roadmap and
 probably should be. It is fixed instead.
 
@@ -471,7 +477,7 @@ to find them without it.
 **No version, no code.** The day was closed at midday saying *one commit, this
 one, and no version*, corrected at teatime to *six commits and 0.15.0*, and is
 nine now. **The numbers section of one journal entry has been wrong twice in one
-day**, four hours after [conventions.md](../../docs/method.md#what-came-in-from-parasols-conventionsmd-and-what-was-retired) gained *write the
+day**, four hours after [conventions.md](../method.md#what-came-in-from-parasols-conventionsmd-and-what-was-retired) gained *write the
 narrative to last and the numbers to be replaced.* The agreement was vindicated
 faster than anything else written here, and the entry carries both earlier
 readings rather than either being replaced.
@@ -546,7 +552,7 @@ test**, for the third day running.
 ### The second reader, measured — 2026-09-03
 
 **No version; nothing in the compiler changed.** The question
-[does-it-pay.md](../../docs/PARASOL-DOES-IT-PAY.md) has ended on since it was written — a dialect
+[does-it-pay.md](../PARASOL-DOES-IT-PAY.md) has ended on since it was written — a dialect
 used by somebody who did not write it — was measured, against six predictions
 committed first in `3777a9a`.
 
@@ -634,7 +640,7 @@ plain case that was always right and is what a fix could break. 58 checks became
 61. [POSTMORTEM.md](POSTMORTEM.md) 22.
 
 **Found by checking a prediction instead of asserting it**, while writing
-[second-reader.md](../../docs/PARASOL-SECOND-READER.md) — whose fourth prediction was going to be
+[second-reader.md](../PARASOL-SECOND-READER.md) — whose fourth prediction was going to be
 *the diagnostic will not name the fix* and had to be rewritten twice: once when
 checking found it did not name the **file**, and again once that was fixed. The
 measurement is deliberately not run in front of the defect it would have scored.
@@ -666,7 +672,7 @@ same evening.
 
 And: **a sweep audits the documents, not the day.** An empty day is not a reason
 to skip one. Both are standing agreements in
-[conventions.md](../../docs/method.md#what-came-in-from-parasols-conventionsmd-and-what-was-retired) now.
+[conventions.md](../method.md#what-came-in-from-parasols-conventionsmd-and-what-was-retired) now.
 
 ### Closing out, again — 2026-09-02
 
@@ -691,7 +697,7 @@ was read; it was read for what it says about targets.
 > **A claim that appears in three documents is one claim, and it is found by
 > grepping for the claim, not by opening the documents.**
 
-That is [conventions.md](../../docs/method.md#what-came-in-from-parasols-conventionsmd-and-what-was-retired)'s standing agreement now, beside the
+That is [conventions.md](../method.md#what-came-in-from-parasols-conventionsmd-and-what-was-retired)'s standing agreement now, beside the
 sweep it sharpens — and it was added to the file that was two of the six, which
 is the part worth remembering.
 
@@ -730,7 +736,7 @@ standalone, and declares no `@use`, so nothing collided.
 interpreter — line numbers, `LET`, `PRINT`, `INPUT`, `IF`/`THEN`, `GOTO`,
 `GOSUB`/`RETURN`, `FOR`/`NEXT` — with a program counter that can go backwards,
 an environment outliving every statement, and a prompt when given no file. It
-is the half of [targets.md](../../docs/PARASOL-TARGETS.md) that page never had a program for: it
+is the half of [targets.md](../PARASOL-TARGETS.md) that page never had a program for: it
 answered a question about a BASIC *compiler* in the abstract on 2026-08-31.
 
 **It stated the ceiling in one sentence where there had been two.**
@@ -786,7 +792,7 @@ heading is not consulted when adding a version.
 
 **What worked was reading everything once at the end**, whether or not anything
 was suspected, and it is a standing agreement in
-[conventions.md](../../docs/method.md#what-came-in-from-parasols-conventionsmd-and-what-was-retired) now, beside a second one the day earned:
+[conventions.md](../method.md#what-came-in-from-parasols-conventionsmd-and-what-was-retired) now, beside a second one the day earned:
 **two sessions do not share a working copy.** A second session left uncommitted
 changes to `reader.c` in this checkout at 11:59 while this one was committing
 with `git add -A` every few minutes; the last such commit was 11:30, so nothing
@@ -850,7 +856,7 @@ rule and both refusals. [COMPLETED.md](COMPLETED.md) 16.
 
 ### `programs/prose` — 2026-09-02
 
-**The fifth program, and the one [does-it-pay.md](../../docs/PARASOL-DOES-IT-PAY.md) asked for.**
+**The fifth program, and the one [does-it-pay.md](../PARASOL-DOES-IT-PAY.md) asked for.**
 A document language, with the document itself written in the dialect and
 rendered to text — the first program here whose dialect writes the **data**
 rather than the processing.
@@ -1176,7 +1182,7 @@ the fix in. That is the one class of defect this suite structurally cannot catch
 on its own: whether a read of freed memory is a crash is the allocator's
 decision, so `tests/test_use.c` can hold the exact shape of the bug and pass.
 
-[conventions.md](../../docs/method.md#what-came-in-from-parasols-conventionsmd-and-what-was-retired) now carries it as a standing agreement rather
+[conventions.md](../method.md#what-came-in-from-parasols-conventionsmd-and-what-was-retired) now carries it as a standing agreement rather
 than a good intention: **before a release, and after anything that touches the
 dialect tables.**
 
@@ -1261,7 +1267,7 @@ The reading under which the line was true — *the substrate is Solveig* — is 
 same for every `.psol` and is already carried by the extension. The thing that
 could differ between two files is the output, and the word for that is
 `@target`, which is what gets added if a second emitter is ever built.
-COMPLETED.md 14 carries the whole argument; [targets.md](../../docs/PARASOL-TARGETS.md) is amended
+COMPLETED.md 14 carries the whole argument; [targets.md](../PARASOL-TARGETS.md) is amended
 where it used to argue the other way.
 
 | | |
@@ -1309,7 +1315,7 @@ that opens by arguing a tool can tell what language a file is in. The extension
 is four characters either way, so the suffix arithmetic in `default_output_path`
 is untouched.
 
-**The replacement asserted its match**, as [conventions.md](../../docs/method.md#what-came-in-from-parasols-conventionsmd-and-what-was-retired)
+**The replacement asserted its match**, as [conventions.md](../method.md#what-came-in-from-parasols-conventionsmd-and-what-was-retired)
 requires and as three recorded defects come from skipping. The suite
 was run green *before* the rename, to compare against a number rather than an
 impression; the staged diff is **1,435 lines out and 1,435 back in**, which is
@@ -1389,7 +1395,7 @@ only to work around it are gone from both grammars.
 
 The rule — *a pattern for something that reads as a step, a call for something
 that reads as an application* — moved from a program's README into
-[GRAMMAR.md](../../docs/PARASOL-GRAMMAR.md), where somebody choosing a shape would look. The real
+[GRAMMAR.md](../PARASOL-GRAMMAR.md), where somebody choosing a shape would look. The real
 finding is that **choosing wrongly is silent**: both readings are legal, so
 nothing at the declaration can warn.
 
@@ -1459,7 +1465,7 @@ The file still called the expander *next*, four versions after it shipped.
 
 ### Two design notes — `5c631b8`, `410b8e4`, 2026-08-31
 
-[rules-and-logic.md](../../docs/PARASOL-RULES-AND-LOGIC.md): how much of EBNF `@syntax` could grow,
+[rules-and-logic.md](../PARASOL-RULES-AND-LOGIC.md): how much of EBNF `@syntax` could grow,
 what it must refuse, and why a guard on a rule is the tower question rather than
 a feature. Then the other half: if the evaluator is Solveig, `solum/embed.h` is
 the door, and **a guard validates, it does not select.**

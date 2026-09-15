@@ -4627,7 +4627,7 @@ side.** The toolkit has two ways to write `a + b * c`. In solas it is a region,
 `@expr(...)`, with one ladder fixed in `compiler.c`; in Parasol it is whatever
 the module's header declares, and `lib/arith.psol` declares the same ladder.
 Parasol has already refused to carry `@expr`, and
-[its roadmap](../parasol/docs/ROADMAP.md) says why in one sentence: *Solveig's
+[its roadmap](parasol/ROADMAP.md) says why in one sentence: *Solveig's
 fixed infix region is the special case of what `@infix` generalises. Supporting
 both would be supporting two.* So the line between the tools is drawn on one
 side only. The question is whether solas should draw its side too, and become a
@@ -4721,7 +4721,7 @@ than hoped.
 
 `-3` stays a difference between the tools, and becomes a simpler one. Parasol
 cannot fold a sign into a number while `-` is declarable, which
-[its roadmap](../parasol/docs/ROADMAP.md) records as forced rather than
+[its roadmap](parasol/ROADMAP.md) records as forced rather than
 missing. Without the region, solas has *one* reading of `-`: it belongs to the
 digits after it, always, and the lexer's mode flag goes with the region.
 
@@ -6473,7 +6473,7 @@ program can read it. No `make` target, no `bin/solvm`, no wording of ours.
 | | what it holds | why it is not a conformance suite |
 | --- | --- | --- |
 | `tests/*.c` — 40 files | the C API, the compiler and the VM | internal by construction; a second implementation has none of these symbols |
-| [expect.sol](../programs/expect.sol) — 1099<!--count claims--> claims | the examples and the documents against their own comments | **the author's corpus, matched as a subsequence** — its own header says why, and why that is right for a document |
+| [expect.sol](../programs/expect.sol) — 1100<!--count claims--> claims | the examples and the documents against their own comments | **the author's corpus, matched as a subsequence** — its own header says why, and why that is right for a document |
 | [oracle.sh](../programs/oracle.sh) — six corpora | `sed`, `diff`, `sort` against BSD's | a second implementation of a **program**, not of the language |
 
 **The subsequence rule is the sharp one.** `expect.sol` requires each claim to

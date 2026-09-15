@@ -31,12 +31,10 @@ the no-Solveig claim.
 
 ## The records
 
-In `docs/`: `journal.md` (why, in order — **newest first**), `POSTMORTEM.md`
-(every defect, and what found it), `COMPLETED.md` and `ROADMAP.md` (what
-exists and what does not — an item moves when it is settled, including settled
-against), `CHANGELOG.md` (when). Parasol's house rules were `conventions.md`
-until 2026-09-15 and are in the root's `docs/method.md` now, with the rest of
-its pages under `docs/PARASOL*.md`.
-
-Each of those opens with a note stating its own job. That note is the
-specification for what belongs in it — follow it over any general instruction.
+Solveig's, since 2026-09-15: a day on Parasol goes in the root's
+`docs/journal.md`, what ships in its `CHANGELOG.md`, and an entry that closes
+into its `COMPLETED.md` from section 7 of its `ROADMAP.md`, where Parasol's
+open entries are. Parasol's own records to the day it joined are frozen under
+`docs/parasol/`, each opening with a note saying so, and nothing is appended
+to them; its house rules were `conventions.md` and are in `docs/method.md`;
+its pages are `docs/PARASOL*.md`.

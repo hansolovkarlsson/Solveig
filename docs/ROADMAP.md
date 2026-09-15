@@ -1209,6 +1209,422 @@ reasoning, the threat model and everything the last four days added to it are
 kept in full, because deciding it later from a blank page would cost more than
 keeping it did. The number stays 6.32 and is not reused.
 
+## 7. Parasol
+
+Parasol's open entries, carried here on 2026-09-15 when its roadmap froze
+under [docs/parasol/](parasol/ROADMAP.md) with the rest of its records. Each
+keeps its words; the numbers are new, and a Parasol entry closes the way any
+other does, into [COMPLETED.md](COMPLETED.md) with its case. What the frozen
+page keeps is what was settled on it: *Retracted*, and *Not planned, and why*,
+which are the refusals (a dialect that changes the lexer, a rule that begins
+with a nonterminal, emitting bytecode, `@expr`, a signed bare number) and stand
+as written; a refusal reopened is argued again here or in
+[ideas.md](ideas.md), not there. The plan that made Parasol a member of the
+toolkit is on that page too, under *A member of the toolkit*, with four of its
+five steps and three of the fifth's five sub-steps marked done; what is left
+of it is 7.1 and 7.2.
+
+### 7.1 One version for the tree, at the next release
+
+**Parasol's version is its own, and so is its Makefile, and the second waits
+on the first.** *Decided on 2026-09-14, in the evening: one version. And the
+Makefile did not wait after all: the merge was step 2 of the plan and went in
+the same evening, the version half being all that is left of this entry. From the
+next Solveig release `parasol --version` reports the tree's number, this
+changelog's entries carry it, `PARASOL_SOLVEIG_MINIMUM` goes since the parent
+is the version by construction, and Parasol's `dist` goes with it. The entry
+stays open until that release does it, and is step 1 of the plan under* A
+member of the toolkit *below.* Parasol is `0.17.0` inside a tree that is `0.44.0`, with its
+own changelog and its own `dist` tarball, because it arrived as a
+subproject with its history and nothing about that was decided at the time
+beyond *not now*. Since 2026-09-13 its compiler is built into Solveig's
+`bin/` beside the four, which is as far as the build has been folded. The
+next Parasol release is what forces the question: one version and one release
+for the whole tree, or two as today. Folding the Makefile into Solveig's was
+asked about the same day and declined for the same reason, since a merge
+before that answer would settle the version by the back door. What holds it
+apart today is also what the separate file enforces: every one of Parasol's
+`test`, `clean`, `install` and `dist` collides with the root's, `dist` cuts
+a tarball under Parasol's own number, and the Makefile's opening claim, that
+the build needs no Solveig and reaches it only through `bin/`, is a claim a
+separate file keeps mechanical where one file would keep it by discipline.
+What would have to be true: one version for the tree. Then `dist` and
+`install` are one thing, the collision list empties, and the Makefiles
+merge in the same move, keeping the claim as a comment on the Parasol rules
+and a check that no Parasol object is built with a solum include path.
+
+### 7.2 What is left in `parasol/`
+
+The last sub-step of the plan: `parasol/CLAUDE.md` folds into the root's as a
+paragraph, `LICENSE` goes, being the root's byte for byte, and `parasol/` is
+`cmd`, `include`, `src`, as `solas/` is. The root `README.md` table row and
+the memory notes say so. The records are under `docs/parasol/` since this
+entry was written and the pages under `docs/PARASOL*.md` since the morning
+before it, so nothing else of Parasol's is in the way of that move; it waits
+only on being done.
+
+### 7.3 Grouping `programs/` into kinds
+
+**Grouping `programs/` and `examples/` into kinds.** Asked by Hans on
+2026-09-14 after step 4 had put seven directories beside twenty-two
+programs and twelve corpora: should the two directories be organised, `lang`,
+`utils` and so on? Held, with a trigger, and the reasons. `examples/` is
+already organised by the guide, one file per concept it names, every name its
+own category, and the checker, the Makefile and the guide's twenty-nine links
+all read it flat. `programs/` is mixed, four kinds of program and two kinds
+of directory, but it has a convention already: `x.sol`, and `x/` when it has
+data or an oracle. What a move costs is the records: 400 links name
+`programs/<name>.sol`, the checker verifies each one path by path, and
+most of them are in the changelog, the ideas and the journal, which say
+where a file *was* and are not supposed to be rewritten. So the map is the
+place to group, and `docs/programs.md` says of itself that it is the map:
+its table by kind (tools, languages, the project's own, demonstrations,
+written in Parasol) is an hour and moves nothing. What would fire the
+directories moving: the flat listing stopping being readable, or a kind of
+program the map cannot place. And it would need one thing first: the
+checker accepting a historical link through a moved-from table, so that a
+2026-08 entry naming `programs/log.sol` stays true after the file goes to
+`programs/tools/log.sol`. Rewriting the records instead is the option that
+is not on the table.
+
+### 7.4 A hole's kind is one choice, with no alternation
+
+**A hole's kind is one choice, with no alternation.** `lib/clike.psol` wanted *a
+block, or another use of me* for C's `else` and could not say it, so a chain
+wants its braces. Worked around; recorded because it is the same shape as
+optional parts and would want deciding with them.
+
+**Two strangers have been put in front of the workaround and neither paid for
+it.** [second-reader.md](PARASOL-SECOND-READER.md)'s second run was designed to force
+the chain, and the reader wrote `else { if (…) { … } }` on the first attempt
+without trying `else if` once — because `lib/clike.psol` spends eleven lines on
+it **at the declaration itself**, naming the silent `{ { … } }` failure and
+spelling the fix. Their words: *I would have tried `else if` first if the
+dialect file had not spent a paragraph on it.*
+
+> **A limitation explained where it is declared is not a limitation a reader
+> pays for. It is one its author paid for once.**
+
+**Run 3 narrowed this on 2026-09-04, and it needed narrowing.** The
+`print`-is-a-repr trap is explained at the line it is about and the third
+reader read that comment, quoted it back, wrote `:print` anyway and paid the
+cycle. **The rule holds for a refusal and not for a silence**: `else if` is
+something a reader must choose to type, so a warning read beforehand removes
+the option; `:print` compiles, runs, and looks right, so the warning describes
+something they cannot recognise until they already have it.
+
+> **A warning prevents a failure you would have chosen. It does not prevent one
+> you would have walked into believing you had succeeded.**
+
+It is kept rather than replaced, because it is true of what it was measured on.
+[POSTMORTEM.md](parasol/POSTMORTEM.md) 26 is why it should not have been stated wider
+than that on one reader.
+
+**And since 0.17.0 the compiler says it too.** *Once* was once **per dialect**:
+`lib/clike.psol`'s author paid it, and the next dialect with a `block` hole has
+an author who has not. The hole-kind diagnostic now carries `wrap it in braces
+-- '{' before this and '}' after it`, which is the workaround this entry is
+about, prescribed at the failure by the only part of the system that reaches a
+reader who has read nothing. **It does not make `else if` work and it is not a
+step towards alternation** — it makes the wall say how to climb it. See
+[COMPLETED.md](parasol/COMPLETED.md) 17, which argues why only `block` gets a
+prescription.
+
+**Two more readers met a `block` hole afterwards and neither wanted alternation
+either.** Run 3 used `lib/clike.psol` and needed no cascade; run 4 **declared a
+form with a `block` hole of its own** and reported expecting to need two
+declarations for a one-statement and a two-statement body — *the way
+`control.psol` needs two for `if` and `if/else`* — and finding one enough. **A
+hole that asks for a block does not care how much is in it**, which is the
+nearest thing to alternation anybody has actually wanted.
+
+**So this drops below where it was**, and for the fourth time an entry here has
+been answered by a customer declining to need it — the first time by a customer
+being *told* in advance rather than by one working it out. What would move it is
+a use where the workaround is not merely verbose but **unwritable**, and neither
+of the two dialects that wanted alternation has produced one.
+
+### 7.5 A template's constants are never folded
+
+**A template's constants are never folded, and it costs what the template
+saves.** `@infix >>> 55 => (left:shiftRight(right)):bitOr((left:shiftLeft(#32:sub(right))):bitAnd(#4294967295)).`
+expands with `#32:sub(#17)` inside it, evaluated once per use at run time.
+`programs/digest` measured both halves on a 4 KB hash, by binary search on
+`--steps`:
+
+| | instructions |
+| --- | ---: |
+| `>>>` expanded as a template | 1,362,533 |
+| `>>>` as a method on `integer` | 1,437,417 |
+| saved by not calling | 74,884 — 2.03 per rotation |
+| spent on the unfolded constant | 73,728 — 2.00 per rotation |
+
+**A form gives back 98% of what it saves**, so *a form is a method that costs
+nothing at run time* is not true today. Folding would win 5.4% on that program.
+
+**A second customer, and it argues the other way.** `programs/ledger` names its
+precision once — `@syntax scale => #100.` — and round-half-up then wants half a
+unit, so `scale:div(#2)` expands to `#100:div(#2)`: the same shape, reached from
+a different direction. Measured the same way, against a hand-folded copy:
+
+| | instructions |
+| --- | ---: |
+| as written | 4,258 |
+| every constant folded by hand | 4,250 |
+| saved | 8 — **0.19%** |
+
+**A dialect's constants cost per *use*, and this dialect's uses are outside the
+loop.** SHA-256 rotates inside sixty-four rounds of every block, so
+`#32:sub(#17)` runs 36,864 times on a 4 KB input; a ledger writes `*` and
+`percent` once each and keeps writing them once whether it has five
+transactions or five thousand,
+the loop over them carrying no constant at all.
+
+So the number is 5.4% or 0.19% depending on where the dialect sits, and **one
+measurement made this look larger than it is**. What survives is the claim, not
+the figure: *a form is a method that costs nothing at run time* is either true
+or it is not.
+
+**A third customer, and it declines.** `programs/bignum` has its base in the
+inner loop, which is `digest`'s shape, and no send in its generated code has
+two literal operands: `digit(t)` is `t:mod(#1000000000)`, and nothing is
+*derived* from the base the way `ledger` derived half a unit from its scale. A
+folder would find nothing to do. Predicted before the program was written, and
+right, so this entry moves by a customer declining rather than by a figure.
+
+**It is not obviously safe, which is why this is an entry and not a patch.**
+Folding `#32:sub(#17)` means evaluating a send at expand time, and `integer:sub`
+is a slot a Solveig program may assign — run rather than assumed:
+
+```
+integer:sub := { other | #999 }.
+(#32:sub(#17)):print.               ; #999 -- and not #15
+```
+
+So an expander that folds has decided some sends are safe to run, and has
+decided it on behalf of a program it cannot see. That is the same question
+[rules-and-logic.md](PARASOL-RULES-AND-LOGIC.md) asks about guards, one size smaller.
+Guards ask *may parsing depend on evaluation*, and are answered no, because
+otherwise no tool could read a `.psol` without running it. This asks *may
+expansion depend on evaluation*. Both answers today are the same uniform
+**nothing runs at expand time**, and folding puts the first hole in it.
+
+**The rule to settle first.**
+
+**Which sends may be evaluated at expand time, and who is allowed to have
+redefined them.** Three shapes, cheapest first, and what each concedes:
+
+| | |
+| --- | --- |
+| **An allowlist, over literal receivers only** | Fold a send whose receiver and arguments are all literals and whose selector is on a fixed list — `add`, `sub`, `mul`, `shiftLeft`, `bitAnd`. Nothing with a name in it, so `#32:sub(#17)` qualifies and `x:sub(#17)` never does. Small, and it reaches the case that motivates the entry. **It concedes a guarantee Parasol cannot check**: a program that reassigns `integer:sub` gets one answer from folded code and another from unfolded, and nothing will say so. |
+| **Fold only what the module provably does not reassign** | Sound, and it does not apply. The reassignment may live in a `.sol` reached by `@include`, which Parasol passes through without reading — by design, since a dialect provides syntax and `@include` provides code. Undecidable at exactly the boundary this project put there on purpose. |
+| **Expand-time arithmetic that is not Solveig** | Keep *nothing runs at expand time* exactly as it stands, and give a template a separate notation for computing on its holes. Correct, and it costs a second language inside the first — the tower [rules-and-logic.md](PARASOL-RULES-AND-LOGIC.md) spends its length refusing. |
+
+**The first is the only cheap one, and it is cheap because it moves a guarantee
+onto the programmer.** It would be the first time Parasol says *this is correct
+unless you did something Parasol cannot see*, and every rule on this page is the
+other way round: a `.psol` means what it says, by reading it. That is the
+decision, and it is not a decision about performance.
+
+**What would make it worth starting.** A second program wanting it — one
+customer is not a reason to grow a surface, which is
+[conventions.md](method.md#what-came-in-from-parasols-conventionsmd-and-what-was-retired)'s standing rule and Solveig's before that — or
+a decision that *a form is a method that costs nothing at run time* is worth
+making true for its own sake. **The number is small and the claim is not**: 5.4%
+on one program is not an argument, but a sentence in the README that is 98% true
+is a different kind of debt.
+
+### 7.6 A dialect ends at its domain and cannot say where
+
+**A dialect ends at its domain and cannot say where. Three programs now, and
+the third had no trap, which is the first proposal.**
+`programs/digest` declares `+` as addition modulo 2³², right for every line of
+SHA-256 and a trap for the loop counters beside it — `shift - #8` at zero is
+`#4294967288` and the loop never ends. `programs/ledger` declares `/` as
+rounding to the nearest hundredth, right for splitting a bill four ways and
+wrong for taking `-1225` apart into `-12.25`, which wants the floored whole part
+and remainder. Both write those lines with sends and a comment.
+
+**A pattern rather than an anecdote, and the second instance narrowed it
+twice.** The trapping operator is not predictable from outside the domain —
+`ledger`
+predicted `*` and was bitten by `/` — so nothing here should promise that a
+dialect's danger is findable by inspection. And the boundary is not only at the
+domain's *edge*: `ratio interest to subtotal` answers `0.07` where the exact
+value is `0.074995…`, because a ledger has amounts wanting two places and rates
+wanting five, and a dialect has one scale to give. **The same dialect can be
+wrong for a second quantity inside its own domain.**
+
+A dialect that could say where it ends would have to say it per operator and
+per quantity, which is a type system and a larger thing than this project is.
+
+**`programs/bignum` was written on 2026-09-13 to find the boundary, in two
+modules whose headers were meant to disagree about `+`, and found there was
+none to find.** Its values are objects, so `+` is `add` and the receiver
+decides; the library's `*` is an integer product on one line and a bignum
+product two methods down under one declaration, and the loop counters beside
+the domain are as safe as the domain. The proposal is not a feature: **a
+dialect traps its scaffolding exactly when its domain's values are the
+substrate's own**, because then a template on the spelling is the only place
+the rule can go and a template cannot look at its receiver. A 32-bit word and
+an amount in hundredths are integers, so `digest` and `ledger` had to invent
+and were bitten; a bignum is not, so nothing was invented and nothing bit. The
+question to ask before writing a domain dialect is therefore *are its values
+the substrate's own*, and if they are, the trap is certain and the workaround
+is the one both programs used. [does-it-pay.md](PARASOL-DOES-IT-PAY.md) has the
+argument under *The seventh program*.
+
+### 7.7 Optional and repeated parts, then a guard
+
+**Declined three times, and the last two with the same reason.**
+
+`programs/ember` wanted neither: no variadic notation, and `if`/`else` as two
+declarations was fine.
+
+`programs/grammar` was written partly to settle it, being the program most
+likely to want repetition -- EBNF writes `sum = term { op term }` and means it.
+It wants repetition and **a repeated pattern part would not have helped**: a
+grammar cannot be written as forms at all, because a template cannot declare a
+form, so the rules live in a table as data and the repetition wanted is in the
+object language rather than in Parasol. Both grammars have a `whileTrue` where
+EBNF has a brace, and no Parasol feature would have removed it.
+
+`programs/basic` met both again and declined both from the far side. BASIC's
+`PRINT a, b, c` is a repetition and its `STEP` clause is an optional part, and
+they are `while opIs(",") do …` and `if wordIs("STEP")` in an ordinary parser —
+**in the interpreted language, one level below anything a header can reach.**
+Same reason as `grammar`'s, arrived at from a domain with no grammar in it.
+
+That is a reason rather than a shrug, and it moves this below whatever the next
+program finds. **Three programs have now been offered the feature and none has
+wanted it**, which is the strongest form of evidence this project collects.
+
+**`if <c> then <a> else <b>` is a second declaration rather than an optional
+tail**, which is honest and costs a line. Repetition — a form taking a list —
+has no spelling at all, and wants one before anybody writes `sum of <a> <b> <c>`
+three times.
+
+Two more part kinds in an array the matcher already walks. **The property to
+keep is that an optional part begins with a word**, for the reason a pattern
+does: it is what lets one token decide whether the part is there, and it is what
+keeps the matcher free of backtracking.
+
+**Then a guard, and the evaluator it needs is Solveig.** `solum/embed.h` was
+built for it — one of the three cases it names is *a tool scripted in Solum* —
+and `embed/host.c` already wrote the loop: compile one script once, run it many
+times, each under its own allowance. Compile the guard once, run it per use, and
+`serve_one` becomes `check_one`.
+
+It costs *the build needs no Solveig*, which is real. It does not cost *no
+privileged access*, which is the claim that matters: `embed.h` is a declared
+surface, and using it is the mirror of solveig-sdl using `extend.h`. **The rule
+to fix before any of it is written: a guard validates, it does not select** —
+otherwise parsing depends on evaluation and no tool can read a `.psol` without
+running it.
+
+0.6.0 is the reason this is not urgent. The five kinds cover what a guard would
+mostly have been used for, and they cover it without an evaluator.
+[rules-and-logic.md](PARASOL-RULES-AND-LOGIC.md) argues the whole of it.
+
+### 7.8 A selector built from a `name` hole
+
+**Asked twice, and the second time the asker turned out not to want it.**
+`instantiate` in `parasol/src/expand.c` replaces a parameter only where it
+stands as a name node, an expression; a send's selector is text on the send
+node, so `it:n := e` in a template keeps its `n` whatever the hole held.
+`programs/grammar` met this first, prediction 4 in its README, and keyed its
+rules by symbol instead: `rule 'expr is { ... }` was the predicted spelling
+and the one written.
+
+The second ask came from Solveig on 2026-09-14, where a region that reads
+every statement as a slot write on one receiver, `@with rect { x := #0. ... }`,
+was scoped and held (Solveig's `ideas.md`, *`@with obj { ... }`, a region where
+an assignment is a slot write*). Could Parasol carry it instead? The block form
+cannot be a template at all, since a template places a block hole whole and
+nothing walks the statements inside one. The line form was tried:
+
+```text
+@syntax on <o> => it := o.
+@syntax slot <n: name> is <e> => it:n := e.
+
+on rect.
+slot x is #0.                     ; emits  it:n := #0
+```
+
+It compiles, emits `it:n := #0` for every slot, and `rect:make` is then not
+understood. So the ask is for exactly this feature. But had it worked, the
+output would read `it:x := #0`, since a template cannot remember `on rect`
+from one use to the next, and the property that made Parasol the attractive
+home, a `.sol` that still says `rect:x := #0` and can be grepped for it, is
+lost either way. **The second customer, examined, does not get what it came
+for from this feature**, so the count stays at one that was fine without it.
+
+**The change itself is small**, a check in `instantiate` for a `name`-kind
+parameter standing where a selector is, and it is the one piece of the
+Solveig ask that is Parasol's to build. It waits for a customer who would keep
+the result.
+
+### 7.9 Two spellings with no customer: postfix operators, and a logical xor
+
+**No postfix operators.** Parasol has prefix and infix; `x++`, `a[i]` and
+`p->f`-in-postfix-position have no spelling at all. `lib/clike.psol` names it as
+one of the four things C has that it cannot. Not a rule that could be relaxed —
+the extension point does not exist. No customer has been blocked by it.
+
+**A logical xor still has no spelling, and now needs one less.** For booleans,
+xor *is* not-equals, and the argument for `^^` was that a module using
+`lib/arith.psol` had no way to write one at all. It has `!=` since 2026-09-02, so
+`a != b` on two booleans is an xor in both shipped dialects and the gap that
+argument pointed at is closed. Nothing here has ever needed one.
+[REFERENCE.md](PARASOL-REFERENCE.md) records that the spelling would be `^^` if it were
+ever declared, so the question stays settled before it is asked.
+
+### 7.10 Rough edges
+
+**Filed severities on this list are guesses until somebody checks one.** A
+fifth row lived in `README.md` saying a `@use` path is not normalised, that
+`examples/../lib/control.psol` is what a diagnostic shows, and that two spellings
+of one file are two files — filed as cosmetic, with `realpath` already named as
+the fix. It was checked on 2026-09-04 and the second clause was the whole
+defect: the same string comparison decided whether a file had been read, so a
+diamond spelled two ways warned that a file collided with itself and a cycle
+spelled two ways was reported as *nested more than 64 deep*.
+[POSTMORTEM.md](parasol/POSTMORTEM.md) 24.
+
+**The sentence was right and the severity was wrong**, because the entry
+described what a diagnostic *shows* and never asked what else compared those
+strings. **What makes a rough edge cheap to leave is exactly what makes it cheap
+to file without looking.**
+
+**A second row has since been checked, and it also matters.** Run 4 of the
+reader experiment produced the failure this project names as the one that kills
+syntax-extension systems — `solvm` reporting `undefined name 'total'` at
+`banner.sol:8`, a line in the **generated** file, after seven lines of correct
+output. **No map had been written**, because the map is opt-in. With one, the
+recovery is exact: generated `8:5` is source `10:5`, the line the reader wrote.
+
+**The mechanism works and was switched off**, and that is the whole argument for
+changing the default: a map costs one file and nothing else, and the invocation
+that omits it is the shortest one — which is the one a person types.
+
+**It is not settled, and the reason is [POSTMORTEM.md](parasol/POSTMORTEM.md) 27**: the
+reader was *told* to invoke it without `--map` by the experiment's own prompt,
+which differs from `README.md`'s quickstart. So the cost of the minimal
+invocation is measured and the likelihood of a reader choosing it is not. **The
+next run uses the published invocation**, and that is what would settle it.
+
+The two rows still unchecked are long send chains and `t__1` names; temporaries
+in a group is a stated absence rather than a severity guess. A fifth row was
+added on 2026-09-13 and checked the day it was found.
+
+| | |
+| --- | --- |
+| Long send chains are not wrapped | A block that will not fit is broken across lines; `a:b(c):d(e):f(g)` is not. |
+| Temporaries in a group | `( \| t \| … )` is Solveig's; Parasol reads `( expr. expr )`. |
+| The map is written only with `--map` | The Makefile always passes it, and so does `README.md`'s quickstart. **A reader run reached the failure the map exists for, with no map written** — see below. |
+| A generated name is `t__1` | Legible, and it collides with nothing because the whole module's identifiers are checked. It is still a name a person could have wanted. |
+| A generated line is a span | A `while` body or an `if` arm is emitted on one line, and a run-time trace carries a line and no column, so the map, exact to the column, cannot narrow it. Checked on `programs/bignum`: 16 of the library's 103 generated lines carry more than one source line, four at worst. Either Parasol keeps a line break inside an expanded hole, or Solveig's trace gains the column its compile errors have. Neither built; `solveig-notes.md` 4 is the second half. |
+
 ## How this list emptied, and how it filled and emptied again
 
 **It emptied for the fifth time on 2026-09-12**, when

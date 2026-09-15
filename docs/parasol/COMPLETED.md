@@ -1,4 +1,9 @@
-# Completed roadmap items
+# Parasol's completed roadmap items
+
+*Frozen on 2026-09-15 with its nineteen entries and the numbers they had. A
+Parasol entry that closes after this date closes into
+[Solveig's COMPLETED.md](../COMPLETED.md) under section 7, where its roadmap
+entries went. Nothing is appended below this note.*
 
 *The case for each piece of work as it was argued before the work was done — the
 problem, what the options were, and why the shape chosen was the one taken. This
@@ -135,7 +140,7 @@ bad use expanded into Solveig that failed somewhere further down.
 **Why these five and not a guard.** `expression`, `name`, `literal`, `block`,
 `place` are all decided by *looking* at what was parsed. None needs an
 evaluator, and Parasol has none on purpose — see
-[rules-and-logic.md](../../docs/PARASOL-RULES-AND-LOGIC.md).
+[rules-and-logic.md](../PARASOL-RULES-AND-LOGIC.md).
 
 **Why checked after expansion.** A hole filled by another form is then checked
 against what that form *became*.
@@ -313,7 +318,7 @@ the definition of a ritual.
 **The options.** The roadmap had said it should select the reader, or the
 emitter, or stop existing.
 
-*Select the emitter* is blocked by [targets.md](../../docs/PARASOL-TARGETS.md), which had already
+*Select the emitter* is blocked by [targets.md](../PARASOL-TARGETS.md), which had already
 refused to build a second one. *Select the reader* is larger still. So the item
 had not sat for nine versions because it was hard to decide — it had sat because
 two of its three options depended on a build this project has declined, and the
@@ -366,9 +371,9 @@ dialect is a file*, where somebody would look for it.
 
 ## 15. Solveig's spellings, closed as far as they close — done, 0.11.0 to 0.13.0
 
-**The problem.** [GRAMMAR.md](../../docs/PARASOL-GRAMMAR.md) said everything but `operator` was
+**The problem.** [GRAMMAR.md](../PARASOL-GRAMMAR.md) said everything but `operator` was
 Solveig's own spelling, *so that a file can be read by somebody who knows
-Solveig without a second set of habits*, and [README.md](../README.md) went
+Solveig without a second set of habits*, and [README.md](../PARASOL.md) went
 further: a module declaring nothing *reads exactly as Solveig does today*.
 Comparing every form in Solveig's grammar against Parasol, one file each, gives
 **nine divergences out of eighteen**. Both sentences were false, and a person
@@ -457,7 +462,7 @@ There was no third, once the demonstration existed.
 bounded lookahead — `looks_like_names_then_bar` — that consults no dialect and
 never has. So the collision is exactly one production wide:
 
-```
+```text
 { a | b }        a parameter and a body, in every module, declared bar or not
 a | b            an or, everywhere a bar is not a block's own punctuation
 { (a) | b }      the escape: a body opening with a group is a body
@@ -655,7 +660,7 @@ binary rather than linking the library, because everything `--sob` does is
 at a process boundary: 27 checks, of which the one that matters is that the
 `.sob` the driver writes is byte for byte the one `solas` writes on the same
 `.sol`. Run against the driver-less compiler from a clean build, as
-[conventions.md](../../docs/method.md#what-came-in-from-parasols-conventionsmd-and-what-was-retired) asks, 21 of the 27 failed and the six that
+[conventions.md](../method.md#what-came-in-from-parasols-conventionsmd-and-what-was-retired) asks, 21 of the 27 failed and the six that
 passed were the ones that say a file is *absent*. The Makefile's own rules
 still do the two steps themselves, so the suite goes on checking the pipeline
 a Makefile writes and not only the one the driver drives.

@@ -39,7 +39,7 @@ tighter than `+` because this file said 70 against 60, and nothing anywhere else
 knows or cares. A second module in the same program may declare `+` to mean
 something else entirely, or declare no operators at all — and then it reads as
 Solveig does, in shape and nearly in full. Two differences are left of the nine
-[POSTMORTEM.md](../parasol/docs/POSTMORTEM.md) 16 found, and neither is an oversight: no
+[POSTMORTEM.md](parasol/POSTMORTEM.md) 16 found, and neither is an oversight: no
 `@expr`, which is refused, and `-3`, which needs a declared prefix where
 Solveig's scanner folds the sign into the number. **The second is forced rather
 than missing** — a lexer cannot both read `-3` as a literal and let a dialect
@@ -198,8 +198,8 @@ bounded lookahead that consults no dialect, so `{ a | b }` is a parameter and a
 body in every module there will ever be — and `{ (a) | b }` is the escape, one
 bracket down, exactly as `#[(b = c) = d]` escapes the dictionary rule. Nine
 versions of documents said this was impossible;
-[POSTMORTEM.md](../parasol/docs/POSTMORTEM.md) 18 says why they were wrong and
-[COMPLETED.md](../parasol/docs/COMPLETED.md) 16 what it took. **`||` is two bars and not a
+[POSTMORTEM.md](parasol/POSTMORTEM.md) 18 says why they were wrong and
+[COMPLETED.md](parasol/COMPLETED.md) 16 what it took. **`||` is two bars and not a
 bar**, and a block wants a lone one everywhere it looks, so the pair could be
 handed to dialects without the single one moving at all. **And since 0.14.0 the
 single one may be declared too** — not as an operator character, but as the
@@ -725,7 +725,7 @@ highest form index strictly falls. That's a property of reading the header top t
 bottom, not a recursion limit bolted on.
 
 **Parsing never runs anything.** A tool can read any `.psol` top to bottom and
-know its syntax. That's the line [Parasol's roadmap](../parasol/docs/ROADMAP.md) refuses to cross ("Not
+know its syntax. That's the line [Parasol's roadmap](parasol/ROADMAP.md) refuses to cross ("Not
 planned: a dialect that changes the lexer"), and it's the same rule constraining
 the two open items I mentioned earlier — a guard must validate and not select,
 and constant folding would mean evaluating a send at expand time.
@@ -1088,7 +1088,7 @@ numbers, and the second argues the first was not as large as it looked — so th
 case for folding rests on the claim being made true rather than on the figure.
 It would also need the expander to decide which sends are safe to evaluate,
 which is the guard question one size smaller;
-[ROADMAP.md](../parasol/docs/ROADMAP.md) carries both measurements and the rule
+[ROADMAP.md](parasol/ROADMAP.md) carries both measurements and the rule
 to settle first.
 
 **A wrong precedence is silent.** A module declares its own ladder, so there is
@@ -1144,8 +1144,9 @@ predicate logic, which turns out to be three questions wearing one name.
 
 ## The documents
 
-Eight beside this one in `docs/`, since 2026-09-15; the five records still
-under `parasol/docs/`, until the step that moves them.
+Eight beside this one in `docs/`, since 2026-09-15, and the five records of
+Parasol's time as a repository of its own frozen under `docs/parasol/` the
+same day; from it, Parasol's record is Solveig's.
 
 | | |
 | --- | --- |
@@ -1158,11 +1159,11 @@ under `parasol/docs/`, until the step that moves them.
 | [PARASOL-RULES-AND-LOGIC.md](PARASOL-RULES-AND-LOGIC.md) | how far the rules could go, where they stop, and predicate logic |
 | [PARASOL-SOLVEIG-NOTES.md](PARASOL-SOLVEIG-NOTES.md) | what Parasol found in Solveig while it was outside; the log is closed and its open findings are on the roadmap |
 | [method.md](method.md#what-came-in-from-parasols-conventionsmd-and-what-was-retired) | the standing agreements and the method, Parasol's folded into Solveig's |
-| [ROADMAP.md](../parasol/docs/ROADMAP.md) | what is outstanding, what is refused, and what a customer declined |
-| [COMPLETED.md](../parasol/docs/COMPLETED.md) | the case for each piece of work as it was argued *before* the work |
-| [CHANGELOG.md](../parasol/docs/CHANGELOG.md) | what landed, per version, with the commit |
-| [POSTMORTEM.md](../parasol/docs/POSTMORTEM.md) | every defect this project found in itself, and **what found it** |
-| [journal.md](../parasol/docs/journal.md) | what a day of work actually consisted of |
+| [ROADMAP.md](parasol/ROADMAP.md) | frozen: what was refused and retracted, and the plan that made Parasol a member; what is outstanding is [section 7](ROADMAP.md#7-parasol) of Solveig's |
+| [COMPLETED.md](parasol/COMPLETED.md) | frozen: the case for each of nineteen pieces of work as it was argued *before* the work |
+| [CHANGELOG.md](parasol/CHANGELOG.md) | frozen at 0.17.0: what landed, per version, with the commit; since then, [Solveig's](CHANGELOG.md) |
+| [POSTMORTEM.md](parasol/POSTMORTEM.md) | frozen: thirty-three defects Parasol found in itself, and **what found it** |
+| [journal.md](parasol/journal.md) | frozen: what a day of work consisted of, to the day Parasol joined; since then, [Solveig's](journal.md) |
 
 ## The programs
 

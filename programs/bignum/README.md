@@ -164,7 +164,7 @@ line of the module, every one a loop body or an `if`. A four-line span is a
 recovery, and it is not the exact one the map was built to give. Two fixes,
 neither built: Parasol could keep a source line break inside an expanded hole,
 or Solveig's trace could carry a column the way its compile errors already
-do. [ROADMAP.md](../../parasol/docs/ROADMAP.md) has the row, and
+do. [ROADMAP.md](../../docs/parasol/ROADMAP.md) has the row, and
 [solveig-notes.md](../../docs/PARASOL-SOLVEIG-NOTES.md) the second half.
 
 **`n(#2)` had to be a form.** In Solveig, `f(x)` on a name is `x:f`, so a block

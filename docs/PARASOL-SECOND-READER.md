@@ -35,8 +35,8 @@ there is a measurement of what they pay.
 | **1. The example is load-bearing, and the operator table is not enough on its own.** | `REFERENCE.md`'s clike entry is two tables of operators and forms. It does not mention `#` on an integer, `.` where C writes `;`, or how to print — and none of the three is a thing a *dialect* has, so no operator table could carry them. Predicted: `examples/clike.psol` is opened in the first minute and consulted more often than either table, **and the finding is a cost `does-it-pay.md` has never counted** — a dialect does not document itself, and every dialect here was written by somebody who needed no example. |
 | **2. Every expensive mistake is at the dialect/substrate boundary, and none is in the notation.** | The operators and forms *are* C's: `=`, `&&`, `%`, `while`, `if`/`else`. Predicted to cost nothing at all. The three predicted failures are `1` for `#1`, `;` for `.`, and not knowing how to print — **Solveig's lexer and Solveig's library, neither of them anything `lib/clike.psol` could have said.** If that holds, *a dialect ends at its domain* has a second face: it also ends at its **substrate**, and the reader meets that edge before they meet the domain's. |
 | **3. Only one of the three survives compilation, and it is the bare integer.** | `;` and a missing `print` are syntax and message errors with a line and a caret. A bare `1` **is a valid float in Solveig** — checked: `(1):class` answers *float does not understand 'class'* — so `a = 1` compiles, runs, and gives a float where an integer was meant, and `%` on it answers something plausible. Predicted: the only mistake that reaches a wrong answer instead of an error, and **the first entry in `does-it-pay.md`'s silence table contributed by a reader rather than an author.** |
-| **4. The `else if` chain is hit, and the diagnostic is now the thing on trial.** | Checking this rather than asserting it found [POSTMORTEM.md](../parasol/docs/POSTMORTEM.md) 22: the error pointed into `lib/clike.psol`'s template and named the reader's own file nowhere but the summary line. **Fixed in 0.15.0 before this is run**, deliberately — measuring in front of it would have scored the defect and not the notation. So the message now names the reader's line and underlines the whole nested `if`, and the prediction is what it should have been: **the position is right and the message still does not say what to do.** It names the hole's kind, not the nested-brace workaround, and predicted: the reader finds that in `examples/clike.psol`'s comment rather than in the error. If so, **a diagnostic that points correctly and prescribes nothing is the next thing to fix**, and this is the first evidence for it from somebody who could not already know the answer. |
-| **5. `for` and `i++` cost nothing, and that is a result rather than a shrug.** | Neither exists; both are named in [ROADMAP.md](../parasol/docs/ROADMAP.md) as things C has that Parasol cannot. Predicted: noticed within seconds, substituted without complaint, and **not recorded as friction by the reader at all** — because an absent thing announces itself at the first attempt. Set against 3, that is the shape of every finding in `does-it-pay.md`'s cost table: **absence is cheap and silence is expensive.** |
+| **4. The `else if` chain is hit, and the diagnostic is now the thing on trial.** | Checking this rather than asserting it found [POSTMORTEM.md](parasol/POSTMORTEM.md) 22: the error pointed into `lib/clike.psol`'s template and named the reader's own file nowhere but the summary line. **Fixed in 0.15.0 before this is run**, deliberately — measuring in front of it would have scored the defect and not the notation. So the message now names the reader's line and underlines the whole nested `if`, and the prediction is what it should have been: **the position is right and the message still does not say what to do.** It names the hole's kind, not the nested-brace workaround, and predicted: the reader finds that in `examples/clike.psol`'s comment rather than in the error. If so, **a diagnostic that points correctly and prescribes nothing is the next thing to fix**, and this is the first evidence for it from somebody who could not already know the answer. |
+| **5. `for` and `i++` cost nothing, and that is a result rather than a shrug.** | Neither exists; both are named in [ROADMAP.md](parasol/ROADMAP.md) as things C has that Parasol cannot. Predicted: noticed within seconds, substituted without complaint, and **not recorded as friction by the reader at all** — because an absent thing announces itself at the first attempt. Set against 3, that is the shape of every finding in `does-it-pay.md`'s cost table: **absence is cheap and silence is expensive.** |
 | **6. This measures one half of the cost and will be quoted as both.** | *A notation's real cost is paid by the second reader* has two halves — **learning it once**, and **reading somebody else's code in it a year later.** This design measures the first and cannot touch the second, there being no year-old Parasol and no second author. Predicted: the result gets cited as though it settled the sentence. Written down now so that it settles the half it settles. |
 
 ## How it is checked
@@ -205,7 +205,7 @@ example repeats it in two lines.
 > **A limitation explained where it is declared is not a limitation a reader
 > pays for. It is a limitation its author paid for once.**
 
-That is evidence about [ROADMAP.md](../parasol/docs/ROADMAP.md)'s alternation entry, which has
+That is evidence about [ROADMAP.md](parasol/ROADMAP.md)'s alternation entry, which has
 sat as *wanted by `lib/clike.psol`, worked around, one customer*. **Two strangers
 have now been put in front of the workaround and neither noticed it was one.**
 It is the fourth roadmap item this project has had answered by a customer
@@ -262,7 +262,7 @@ as outstanding.
 **It is corrected here rather than rewritten**, because the paragraph above is
 what run 1 cost and that is worth keeping. What it needed was the tense it now
 has: **it was the thing to fix first, it was fixed, and *What the second run
-found* is where that is recorded.** [POSTMORTEM.md](../parasol/docs/POSTMORTEM.md) 25.
+found* is where that is recorded.** [POSTMORTEM.md](parasol/POSTMORTEM.md) 25.
 
 ## The third run, and the thing it is aimed at
 
@@ -389,7 +389,7 @@ Which is [does-it-pay.md](PARASOL-DOES-IT-PAY.md)'s own silence category arrivin
 the documentation side: **the things that cost a reader are the silent ones,
 and explaining a silence at its declaration does not make it loud.** That is
 the narrowing, and it took a third reader because the second one produced a
-sentence good enough to stop looking. [POSTMORTEM.md](../parasol/docs/POSTMORTEM.md) 26.
+sentence good enough to stop looking. [POSTMORTEM.md](parasol/POSTMORTEM.md) 26.
 
 ### What it cost, and the assist accounting
 
@@ -420,7 +420,7 @@ waited out.
 
 **A fourth run then said it again**, and retired the question rather than asking
 it a fifth time — *What the fourth run found*, below. This paragraph is run 3's
-and its count is run 3's; [POSTMORTEM.md](../parasol/docs/POSTMORTEM.md) 25 is why it says so
+and its count is run 3's; [POSTMORTEM.md](parasol/POSTMORTEM.md) 25 is why it says so
 rather than leaving a reader to reach the end and carry away *three*.
 
 ### What the third reader actually wrote
@@ -586,7 +586,7 @@ reader's, so this run establishes one thing and not the other:
 **So the rough edge is not settled by this run**, and the argument it makes is
 still worth something: the run shows what the *minimal* invocation costs, and
 *the default should probably change* is a claim about exactly that invocation.
-[POSTMORTEM.md](../parasol/docs/POSTMORTEM.md) 27 is the method failure, which is mine.
+[POSTMORTEM.md](parasol/POSTMORTEM.md) 27 is the method failure, which is mine.
 
 **And even with the map, recovery is manual.** `solvm` knows nothing about
 `.sol.map`; a person reads it. The map makes getting back *possible*, not
