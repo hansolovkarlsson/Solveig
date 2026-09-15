@@ -102,9 +102,24 @@ things that had moved, and `parasol/` is `cmd`, `include` and `src`.
 
 **Five commits, and what remains of the plan is 7.1, one version, at the
 next release.** `docs/` went from twenty-nine documents to forty-one and
-the checker from 1070 claims to 1100, 3574 links in 196 files. The
-published site gains a *Parasol* entry in the nav between Design and Speed
-when this is pushed, which it has not been.
+the checker from 1070 claims to 1100, 3574 links in 196 files.
+
+**Pushed in the evening, and the site found what no local check could.**
+The push itself waited on a Terminal: `git` refused to run after an Xcode
+update landed at 08:34, wanting its licence accepted again, and `sudo`
+cannot take a password through this session. Once pushed, `site.sh`
+reported one page of thirty-nine with a heading lost: `PARASOL-TARGETS.md`
+rendered five of six, because a code span had wrapped so that `<name>.`
+began a line, which kramdown reads as raw HTML and stops rendering from
+there to the end of the page. It is the fault class the script was written
+for on 2026-09-01, and this page could not have shown it before today: it
+lived under GitHub's own renderer, which does not do that, and every local
+check reads the file. Twelve pages arrived from a renderer with a different
+rule and one of them carried a fault only the new renderer sees, which is a
+thing to expect of any page that moves between renderers rather than a
+surprise. Rewrapped, pushed, and the second run after the deploy was clean:
+thirty-nine pages, 2032 headings, 1481 internal links, nothing to look at.
+The *Parasol* entry is in the nav.
 
 ---
 

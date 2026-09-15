@@ -5,6 +5,16 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### `PARASOL-TARGETS.md` renders whole on the site — `e49d350`, 2026-09-15
+
+Five of its six headings had reached the published page: a code span
+wrapped so that `<name>.` began a line, which kramdown reads as raw HTML and
+which stops rendering to the end of the file. Found by
+[site.sh](../programs/site.sh) on the first run after the day's push, and
+the one fault the twelve pages that arrived from Parasol carried that only
+the site's renderer could show. Rewrapped; the second run is clean over
+thirty-nine pages.
+
 ### `parasol/` is `cmd`, `include` and `src` — `d6cf91d`, 2026-09-15
 
 **The plan that made Parasol a member of the toolkit is done but for the
