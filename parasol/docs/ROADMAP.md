@@ -32,7 +32,12 @@ customers were real.
 ## Open, and undecided
 
 **Parasol's version is its own, and so is its Makefile, and the second waits
-on the first.** Parasol is `0.17.0` inside a tree that is `0.44.0`, with its
+on the first.** *Decided on 2026-09-14, in the evening: one version. From the
+next Solveig release `parasol --version` reports the tree's number, this
+changelog's entries carry it, `PARASOL_SOLVEIG_MINIMUM` goes since the parent
+is the version by construction, and Parasol's `dist` goes with it. The entry
+stays open until that release does it, and is step 1 of the plan under* A
+member of the toolkit *below.* Parasol is `0.17.0` inside a tree that is `0.44.0`, with its
 own changelog and its own `dist` tarball, because it arrived as a
 subproject with its history and nothing about that was decided at the time
 beyond *not now*. Since 2026-09-13 its compiler is built into Solveig's
@@ -75,6 +80,81 @@ Solveig*, survives as a check on a merged build, since it is the sentence
 the experiment stands on and the move would be the moment it is easiest to
 lose. What would fire it: the version decided, or a third contributor
 finding the directory before finding the tools.
+
+**The version was decided the same evening, and Hans asked for the order.**
+Five steps, each leaving both suites green and the tree usable, each its own
+day or less, and ordered by what each one needs from the one before it. The
+rule for the order: **move what the checker cannot see first, and the
+documents last**, because `docs/` is counted, `programs/expect.sol` runs
+what is fenced there, and the documents should describe the final layout
+and be written once.
+
+1. **Version**, at the next Solveig release: `PARASOL_VERSION` becomes the
+   tree's, without an include, so either a line in
+   [releasing.md](../../docs/releasing.md) beside the four files or a `-D`
+   from the Makefile; `PARASOL_SOLVEIG_MINIMUM` removed; `dist` removed
+   here, the root's tarball of HEAD already holding `parasol/`. Small, and
+   independent of the rest; it is first because the roadmap said it gates
+   the Makefile, and it does.
+2. **Makefile.** Parasol's rules move into the root's under a section of
+   their own, paths prefixed `parasol/`; `check`, `SOLVEIG=` and `make -C
+   parasol` go, since `solas` is built by the same run; one `test`, one
+   `install` (`bin/parasol` beside the four, `lib/*.psol` under the same
+   `PREFIX`), one `clean`. The claim the separate file kept mechanical is
+   kept mechanical another way: a `PARASOL_INCLUDES` of `-Iparasol/include`
+   only, `bin/parasol` linked against `libparasol.a` only, and a check in
+   the suite that no file under Parasol's C source includes a `solum/`,
+   `solas/`, `solis/` or `solid/` header and that `bin/parasol` exports no
+   `sol_` symbol. The comment moves to the rules and says which experiment
+   it is guarding. This is second because every later step is tested by the
+   merged Makefile, and doing it once means every later path edit is in one
+   file.
+3. **The C source and its tests.** `parasol/parasol/{cmd,include,src}` to
+   `parasol/{cmd,include,src}`, laid out as `solas/` is, by `git mv`;
+   `parasol/tests/*.c` to `tests/`, none of the five names colliding. One
+   thing to decide there: root tests link `libsol.a` whole-archive and
+   these link `libparasol.a`, so either every test links both, which is
+   harmless and simplest, or the five keep a prefix or a subdirectory. A
+   pure move with no checker involvement, which is why it is third and not
+   fifth.
+4. **Examples, library and programs.** `parasol/examples/*.psol` to
+   `examples/` and `parasol/lib/*.psol` to `lib/`, no names colliding; the
+   root `.gitignore` learns `*.sol.map` and ember's `*.s` and `*.out` (a
+   generated `.sol` beside a hand-written one is the trap here, and the
+   ignore rule cannot tell them apart by name: the Makefile's `.SECONDARY`
+   and a naming rule for generated files decide it). `parasol/programs/*`
+   to `programs/`, where **`basic` collides** with the SolaBasic corpus
+   already there and one of them is renamed, Hans's call which. With the
+   library in `lib/`, `parasol` learns to look beside its own binary the
+   way `solas` does, so `PARASOL_PATH` becomes what `SOLUM_PATH` is, a
+   fallback rather than a requirement. [programs.md](../../docs/programs.md)
+   counts `.sol` files in `programs/` and says nothing under `parasol/` is
+   counted; seven directories of `.psol` arriving there is a decision for
+   that page, a section of their own or a second count, and it is taken in
+   step 5 with the page.
+5. **Documents.** Fifteen files, six of which collide by name with the
+   root's: `CHANGELOG`, `COMPLETED`, `GRAMMAR`, `journal`, `REFERENCE`,
+   `ROADMAP`. Two shapes: fold each into its root counterpart (the journal
+   interleaves by date, the roadmap and completed become sections, the
+   changelog merges once the version is one), or keep them whole under a
+   prefix or a `docs/parasol/`. The first is the one that says *member*;
+   the second is cheaper and keeps `POSTMORTEM.md`, which the root does not
+   have and says it should not. What every file pays on arrival:
+   `docs/programs.md`'s counts move; `expect.sol` runs fenced code, and a
+   `.psol` fence needs a way through, for which `parasol --sob` is now the
+   obvious one, the first customer for it the day after it was built; the
+   commit hashes in the changelog verify, since the history came in with
+   the directory; relative links change. Also on this step: the root
+   `README.md` row and `CLAUDE.md` paragraph that describe `parasol/` as a
+   subproject, `editors/vscode/messages.py`, which reads
+   `parasol/docs/REFERENCE.md` by path, and the published site's index.
+   Last because it is the most entangled with the checker, the least in the
+   way of using or developing the tool, and the step that should describe
+   the layout the four before it made.
+
+What is not in the plan: any change to what Parasol does. The driver, the
+reader, the expander and the emitter are the same before and after, and the
+only thing about the boundary that moves is which file states it.
 
 **A logical xor still has no spelling, and now needs one less.** For booleans,
 xor *is* not-equals, and the argument for `^^` was that a module using
