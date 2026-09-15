@@ -1,6 +1,6 @@
 # The second reader
 
-*[does-it-pay.md](does-it-pay.md) weighs seven programs and ends on the one thing
+*[does-it-pay.md](PARASOL-DOES-IT-PAY.md) weighs seven programs and ends on the one thing
 none of them tested. This is the design for testing it and the predictions,
 recorded before each run and scored after — **four runs now**, oldest first,
 with wrong predictions left in and marked wrong.*
@@ -15,15 +15,15 @@ made every other open question smaller and left this one exactly where it
 started.
 
 **And it stopped being hypothetical on 2026-09-03**, when Solveig's README began
-linking this repository. The second reader is about to exist whether or not
+linking Parasol, then a repository of its own. The second reader is about to exist whether or not
 there is a measurement of what they pay.
 
 ## The design
 
 | | |
 | --- | --- |
-| **The dialect** | `lib/clike.psol`. It is shipped, standalone, documented in [REFERENCE.md](../../docs/PARASOL-REFERENCE.md), and the only one written for readers rather than for one program — `interp.psol` and `sha2.psol` name their program's globals and are explicitly not reusable. |
-| **The reader** | Somebody who did not write it and has not read this repository. The available proxy is a session with no context, given the published surface and nothing else. **A proxy is not a person**; what that costs is under *How it is checked*. |
+| **The dialect** | `lib/clike.psol`. It is shipped, standalone, documented in [REFERENCE.md](PARASOL-REFERENCE.md), and the only one written for readers rather than for one program — `interp.psol` and `sha2.psol` name their program's globals and are explicitly not reusable. |
+| **The reader** | Somebody who did not write it and has not read Parasol's pages. The available proxy is a session with no context, given the published surface and nothing else. **A proxy is not a person**; what that costs is under *How it is checked*. |
 | **What they get** | Everything published: `README.md`, `REFERENCE.md`, `lib/clike.psol` and `examples/clike.psol`. **Nothing is withheld**, because a stranger arriving from Solveig's front page gets all of it, and testing a smaller surface would test a strawman. |
 | **The task** | Print every pair `(a, b)` with `1 ≤ a < b ≤ 6` whose product is even, then how many there were. A nested loop, `%`, `&&`, a comparison, a counter and two kinds of printing — and **nothing in `examples/clike.psol` to copy**, which has no nested loop and no counter. |
 | **What is recorded** | Every attempt, in order; every diagnostic; every time a document is opened and which one; and for each failure, whether the message alone was enough to fix it. |
@@ -35,8 +35,8 @@ there is a measurement of what they pay.
 | **1. The example is load-bearing, and the operator table is not enough on its own.** | `REFERENCE.md`'s clike entry is two tables of operators and forms. It does not mention `#` on an integer, `.` where C writes `;`, or how to print — and none of the three is a thing a *dialect* has, so no operator table could carry them. Predicted: `examples/clike.psol` is opened in the first minute and consulted more often than either table, **and the finding is a cost `does-it-pay.md` has never counted** — a dialect does not document itself, and every dialect here was written by somebody who needed no example. |
 | **2. Every expensive mistake is at the dialect/substrate boundary, and none is in the notation.** | The operators and forms *are* C's: `=`, `&&`, `%`, `while`, `if`/`else`. Predicted to cost nothing at all. The three predicted failures are `1` for `#1`, `;` for `.`, and not knowing how to print — **Solveig's lexer and Solveig's library, neither of them anything `lib/clike.psol` could have said.** If that holds, *a dialect ends at its domain* has a second face: it also ends at its **substrate**, and the reader meets that edge before they meet the domain's. |
 | **3. Only one of the three survives compilation, and it is the bare integer.** | `;` and a missing `print` are syntax and message errors with a line and a caret. A bare `1` **is a valid float in Solveig** — checked: `(1):class` answers *float does not understand 'class'* — so `a = 1` compiles, runs, and gives a float where an integer was meant, and `%` on it answers something plausible. Predicted: the only mistake that reaches a wrong answer instead of an error, and **the first entry in `does-it-pay.md`'s silence table contributed by a reader rather than an author.** |
-| **4. The `else if` chain is hit, and the diagnostic is now the thing on trial.** | Checking this rather than asserting it found [POSTMORTEM.md](POSTMORTEM.md) 22: the error pointed into `lib/clike.psol`'s template and named the reader's own file nowhere but the summary line. **Fixed in 0.15.0 before this is run**, deliberately — measuring in front of it would have scored the defect and not the notation. So the message now names the reader's line and underlines the whole nested `if`, and the prediction is what it should have been: **the position is right and the message still does not say what to do.** It names the hole's kind, not the nested-brace workaround, and predicted: the reader finds that in `examples/clike.psol`'s comment rather than in the error. If so, **a diagnostic that points correctly and prescribes nothing is the next thing to fix**, and this is the first evidence for it from somebody who could not already know the answer. |
-| **5. `for` and `i++` cost nothing, and that is a result rather than a shrug.** | Neither exists; both are named in [ROADMAP.md](ROADMAP.md) as things C has that Parasol cannot. Predicted: noticed within seconds, substituted without complaint, and **not recorded as friction by the reader at all** — because an absent thing announces itself at the first attempt. Set against 3, that is the shape of every finding in `does-it-pay.md`'s cost table: **absence is cheap and silence is expensive.** |
+| **4. The `else if` chain is hit, and the diagnostic is now the thing on trial.** | Checking this rather than asserting it found [POSTMORTEM.md](../parasol/docs/POSTMORTEM.md) 22: the error pointed into `lib/clike.psol`'s template and named the reader's own file nowhere but the summary line. **Fixed in 0.15.0 before this is run**, deliberately — measuring in front of it would have scored the defect and not the notation. So the message now names the reader's line and underlines the whole nested `if`, and the prediction is what it should have been: **the position is right and the message still does not say what to do.** It names the hole's kind, not the nested-brace workaround, and predicted: the reader finds that in `examples/clike.psol`'s comment rather than in the error. If so, **a diagnostic that points correctly and prescribes nothing is the next thing to fix**, and this is the first evidence for it from somebody who could not already know the answer. |
+| **5. `for` and `i++` cost nothing, and that is a result rather than a shrug.** | Neither exists; both are named in [ROADMAP.md](../parasol/docs/ROADMAP.md) as things C has that Parasol cannot. Predicted: noticed within seconds, substituted without complaint, and **not recorded as friction by the reader at all** — because an absent thing announces itself at the first attempt. Set against 3, that is the shape of every finding in `does-it-pay.md`'s cost table: **absence is cheap and silence is expensive.** |
 | **6. This measures one half of the cost and will be quoted as both.** | *A notation's real cost is paid by the second reader* has two halves — **learning it once**, and **reading somebody else's code in it a year later.** This design measures the first and cannot touch the second, there being no year-old Parasol and no second author. Predicted: the result gets cited as though it settled the sentence. Written down now so that it settles the half it settles. |
 
 ## How it is checked
@@ -87,7 +87,7 @@ task; a second that changed formatting and nothing else.
 Nobody predicted this and it is the strongest single result. Needing to join
 strings, the reader wrote:
 
-```
+```text
 @use "lib/clike.psol".
 @infix ++ 55 concat.
 ```
@@ -101,7 +101,7 @@ touch it did so in their first program, unasked, and got it right.**
 
 The one thing the reader expected and got wrong:
 
-```
+```parasol
 "big":print.        ; "big"   -- with the quotes
 "big":display.      ; big
 ```
@@ -144,9 +144,9 @@ boundary is not merely where the *mistakes* are; it is where the *documentation
 stops*, and a reader reaches it in their first statement, because a program that
 computes anything must eventually print it.
 
-**The fix is one line and it is made**: [REFERENCE.md](../../docs/PARASOL-REFERENCE.md) now sends
+**The fix is one line and it is made**: [REFERENCE.md](PARASOL-REFERENCE.md) now sends
 the reader to Solveig's own reference for the message set, which is the half
-this repository has no business restating and had never named.
+Parasol's pages have no business restating and had never named.
 
 ## The second run, and what changed about it
 
@@ -205,7 +205,7 @@ example repeats it in two lines.
 > **A limitation explained where it is declared is not a limitation a reader
 > pays for. It is a limitation its author paid for once.**
 
-That is evidence about [ROADMAP.md](ROADMAP.md)'s alternation entry, which has
+That is evidence about [ROADMAP.md](../parasol/docs/ROADMAP.md)'s alternation entry, which has
 sat as *wanted by `lib/clike.psol`, worked around, one customer*. **Two strangers
 have now been put in front of the workaround and neither noticed it was one.**
 It is the fourth roadmap item this project has had answered by a customer
@@ -262,7 +262,7 @@ as outstanding.
 **It is corrected here rather than rewritten**, because the paragraph above is
 what run 1 cost and that is worth keeping. What it needed was the tense it now
 has: **it was the thing to fix first, it was fixed, and *What the second run
-found* is where that is recorded.** [POSTMORTEM.md](POSTMORTEM.md) 25.
+found* is where that is recorded.** [POSTMORTEM.md](../parasol/docs/POSTMORTEM.md) 25.
 
 ## The third run, and the thing it is aimed at
 
@@ -385,11 +385,11 @@ explained — the `print` comment is three lines and names the exact symptom:
 > **A warning prevents a failure you would have chosen. It does not prevent one
 > you would have walked into believing you had succeeded.**
 
-Which is [does-it-pay.md](does-it-pay.md)'s own silence category arriving from
+Which is [does-it-pay.md](PARASOL-DOES-IT-PAY.md)'s own silence category arriving from
 the documentation side: **the things that cost a reader are the silent ones,
 and explaining a silence at its declaration does not make it loud.** That is
 the narrowing, and it took a third reader because the second one produced a
-sentence good enough to stop looking. [POSTMORTEM.md](POSTMORTEM.md) 26.
+sentence good enough to stop looking. [POSTMORTEM.md](../parasol/docs/POSTMORTEM.md) 26.
 
 ### What it cost, and the assist accounting
 
@@ -420,7 +420,7 @@ waited out.
 
 **A fourth run then said it again**, and retired the question rather than asking
 it a fifth time — *What the fourth run found*, below. This paragraph is run 3's
-and its count is run 3's; [POSTMORTEM.md](POSTMORTEM.md) 25 is why it says so
+and its count is run 3's; [POSTMORTEM.md](../parasol/docs/POSTMORTEM.md) 25 is why it says so
 rather than leaving a reader to reach the end and carry away *three*.
 
 ### What the third reader actually wrote
@@ -430,7 +430,7 @@ repository holds it — a reader run leaves its artifacts in a scratch directory
 that does not survive the session, and a claim about a program nobody can read
 again is a claim on trust.
 
-```
+```parasol
 @use "clike.psol".
 
 n = #1.
@@ -503,7 +503,7 @@ statement printing `hello`, two statements printing `one` and `two`, and a
 computation printing the sum of 1 to 4. Each banner rules five dashes either
 side, so that is **3 + 4 + 3 = ten lines**:
 
-```
+```text
 -----      -----      -----
 hello      one        10
 -----      two        -----
@@ -536,7 +536,7 @@ matches.
 Attempt 1 assigned `total` and `i` inside a `banner` body without declaring
 them. **`parasol` exited 0. `solas` exited 0.** Then:
 
-```
+```text
 solvm: undefined name 'total' -- declare it with '| total |' or assign it at the top level
   [banner.sol:8] in block
   [banner.sol:11] in script
@@ -551,7 +551,7 @@ two
 ```
 
 **An error naming a file the author never wrote, after seven lines of correct
-output.** That is the failure [README.md](../README.md) names as the one that
+output.** That is the failure [README.md](PARASOL.md) names as the one that
 kills syntax-extension systems — *somebody writes one thing, is shown an error
 about another, and cannot get from the second back to the first* — and it is the
 first time any reader has met it. Four runs in, it arrived from the substrate
@@ -586,7 +586,7 @@ reader's, so this run establishes one thing and not the other:
 **So the rough edge is not settled by this run**, and the argument it makes is
 still worth something: the run shows what the *minimal* invocation costs, and
 *the default should probably change* is a claim about exactly that invocation.
-[POSTMORTEM.md](POSTMORTEM.md) 27 is the method failure, which is mine.
+[POSTMORTEM.md](../parasol/docs/POSTMORTEM.md) 27 is the method failure, which is mine.
 
 **And even with the map, recovery is manual.** `solvm` knows nothing about
 `.sol.map`; a person reads it. The map makes getting back *possible*, not
@@ -620,7 +620,7 @@ had written down because nobody had doubted it.
 Attempt 2, the working one. Attempt 1 is identical but for the third body's
 `{`, which carried no `| total, i |` and produced the run-time failure above.
 
-```
+```text
 ; banner.psol -- a module declaring its own `banner` notation: a ruled line
 ; above and below whatever it wraps.
 

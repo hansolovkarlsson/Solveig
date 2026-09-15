@@ -23,11 +23,11 @@ a numbered line replaces the line with that number.
 
 **This is not a Parasol feature.** It is a program written in Parasol, and the
 `.bas` files are data it reads while it runs — no header anywhere has an
-opinion about them. [docs/targets.md](../../parasol/docs/targets.md) separates the two
+opinion about them. [docs/targets.md](../../docs/PARASOL-TARGETS.md) separates the two
 questions and this is the one it left without a program.
 
 **Predictions recorded before the program was written.** That is
-[conventions.md](../../parasol/docs/conventions.md)'s rule, and this file is committed
+[method.md](../../docs/method.md#predictions-are-recorded-before-a-program-is-written-and-a-wrong-one-stays-in)'s rule, and this file is committed
 before a line of `minibasic.psol` exists so that the ordering is in the history
 rather than in a claim.
 
@@ -43,7 +43,7 @@ order the input is written in.
 
 An interpreter is not that. It has a **program counter that can go backwards**,
 an environment that outlives every statement, and statements that run a number
-of times the source does not say. [does-it-pay.md](../../parasol/docs/does-it-pay.md)
+of times the source does not say. [does-it-pay.md](../../docs/PARASOL-DOES-IT-PAY.md)
 weighs five programs — five, on the day this was written — and closes on what is
 still unknown; a run-time state machine is not on that list, because until now
 nothing here had one.
@@ -60,7 +60,7 @@ over statement kinds is a domain of steps, and BASIC's own values — a number o
 a string, with `+` meaning two different things — are a domain of values. **The
 rule has never been asked to hold twice inside one dialect.**
 
-**It is also the half of [targets.md](../../parasol/docs/targets.md) that was never
+**It is also the half of [targets.md](../../docs/PARASOL-TARGETS.md) that was never
 written.** That page answered a question about a BASIC *compiler* in 2026-08-31
 and answered it in the abstract, because no such program existed. The
 interpreter is the cheaper half of the same question and settles the same
@@ -75,7 +75,7 @@ confusion with something that runs.
 | **3. So the dialect declares forms and no operators.** | Follows from 2, and puts this program on `ember`'s side of the split. Predicted count: seven or eight forms, no operators — which would make it the fourth of six programs to declare none, against a taxonomy that says a program with a value domain should want them. **The prediction is that the taxonomy is right about the domain and wrong about the program**, because a program can contain a domain without being one. |
 | **4. `<=` and `>=` get their second customer, and it is the interpreter rather than BASIC.** | [ROADMAP.md](../../parasol/docs/ROADMAP.md) has `lib/arith.psol` missing `<=`, `>=` and `!=` with one customer — `programs/prose`, which writes `while i < doc:size + #1`. Predicted: this program wants them too, in bounds checks and in the `FOR` loop's limit test, and **not** for BASIC's own `<=`, which is a token the lexer reads and has nothing to do with any module's header. Two customers settles a live entry; that the second one wants it for a different reason than expected is the part worth recording. |
 | **5. A REPL costs one block, and the reason is BASIC's and not Parasol's.** | `system:readLine` and the same parse-one-line path give an interactive mode with no second parser, because a line-numbered BASIC **has no construct that spans lines** — `FOR` and `NEXT` are two statements, not a bracket. Predicted: the file driver and the prompt driver differ by their loop and nothing else, and **this is a property of the interpreted language rather than a thing Parasol did**, which is precisely the sort of credit that lands on the wrong layer if nobody writes it down first. |
-| **6. Parasol helps with less of this than it looks.** | [rules-and-logic.md](../../parasol/docs/rules-and-logic.md) says exactly this about a Prolog dialect and it should be said here too. The hard parts of an interpreter are the environment, the return stack and the value model, and **not one of the three is notation.** Predicted: the dialect covers the leaves — reading a token, storing a variable, jumping — and the three hard parts are ordinary Parasol with no notation over them, in the proportion `ledger` found, where three of its functions were formatting and none of the three was money. |
+| **6. Parasol helps with less of this than it looks.** | [rules-and-logic.md](../../docs/PARASOL-RULES-AND-LOGIC.md) says exactly this about a Prolog dialect and it should be said here too. The hard parts of an interpreter are the environment, the return stack and the value model, and **not one of the three is notation.** Predicted: the dialect covers the leaves — reading a token, storing a variable, jumping — and the three hard parts are ordinary Parasol with no notation over them, in the proportion `ledger` found, where three of its functions were formatting and none of the three was money. |
 
 ## How it is checked
 

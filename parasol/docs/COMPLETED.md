@@ -135,7 +135,7 @@ bad use expanded into Solveig that failed somewhere further down.
 **Why these five and not a guard.** `expression`, `name`, `literal`, `block`,
 `place` are all decided by *looking* at what was parsed. None needs an
 evaluator, and Parasol has none on purpose — see
-[rules-and-logic.md](rules-and-logic.md).
+[rules-and-logic.md](../../docs/PARASOL-RULES-AND-LOGIC.md).
 
 **Why checked after expansion.** A hole filled by another form is then checked
 against what that form *became*.
@@ -313,7 +313,7 @@ the definition of a ritual.
 **The options.** The roadmap had said it should select the reader, or the
 emitter, or stop existing.
 
-*Select the emitter* is blocked by [targets.md](targets.md), which had already
+*Select the emitter* is blocked by [targets.md](../../docs/PARASOL-TARGETS.md), which had already
 refused to build a second one. *Select the reader* is larger still. So the item
 had not sat for nine versions because it was hard to decide — it had sat because
 two of its three options depended on a build this project has declined, and the
@@ -655,7 +655,7 @@ binary rather than linking the library, because everything `--sob` does is
 at a process boundary: 27 checks, of which the one that matters is that the
 `.sob` the driver writes is byte for byte the one `solas` writes on the same
 `.sol`. Run against the driver-less compiler from a clean build, as
-[conventions.md](conventions.md) asks, 21 of the 27 failed and the six that
+[conventions.md](../../docs/method.md#what-came-in-from-parasols-conventionsmd-and-what-was-retired) asks, 21 of the 27 failed and the six that
 passed were the ones that say a file is *absent*. The Makefile's own rules
 still do the two steps themselves, so the suite goes on checking the pipeline
 a Makefile writes and not only the one the driver drives.

@@ -1,8 +1,12 @@
-# What Parasol has found in Solveig
+# What Parasol found in Solveig
 
-A running log, kept here rather than raised there, so that each entry is written
-where it was found and can be taken into Solveig's own numbering when somebody
-decides it is worth taking.
+*A running log while Parasol was a repository of its own, kept there rather
+than raised here, so that each entry was written where it was found and could
+be taken into Solveig's numbering when somebody decided it was worth taking.
+Since 2026-09-15 it is a page of Solveig's documents and the log is closed:
+the four findings still open are [3.23 to 3.26](ROADMAP.md#3-known-limitations)
+on the roadmap, each pointing back here for the account, and a finding after
+this date is Solveig's own and goes to the roadmap directly.*
 
 **This is what a second customer is for.** solveig-sdl's README says the same
 thing about `sol_symbol_intern` — reachable and not promised, promised now
@@ -10,11 +14,14 @@ because a second binding wanted it. Parasol is a customer of a different part:
 not the extension ABI but the compiler and the machine as *programs*, driven
 from a command line by something that generated their input.
 
-Entries are open unless marked otherwise. Nothing here is a blocker.
+Entries 1 to 4 are open, and numbered on the roadmap; 5 is an inventory and
+was never a request. Nothing here is a blocker.
 
 ---
 
 ## 1. Program output and a runtime error come out in the wrong order
+
+*Roadmap 3.23.*
 
 **Kind:** defect, small, one line.
 
@@ -59,13 +66,15 @@ never happened* rather than as a buffering artefact.
 
 ## 2. A generated file cannot say where it came from
 
+*Roadmap 3.24.*
+
 **Kind:** missing capability. Not urgent; the difference between a manual step
 and none.
 
 **What happens.** Both tools report positions in the file they were handed, and
 there is no way to tell either one that the file is generated.
 
-```
+```text
 [syn.sol:2:1] solas: expected '.' between statements at 'y'
 solvm: integer does not understand 'notAMessage'
   [rt.sol:3] in script
@@ -97,6 +106,8 @@ set what goes into it.
 ---
 
 ## 3. The machine counts instructions and will not say how many
+
+*Roadmap 3.25.*
 
 **Kind:** missing capability. Small, and the workaround works — it just costs
 one run per bit.
@@ -130,18 +141,20 @@ one-second program costs half a minute.
 | A count in the `--steps=N` stop message | *stopped at instruction N of a limit of N* is the same number this already knows. Helps a stopped run, not a finished one. |
 | `system:steps` | The count from inside the program. Larger, and it changes what a program can observe about itself, which is a decision rather than a flag. |
 
-**Why it matters here.** `programs/digest` in this repository exists partly to
+**Why it matters here.** `programs/digest` exists partly to
 measure what a Parasol template costs against a Solveig method, and the answer —
 2.03 instructions per rotation against 2.00 — is a difference of 5% found by
 running two programs 56 times. Two runs would have done. The number is the whole
 point of that program, and it is the one thing the machine will not hand over.
 
 **Not a blocker, and not urgent.** The binary search is in a nine-line shell
-script in this repository's history and can be lifted by anybody who wants it.
+script in Parasol's history and can be lifted by anybody who wants it.
 
 ---
 
 ## 4. A run-time trace carries a line and no column
+
+*Roadmap 3.26.*
 
 **Kind:** missing functionality, small; matters more to a generated file than
 to a written one.
@@ -149,7 +162,7 @@ to a written one.
 **What happens.** A compile error is reported with a column,
 `[prog.sol:1:7] solas: ...`, and a run-time frame is not:
 
-```
+```text
 solvm: integer does not understand 'asStrin'
   [bignum.sol:27] in block
   [calc.sol:16] in block
@@ -215,7 +228,7 @@ customer, and the customer names the row.
 `programs/ember` is a lexer, a recursive-descent parser and an ARM64 code
 generator, written in Parasol and run on SolVM. Its README predicted that
 **Solveig would bite before Parasol did** -- most likely
-[3.1](https://hansolovkarlsson.github.io/Solveig/docs/ROADMAP.html), a block
+[3.1](ROADMAP.md#31-capturing-blocks-cannot-escape-their-frame), a block
 outliving the frame it was written in, since `lib/scan.sol` had already hit it
 and said so.
 
@@ -234,8 +247,8 @@ program of this shape does not reach it.
 **Solas is single-pass and has no tree.** `sol_compile(source, chunk)` runs the
 parser straight into the emitter. This is why Parasol owns a tree instead of
 borrowing one, and it is the right shape for Solveig — noted so that the next
-person to look does not read it as an omission. See the README here, *What
-Parasol is allowed to know about Solveig*.
+person to look does not read it as an omission. See [PARASOL.md](PARASOL.md),
+*What Parasol is allowed to know about Solveig*.
 
 **Integer arithmetic traps rather than wrapping, and that is right.** It is what
 made `programs/digest` interesting rather than what made it hard: SHA-256 is
@@ -248,11 +261,11 @@ wrapping* is not read as a request for it.
 **`shiftLeft` refusing to lose the number never fired.** The largest shift in a
 32-bit rotation moves a value under 2^32 left by thirty places, which is
 2^62-ish and fits. Solveig's own program says the same about
-[3.12](https://hansolovkarlsson.github.io/Solveig/docs/ROADMAP.html); a second
+[3.12](ROADMAP.md#312-no-shift-can-produce-a-negative-integer); a second
 program of the same shape confirms it rather than finding an edge.
 
 **`display` and `print` both end the line.** There is no *write this and stay on
-the line* among them — `system:write` is that, and the REFERENCE says so. A line
+the line* among them — `system:write` is that, and [REFERENCE.md](REFERENCE.md) says so. A line
 with two things on it is built and then written once, which is what
 `programs/digest` does. Recorded because reaching for `display` twice and
 getting two lines looks like a bug for about a minute.

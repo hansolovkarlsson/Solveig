@@ -160,7 +160,7 @@ parasol --sob vectors.psol && solvm vectors.sob     # the same, since 2026-09-14
 Seven programs are written in it — an assembler reaching ARM64, a PEG toolkit,
 SHA-256, a ledger, a document, a BASIC interpreter and a bignum calculator — and what they say about
 whether a grammar declared per module is worth having is in
-[parasol/docs/does-it-pay.md](parasol/docs/does-it-pay.md).
+[PARASOL-DOES-IT-PAY.md](docs/PARASOL-DOES-IT-PAY.md).
 
 Each component keeps its public headers in `<component>/include/<component>/`
 and its implementation in `<component>/src/`. `solum/include/solum/bytecode.h`

@@ -71,7 +71,7 @@ right and then spent every remaining cycle on the wrong side of it.
 > where they learn it.** What follows is the case for the idea, at length. The
 > three files above are the language.
 
-[second-reader.md](../parasol/docs/second-reader.md) is the measurement.
+[second-reader.md](PARASOL-SECOND-READER.md) is the measurement.
 
 ## Why it takes nothing from Solveig
 
@@ -138,7 +138,7 @@ Solas hearing of it.
 
 **What a program written in Parasol emits is a different question**, and not one
 Parasol has an opinion about — a compiler written here can write machine code,
-or a disk image, or nothing at all. [targets.md](../parasol/docs/targets.md) separates
+or a disk image, or nothing at all. [targets.md](PARASOL-TARGETS.md) separates
 the two.
 
 ## The map
@@ -780,7 +780,7 @@ reach.
 #### Reading 2: Parasol emits Pascal instead of Solveig
 
 *Now* the question is real, and it's exactly the unbuilt half of `@language`.
-[targets.md](../parasol/docs/targets.md) notes the front end knows nothing about Solveig — the lexer,
+[targets.md](PARASOL-TARGETS.md) notes the front end knows nothing about Solveig — the lexer,
 dialect table, tree, spans and map are all substrate-agnostic, and
 `parasol/src/emit.c` is the only file that has ever heard of Solveig. Replacing it
 is a seam, not a rewrite.
@@ -1072,7 +1072,7 @@ line. Repetition — a form taking a list — has no spelling at all.
 **A hole cannot ask for anything a look does not settle.** The five kinds are
 all decided by inspecting what was parsed. A real guard — an arbitrary condition
 — needs an evaluator, and Parasol has none on purpose;
-[rules-and-logic.md](../parasol/docs/rules-and-logic.md) prices it and says what
+[rules-and-logic.md](PARASOL-RULES-AND-LOGIC.md) prices it and says what
 rule would have to be fixed first.
 
 **A form is not free at run time, and the number is known.** A template expands
@@ -1137,31 +1137,32 @@ into a diagnostic at the use — which is the same argument the spans and the
 trail were built on, one level up.
 
 **How far the rules could go, and where they stop**, is worked through in
-[rules-and-logic.md](../parasol/docs/rules-and-logic.md): `@syntax` is already BNF with
+[rules-and-logic.md](PARASOL-RULES-AND-LOGIC.md): `@syntax` is already BNF with
 most of EBNF missing and one thing refused, and refusing a rule that begins with
 a nonterminal is what keeps the matcher from guessing. The same page prices
 predicate logic, which turns out to be three questions wearing one name.
 
 ## The documents
 
-Three beside this one in `docs/`, since 2026-09-15; the rest still under
-`parasol/docs/`, until the steps that move them.
+Eight beside this one in `docs/`, since 2026-09-15; the five records still
+under `parasol/docs/`, until the step that moves them.
 
 | | |
 | --- | --- |
 | [PARASOL-REFERENCE.md](PARASOL-REFERENCE.md) | every directive, hole kind and shipped dialect, and where everything lives — the page to look things up in |
 | [PARASOL-GRAMMAR.md](PARASOL-GRAMMAR.md) | the core grammar, the tokens, and which shape a form should have |
 | [PARASOL-PIPELINE.html](PARASOL-PIPELINE.html) | the path through the compiler, drawn: the pipeline, lockstep matching, expansion, and the map |
-| [does-it-pay.md](../parasol/docs/does-it-pay.md) | what seven programs and four strangers say about the question this project exists to answer |
+| [PARASOL-DOES-IT-PAY.md](PARASOL-DOES-IT-PAY.md) | what seven programs and four strangers say about the question this project exists to answer |
+| [PARASOL-SECOND-READER.md](PARASOL-SECOND-READER.md) | the measurement: what a stranger pays to read and write this |
+| [PARASOL-TARGETS.md](PARASOL-TARGETS.md) | what Parasol targets, and what a program written in Parasol targets |
+| [PARASOL-RULES-AND-LOGIC.md](PARASOL-RULES-AND-LOGIC.md) | how far the rules could go, where they stop, and predicate logic |
+| [PARASOL-SOLVEIG-NOTES.md](PARASOL-SOLVEIG-NOTES.md) | what Parasol found in Solveig while it was outside; the log is closed and its open findings are on the roadmap |
+| [method.md](method.md#what-came-in-from-parasols-conventionsmd-and-what-was-retired) | the standing agreements and the method, Parasol's folded into Solveig's |
 | [ROADMAP.md](../parasol/docs/ROADMAP.md) | what is outstanding, what is refused, and what a customer declined |
 | [COMPLETED.md](../parasol/docs/COMPLETED.md) | the case for each piece of work as it was argued *before* the work |
 | [CHANGELOG.md](../parasol/docs/CHANGELOG.md) | what landed, per version, with the commit |
 | [POSTMORTEM.md](../parasol/docs/POSTMORTEM.md) | every defect this project found in itself, and **what found it** |
 | [journal.md](../parasol/docs/journal.md) | what a day of work actually consisted of |
-| [conventions.md](../parasol/docs/conventions.md) | the standing agreements and the method |
-| [targets.md](../parasol/docs/targets.md) | what Parasol targets, and what a program written in Parasol targets |
-| [rules-and-logic.md](../parasol/docs/rules-and-logic.md) | how far the rules could go, where they stop, and predicate logic |
-| [solveig-notes.md](../parasol/docs/solveig-notes.md) | what Parasol has found in Solveig, as a running log |
 
 ## The programs
 

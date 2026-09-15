@@ -254,7 +254,15 @@ and be written once.
       about cost measured, a new check run against the unfixed compiler
       from a clean build) go into `method.md` with their occasions, and
       the ones that were about being a separate repository are retired
-      with a line saying so.
+      with a line saying so. **Done, 2026-09-15.** `solveig-notes.md`
+      went with the essays rather than waiting for sub-step 4, as
+      `PARASOL-SOLVEIG-NOTES.md`, and closing the log meant raising it:
+      its four open findings are 3.23 to 3.26 on the root roadmap, each
+      still reproducing, each pointing back for the account. Nine of
+      `conventions.md`'s rules are sections of `method.md` and two are
+      second occasions of rules already there; five were retired, named
+      in the section that says so. Every link to `conventions.md` in the
+      records lands on that section.
    4. **The records.** `journal.md` interleaves into the root's by date,
       each section keeping its words; `COMPLETED.md` becomes section 7 of
       the root's, `7.1` to `7.19`, numbers kept; this page's open entries
@@ -338,7 +346,7 @@ wants its braces. Worked around; recorded because it is the same shape as
 optional parts and would want deciding with them.
 
 **Two strangers have been put in front of the workaround and neither paid for
-it.** [second-reader.md](second-reader.md)'s second run was designed to force
+it.** [second-reader.md](../../docs/PARASOL-SECOND-READER.md)'s second run was designed to force
 the chain, and the reader wrote `else { if (…) { … } }` on the first attempt
 without trying `else if` once — because `lib/clike.psol` spends eleven lines on
 it **at the declaration itself**, naming the silent `{ { … } }` failure and
@@ -444,7 +452,7 @@ integer:sub := { other | #999 }.
 
 So an expander that folds has decided some sends are safe to run, and has
 decided it on behalf of a program it cannot see. That is the same question
-[rules-and-logic.md](rules-and-logic.md) asks about guards, one size smaller.
+[rules-and-logic.md](../../docs/PARASOL-RULES-AND-LOGIC.md) asks about guards, one size smaller.
 Guards ask *may parsing depend on evaluation*, and are answered no, because
 otherwise no tool could read a `.psol` without running it. This asks *may
 expansion depend on evaluation*. Both answers today are the same uniform
@@ -459,7 +467,7 @@ redefined them.** Three shapes, cheapest first, and what each concedes:
 | --- | --- |
 | **An allowlist, over literal receivers only** | Fold a send whose receiver and arguments are all literals and whose selector is on a fixed list — `add`, `sub`, `mul`, `shiftLeft`, `bitAnd`. Nothing with a name in it, so `#32:sub(#17)` qualifies and `x:sub(#17)` never does. Small, and it reaches the case that motivates the entry. **It concedes a guarantee Parasol cannot check**: a program that reassigns `integer:sub` gets one answer from folded code and another from unfolded, and nothing will say so. |
 | **Fold only what the module provably does not reassign** | Sound, and it does not apply. The reassignment may live in a `.sol` reached by `@include`, which Parasol passes through without reading — by design, since a dialect provides syntax and `@include` provides code. Undecidable at exactly the boundary this project put there on purpose. |
-| **Expand-time arithmetic that is not Solveig** | Keep *nothing runs at expand time* exactly as it stands, and give a template a separate notation for computing on its holes. Correct, and it costs a second language inside the first — the tower [rules-and-logic.md](rules-and-logic.md) spends its length refusing. |
+| **Expand-time arithmetic that is not Solveig** | Keep *nothing runs at expand time* exactly as it stands, and give a template a separate notation for computing on its holes. Correct, and it costs a second language inside the first — the tower [rules-and-logic.md](../../docs/PARASOL-RULES-AND-LOGIC.md) spends its length refusing. |
 
 **The first is the only cheap one, and it is cheap because it moves a guarantee
 onto the programmer.** It would be the first time Parasol says *this is correct
@@ -469,7 +477,7 @@ decision, and it is not a decision about performance.
 
 **What would make it worth starting.** A second program wanting it — one
 customer is not a reason to grow a surface, which is
-[conventions.md](conventions.md)'s standing rule and Solveig's before that — or
+[conventions.md](../../docs/method.md#what-came-in-from-parasols-conventionsmd-and-what-was-retired)'s standing rule and Solveig's before that — or
 a decision that *a form is a method that costs nothing at run time* is worth
 making true for its own sake. **The number is small and the claim is not**: 5.4%
 on one program is not an argument, but a sentence in the README that is 98% true
@@ -510,7 +518,7 @@ an amount in hundredths are integers, so `digest` and `ledger` had to invent
 and were bitten; a bignum is not, so nothing was invented and nothing bit. The
 question to ask before writing a domain dialect is therefore *are its values
 the substrate's own*, and if they are, the trap is certain and the workaround
-is the one both programs used. [does-it-pay.md](does-it-pay.md) has the
+is the one both programs used. [does-it-pay.md](../../docs/PARASOL-DOES-IT-PAY.md) has the
 argument under *The seventh program*.
 
 ## Waiting on a customer — optional and repeated parts
@@ -563,7 +571,7 @@ running it.
 
 0.6.0 is the reason this is not urgent. The five kinds cover what a guard would
 mostly have been used for, and they cover it without an evaluator.
-[rules-and-logic.md](rules-and-logic.md) argues the whole of it.
+[rules-and-logic.md](../../docs/PARASOL-RULES-AND-LOGIC.md) argues the whole of it.
 
 
 ### A selector built from a `name` hole
@@ -645,12 +653,12 @@ request should take. See COMPLETED.md 12.
 expression grammar written in `@syntax`. The reader would have to guess,
 ambiguity would stop being checkable by looking, and composition would stop
 being safe -- and the case that motivates it is already read from the precedence
-table. [rules-and-logic.md](rules-and-logic.md) argues all three.
+table. [rules-and-logic.md](../../docs/PARASOL-RULES-AND-LOGIC.md) argues all three.
 
 **Emitting bytecode, or machine code.** Parasol would then own the `.sob` format
 and Solum's instruction set, and reimplement what Solas already does. The one
 thing it would buy — errors from Solas landing on Parasol source — the map buys
-instead. [targets.md](targets.md) works the question through, including what a
+instead. [targets.md](../../docs/PARASOL-TARGETS.md) works the question through, including what a
 native back end would actually cost and why a program *written in* Parasol can
 already emit anything it likes. **`--sob`, since 2026-09-14, is not this**: it
 runs `solas` on the `.sol` it wrote and owns nothing of the format. The

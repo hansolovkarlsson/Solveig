@@ -32,7 +32,7 @@ are written in [Parasol](PARASOL.md) rather than in Solveig:
 `ember`, `grammar`, `digest`, `ledger`, `prose`, `minibasic` and `bignum`,
 each with its own README, moved in beside these on 2026-09-14. What each
 found is on Parasol's side, in
-[does-it-pay.md](../parasol/docs/does-it-pay.md); what `parasol` generates
+[does-it-pay.md](PARASOL-DOES-IT-PAY.md); what `parasol` generates
 from them goes under `build/programs/`, never here.
 
 ## At a glance
@@ -441,7 +441,7 @@ because somebody looked, once, at the time — the same standing the `.sob` form
 table had when [disasm](#disasm--a-sob-file-read-and-disassembled) found it
 three sections out of date. They are also the first thing a newcomer reads.
 
-**It is in `make test` now**, in `tests/test_documents.c` — **1097<!--count claims-->
+**It is in `make test` now**, in `tests/test_documents.c` — **1099<!--count claims-->
 claims on every build**, and it fails the build if one stops holding. It was in
 `test_cli.c` until 2026-09-03, with the other tests that run the binaries as a
 shell would, and it moved when the cost was broken down: **55 seconds**, which
@@ -527,8 +527,8 @@ and had nothing but a clause in the report to say so.
 
 **And it checks the documentation too.** The guide and the reference carry the
 same notation inside ``` fences, and nothing checked those either — they are the
-two documents a newcomer actually reads. 484<!--count docs-claims--> claims
-across thirty-two<!--count docs-documents--> documents,
+two documents a newcomer actually reads. 486<!--count docs-claims--> claims
+across thirty-seven<!--count docs-documents--> documents,
 and two more on `README.md` and `index.md` — the front pages, which were the
 last two things nothing checked.
 
@@ -569,7 +569,7 @@ no notation saying what it counts — so it is given one, which renders as nothi
 and leaves the sentence as it was:
 
 ```text
-[expect.sol](../programs/expect.sol) checks 1097<!--count claims--> claims
+[expect.sol](../programs/expect.sol) checks 1099<!--count claims--> claims
 ```
 
 Each name is recounted from the repository as it stands. A name the table does

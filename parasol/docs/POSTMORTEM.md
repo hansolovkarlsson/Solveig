@@ -270,7 +270,7 @@ a dialect's own users hit and its author does not**, because the author knows
 the chain wants braces and never writes the version that does not.
 
 **Found by** checking a prediction rather than asserting it, while designing
-[second-reader.md](second-reader.md) — whose fourth prediction was going to be
+[second-reader.md](../../docs/PARASOL-SECOND-READER.md) — whose fourth prediction was going to be
 *the diagnostic will not name the fix* and had to become something else. It is
 the third defect in four days found by that habit, after the escape-set
 divergence and the 0.1.0 segfault.
@@ -525,7 +525,7 @@ number that was never right.
 **What worked.** Reading everything once at the end, whether or not anything was
 suspected. That found four of the eight in about ten minutes, including two
 nobody would have opened for months. It is now
-[conventions.md](conventions.md)'s standing agreement, because a defence that
+[conventions.md](../../docs/method.md#what-came-in-from-parasols-conventionsmd-and-what-was-retired)'s standing agreement, because a defence that
 depends on suspicion is not a defence — and the ninth instance above was found
 by the sweep finding a stale number in the paragraph describing the sweep.
 
@@ -585,7 +585,7 @@ found only because that table was being edited for another reason.
 
 **What worked.** Grepping for the claim. One search for *five programs* returned
 every instance at once, including three in `does-it-pay.md`; one for *declined
-twice* returned four files. It is [conventions.md](conventions.md)'s standing
+twice* returned four files. It is [conventions.md](../../docs/method.md#what-came-in-from-parasols-conventionsmd-and-what-was-retired)'s standing
 agreement now, beside the sweep it sharpens.
 
 **Found by** the next session's closeout, one sweep after the sweep that missed
@@ -623,14 +623,14 @@ pointer to the entry that closed them.
 no commits in it — the previous day had already been closed and pushed — and
 found three defects anyway. **A sweep audits the documents, not the day**, which
 is an argument for running it even when there is nothing to write up, and the
-reason [conventions.md](conventions.md) now says so.
+reason [conventions.md](../../docs/method.md#what-came-in-from-parasols-conventionsmd-and-what-was-retired) now says so.
 
 **Found by** a closeout run on an empty day, after being told there was nothing
 to close out.
 
 ### 25. A document's last sentence outlived the section that settled it — 2026-09-04
 
-**What.** [second-reader.md](second-reader.md) ends on *correcting for it is
+**What.** [second-reader.md](../../docs/PARASOL-SECOND-READER.md) ends on *correcting for it is
 what turns the third finding above from an inconvenience into the thing to fix
 first* — the substrate documentation gap, written about run 1 and true of it.
 Run 2 measured the one-line fix at **zero probes** and recorded the reader
@@ -668,7 +668,7 @@ only wrong against a later section of itself.**
 this language were put in front of it, and neither opened this page.* Written at
 10:42 on 2026-09-04 in `6bd7ef4`, after runs 1 and 2, and true of them. At 11:33,
 `dceee92` recorded run 3: that reader opened the page **first**, met *Not here*,
-and stopped, which [second-reader.md](second-reader.md) calls the first evidence
+and stopped, which [second-reader.md](../../docs/PARASOL-SECOND-READER.md) calls the first evidence
 that any part of the README has been load-bearing. The same commit swept the
 tree for the stale count, found *two strangers* in `does-it-pay.md`,
 `REFERENCE.md`, `targets.md` and the README's own table of documents at line
@@ -686,7 +686,7 @@ file's foot had already moved past twice.
 with nothing in the sentence to notice when the other document moved. 25's
 sentence disagreed only with itself; this one disagreed with `second-reader.md`
 and with line 721 of its own file. What is new is that the defence 20 wrote
-into [conventions.md](conventions.md), *grep for the claim and not for the
+into [conventions.md](../../docs/method.md#what-came-in-from-parasols-conventionsmd-and-what-was-retired), *grep for the claim and not for the
 documents*, was applied that day and did not reach: the claim was spelled
 *two strangers* in four places and *Two readers* in one, and a grep for the
 phrase found the phrase.
@@ -728,7 +728,7 @@ was changed because `.psol` is five.
 
 **What it cost.** Nothing shipped. Four passages, in the changelog, COMPLETED
 13, POSTMORTEM 14 and the journal's 2026-09-01 morning, were put back from
-`HEAD` before the commit, and [conventions.md](conventions.md) now says they
+`HEAD` before the commit, and [conventions.md](../../docs/method.md#what-came-in-from-parasols-conventionsmd-and-what-was-retired) now says they
 keep the old name on purpose.
 
 **Cause.** A rename rule is a rule about the present tense. A record of a
@@ -962,8 +962,8 @@ where somebody could go back and disagree with it, and somebody did.
 
 **What.** Run 2 of the second-reader experiment produced a sentence, and it was
 promoted to a headline rule in four documents the same evening —
-[ROADMAP.md](ROADMAP.md), [does-it-pay.md](does-it-pay.md),
-[CHANGELOG.md](CHANGELOG.md) and [second-reader.md](second-reader.md):
+[ROADMAP.md](ROADMAP.md), [does-it-pay.md](../../docs/PARASOL-DOES-IT-PAY.md),
+[CHANGELOG.md](CHANGELOG.md) and [second-reader.md](../../docs/PARASOL-SECOND-READER.md):
 
 > A limitation explained where it is declared is not a limitation a reader pays
 > for. It is one its author paid for once.

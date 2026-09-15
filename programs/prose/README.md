@@ -1,13 +1,13 @@
 # A document, written in Parasol
 
 **Predictions recorded before the program was written.** That is
-[conventions.md](../../parasol/docs/conventions.md)'s rule, and this file is committed
+[method.md](../../docs/method.md#predictions-are-recorded-before-a-program-is-written-and-a-wrong-one-stays-in)'s rule, and this file is committed
 before a line of the program exists so the ordering is in the history rather
 than in a claim.
 
 ## Why this one
 
-[does-it-pay.md](../../parasol/docs/does-it-pay.md) weighs four programs and ends with
+[does-it-pay.md](../../docs/PARASOL-DOES-IT-PAY.md) weighs four programs and ends with
 the one thing none of them tested:
 
 > Every one of the four is arithmetic or instructions. An assembler, a parser, a
@@ -150,7 +150,7 @@ it grew the moment there was a second.
 
 **And a document turned out to be a domain of steps.** It was picked as a domain
 that was *neither* arithmetic nor instructions, to test whether
-[does-it-pay.md](../../parasol/docs/does-it-pay.md)'s split — *steps want forms, values
+[does-it-pay.md](../../docs/PARASOL-DOES-IT-PAY.md)'s split — *steps want forms, values
 want operators* — had a third case outside it. It does not. `prose.psol` declares
 **no operators and seven forms**, which is `ember`'s and `grammar`'s shape
 exactly. Each content line is a step that appends; the taxonomy absorbed the new

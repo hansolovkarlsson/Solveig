@@ -297,7 +297,20 @@ ways of answering it cost more than what they buy is currently worth. That
 distinction is worth keeping visible: a restriction chosen and a restriction
 discovered ask different questions of whoever reads the list.
 
-**The last three arrived together**, from writing
+**3.23 to 3.26 arrived together on 2026-09-15, and none of them is new.** All
+four were found by Parasol between 2026-08-31 and 2026-09-13, while it was a
+repository of its own, and were written up in its
+[notes on Solveig](PARASOL-SOLVEIG-NOTES.md) as a log *kept there rather than
+raised here*, to be taken into this numbering when somebody decided they were
+worth taking. The day the log became a page of these documents, *there* and
+*here* became one place, and a list of open defects that is not on the single
+list makes the single list false. So they are numbered, and the account of
+each stays where it was written. Each still reproduces on the tree of that
+day. None is a blocker, and each is small: the four together are the shape of
+what a second customer sees that the first does not, a compiler and a machine
+driven from a command line by something that generated their input.
+
+**The last three before those arrived together**, from writing
 [the embedding interface](embedding.md) down. Stating what a host may rely on
 means stating what it may not, and three of those turned out to be real
 limitations that had never had a number — they were living in one document
@@ -1061,6 +1074,68 @@ this urgent is a loop whose body must *skip its remainder* once the flag is set:
 today every site either sets it at the tail of a branch or wants the rest to
 run, and the moment one does not, the flag has to be threaded through the body
 as `done:not:ifTrue({ ... })` and the workaround starts nesting.
+
+### 3.23 Program output and a run-time error come out in the wrong order
+
+Down a pipe, a program that prints and then fails shows the error *before*
+its output: standard output is block-buffered when it is not a terminal and
+standard error is not buffered at all, so the complaint overtakes everything
+printed and not yet flushed. Interactively stdout is line-buffered and the
+order happens to be right, which is why nothing here had seen it. The fix is
+an `fflush(stdout)` before a run-time error is written, and probably before
+the machine stops for `--steps` or `--memory`, which fail the same way.
+[PARASOL-SOLVEIG-NOTES.md](PARASOL-SOLVEIG-NOTES.md#1-program-output-and-a-runtime-error-come-out-in-the-wrong-order)
+1 has the repro. Found on 2026-08-31 by a `make test` that captured both
+streams and read a print that had happened as one that had not.
+
+### 3.24 A generated file cannot say where it came from
+
+`solas`, `solvm` and `solid` report positions in the file they were handed,
+and there is no way to tell any of them the file was generated. Parasol
+writes a map beside every `.sol` it emits, so the information exists, on
+Parasol's side; everybody who is not Parasol looks the position up by hand.
+Three shapes, in order of how little each asks: `solas --source-name=<path>`,
+one flag and one field, which fixes the file and not the line; a
+`#line`-style directive, `@line 25 "vectors.psol".`, which fixes both and
+costs a directive and a lexer case; the chunk carrying a map, right and much
+larger, and not before something asks. The path and line are already in the
+`.sob` and already reported, so the mechanism is there and what is missing is
+a way to set what goes into it.
+[PARASOL-SOLVEIG-NOTES.md](PARASOL-SOLVEIG-NOTES.md#2-a-generated-file-cannot-say-where-it-came-from)
+2. Since 2026-09-14 `parasol --sob` holds `solas` on a pipe, which is the
+other route to the same end and asks nothing of this side; Parasol's roadmap
+holds that one.
+
+### 3.25 The machine counts instructions and will not say how many
+
+`--steps=N` stops a program after N instructions, so the machine is counting,
+and nothing reports the count: a run that finishes says nothing, and one that
+is stopped names the limit rather than the position. The workaround is the
+one [programs.md](programs.md) describes, a binary search on N for the
+smallest that lets the run finish, which is exact and is 28 full runs of the
+program to learn a number the machine had after the first. Smallest fix
+first: `--steps` with no `=N`, run to completion and write the count to
+stderr; a count in the stop message; `system:steps` from inside, which
+changes what a program can observe about itself and is a decision rather
+than a flag.
+[PARASOL-SOLVEIG-NOTES.md](PARASOL-SOLVEIG-NOTES.md#3-the-machine-counts-instructions-and-will-not-say-how-many)
+3. What wanted it was a measurement of 5% found by running two programs 56
+times.
+
+### 3.26 A run-time trace carries a line and no column
+
+A compile error is reported with a column, `[prog.sol:1:7]`, and a run-time
+frame is not, `[bignum.sol:27] in block`. For a written file that is a small
+loss; for a generated one a line is often a span, a `while` body or an `if`
+arm emitted on one line, so `bignum.sol:27` is four lines of the `.psol` and a
+map exact to the column has nothing to look up. The fix is to carry the
+column in the line table beside the line and print it in the frame, which the
+compiler had when it emitted the instruction; the other half, keeping a
+source line break inside an expanded hole, is Parasol's and on its roadmap,
+and either alone would do.
+[PARASOL-SOLVEIG-NOTES.md](PARASOL-SOLVEIG-NOTES.md#4-a-run-time-trace-carries-a-line-and-no-column)
+4. Found on 2026-09-13 by `programs/bignum`, which put a deliberate error in
+a copy of its library to test the map across two modules.
 
 ### 1.1d Collection is stop-the-world and non-incremental
 

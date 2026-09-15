@@ -1,7 +1,7 @@
 # A ledger in fixed-point decimal, written in Parasol
 
 **Predictions recorded before the program was written.** That is
-[conventions.md](../../parasol/docs/conventions.md)'s rule, and this file is committed
+[method.md](../../docs/method.md#predictions-are-recorded-before-a-program-is-written-and-a-wrong-one-stays-in)'s rule, and this file is committed
 before a line of `ledger.psol` exists so that the ordering is in the history
 rather than in a claim.
 

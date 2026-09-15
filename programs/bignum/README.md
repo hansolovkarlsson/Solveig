@@ -1,7 +1,7 @@
 # Arbitrary-precision integers, written in Parasol
 
 **Predictions recorded before the program was written.** That is
-[conventions.md](../../parasol/docs/conventions.md)'s rule, and this file is committed
+[method.md](../../docs/method.md#predictions-are-recorded-before-a-program-is-written-and-a-wrong-one-stays-in)'s rule, and this file is committed
 before a line of `bignum.psol` exists so that the ordering is in the history
 rather than in a claim. `bignum.expected` goes in with it: every answer in it
 was produced by `bc`, and none by this program.
@@ -59,7 +59,7 @@ and nothing else**, and speed is measured here rather than argued.
 
 | | |
 | --- | --- |
-| **1. The dialect has nothing to invent, and it is the first value domain whose operators are all plain messages.** | `sha2.psol` invented a rule, `+` masked to 2³², and `money.psol` invented one, `*` scaled back down. A limb dialect needs neither: a limb is an ordinary integer below the base, `+` on two of them is Solveig's `add`, and the rule of the domain, *take the digit and carry the rest*, is two forms applied after the arithmetic rather than a template wrapped around it. Predicted: `limbs.psol` declares `base`, `digit(t)` and `carry(t)` and uses `lib/control.psol` unchanged, and **no operator in it is a template.** [does-it-pay.md](../../parasol/docs/does-it-pay.md) says the invented kind is the only evidence that a declared grammar does something a fixed one cannot; this program is predicted to be the case where there is nothing to invent, and to pay accordingly less. |
+| **1. The dialect has nothing to invent, and it is the first value domain whose operators are all plain messages.** | `sha2.psol` invented a rule, `+` masked to 2³², and `money.psol` invented one, `*` scaled back down. A limb dialect needs neither: a limb is an ordinary integer below the base, `+` on two of them is Solveig's `add`, and the rule of the domain, *take the digit and carry the rest*, is two forms applied after the arithmetic rather than a template wrapped around it. Predicted: `limbs.psol` declares `base`, `digit(t)` and `carry(t)` and uses `lib/control.psol` unchanged, and **no operator in it is a template.** [does-it-pay.md](../../docs/PARASOL-DOES-IT-PAY.md) says the invented kind is the only evidence that a declared grammar does something a fixed one cannot; this program is predicted to be the case where there is nothing to invent, and to pay accordingly less. |
 | **2. `lib/arith.psol` serves the driver unchanged, for integers and bignums alike, because `+` names a message and messages dispatch.** | The driver writes `a + b` on two bignums and `i + #1` on a counter with one declaration behind both, `@infix + 60 add.`, since a bignum that answers `add` is added and an integer that answers it is added. Predicted: **the boundary the roadmap could not draw does not arise**, because the domain lives in the object rather than in the header. What traps the scaffolding in `digest` and `ledger` is precisely what those dialects *invented*: a template bakes one domain into one spelling, and dispatch cannot reach into a template. **The operators that pay are the operators that trap**, and this program is predicted to have neither. |
 | **3. Folding gets no third customer.** | `base` is a form, so every use of it expands to a literal, and nothing in the loop is *derived* from it: `digit(t)` is `t:mod(#1000000000)` and `carry(t)` is `t:div(#1000000000)`. `ledger` had `scale:div(#2)` because round-half-up wants half a unit; integer arithmetic wants nothing but the base itself. Predicted: **no unfolded constant anywhere in the program**, and the folding entry moves by a customer declining rather than by a measurement. |
 | **4. The overflow trap chooses the base, and it is the one place the substrate shapes the program.** | Solveig has one integer, signed 64-bit, trapping on overflow. A limb product plus a limb plus a carry must fit, so the base is the largest power of ten whose square does: 10⁹. Binary limbs would want 2³¹, with a conversion loop to print. Predicted: base 10⁹, chosen so that printing is `join` and reading is `copyFrom`, and the oracle can compare text. And predicted that **nothing in Python's `math` module is missing for this program**: what a bignum wants and Solveig lacks is not a function but a wider product, `mul` answering 128 bits, which no scripting language's integers offer either. |
@@ -151,7 +151,7 @@ template cannot look at its receiver. That is the whole mechanism:
 `basic` found that a program can contain a domain without being one, because
 its domain arrives with the input. This is the other half: a program can *be*
 a domain without needing a dialect for it, because its domain is an object.
-The dialects that pay, the invented ones [does-it-pay.md](../../parasol/docs/does-it-pay.md)
+The dialects that pay, the invented ones [does-it-pay.md](../../docs/PARASOL-DOES-IT-PAY.md)
 counts as the only evidence, are the ones that trap, and for one reason.
 
 ### What nobody predicted
@@ -165,7 +165,7 @@ recovery, and it is not the exact one the map was built to give. Two fixes,
 neither built: Parasol could keep a source line break inside an expanded hole,
 or Solveig's trace could carry a column the way its compile errors already
 do. [ROADMAP.md](../../parasol/docs/ROADMAP.md) has the row, and
-[solveig-notes.md](../../parasol/docs/solveig-notes.md) the second half.
+[solveig-notes.md](../../docs/PARASOL-SOLVEIG-NOTES.md) the second half.
 
 **`n(#2)` had to be a form.** In Solveig, `f(x)` on a name is `x:f`, so a block
 called that way is a message the integer does not understand. Two characters in

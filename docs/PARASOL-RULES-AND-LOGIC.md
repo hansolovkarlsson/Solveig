@@ -6,14 +6,14 @@ Asked on 2026-08-31, with 0.5.0 in:
 > something that might be part of Parasol in the future?
 
 Each splits into a question about Parasol and a question about a program written
-in Parasol, and the two halves have different answers. [targets.md](targets.md)
+in Parasol, and the two halves have different answers. [targets.md](PARASOL-TARGETS.md)
 draws the same line for machine code.
 
 ---
 
 ## BNF: it is already here, restricted
 
-```
+```parasol
 @syntax if <c> then <a> else <b> => c:ifElse({ a }, { b }).
 ```
 
@@ -104,7 +104,7 @@ Solveig's own `ideas.md` already wants one:
 > written in something like BNF. **The most interesting of these**
 
 That is a program written in Parasol, needing nothing from Parasol, exactly as
-the BASIC compiler in [targets.md](targets.md) is. It may have a general grammar
+the BASIC compiler in [targets.md](PARASOL-TARGETS.md) is. It may have a general grammar
 engine with backtracking and ambiguity and every other thing refused above,
 because **what a program does is not what its compiler's syntax does**.
 
@@ -152,7 +152,7 @@ So a guard means one of two things, and both are large:
 
 **This is the tower question arriving from a third direction.** It came up first
 as *is the meta-language the same language*, then in
-[targets.md](targets.md) as *should `@language` choose the emitter too*. Today's
+[targets.md](PARASOL-TARGETS.md) as *should `@language` choose the emitter too*. Today's
 answer is that there is no meta-language, only a translator — and a guard is
 what would force one.
 

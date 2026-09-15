@@ -34,8 +34,9 @@ the no-Solveig claim.
 In `docs/`: `journal.md` (why, in order — **newest first**), `POSTMORTEM.md`
 (every defect, and what found it), `COMPLETED.md` and `ROADMAP.md` (what
 exists and what does not — an item moves when it is settled, including settled
-against), `CHANGELOG.md` (when). `conventions.md` states this repository's own
-house rules; read it first.
+against), `CHANGELOG.md` (when). Parasol's house rules were `conventions.md`
+until 2026-09-15 and are in the root's `docs/method.md` now, with the rest of
+its pages under `docs/PARASOL*.md`.
 
 Each of those opens with a note stating its own job. That note is the
 specification for what belongs in it — follow it over any general instruction.

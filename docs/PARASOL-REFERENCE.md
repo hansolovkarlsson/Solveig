@@ -185,7 +185,7 @@ language got the whole notation right on their first attempt and then spent
 every one of their remaining cycles on the other side of the line: `concat`,
 `asString` and `display` are messages **Parasol's pages name nowhere**, and
 `string does not understand 'show'` tells you a name is wrong without telling
-you what is right. See [second-reader.md](../parasol/docs/second-reader.md).
+you what is right. See [second-reader.md](PARASOL-SECOND-READER.md).
 
 **A dialect gives you syntax; Solveig gives you the library.** `@use` reaches
 the first and `@include` the second, and neither reaches the other.
@@ -369,8 +369,8 @@ programs/         seven directories beside Solveig's programs, each with its own
                   ember, grammar, digest, ledger, prose, minibasic, bignum
 build/            everything parasol generates: build/examples/, build/programs/<name>/
 tests/            test_parasol_reader, _expand, _map, _use, _sob, among Solveig's
-docs/             this page, PARASOL.md, PARASOL-GRAMMAR.md and PARASOL-PIPELINE.html beside Solveig's
-parasol/docs/     the rest of the documents below, until the steps that move them
+docs/             this page and the other PARASOL*.md beside Solveig's
+parasol/docs/     the five records, until the step that moves them
 editors/          VS Code colours a .psol file and completes its directives: editors/vscode/README.md
 ```
 
@@ -399,13 +399,13 @@ wrong.
 | [PARASOL.md](PARASOL.md) | the case for the design, at length, and how the parts fit together, as four questions |
 | [PARASOL-PIPELINE.html](PARASOL-PIPELINE.html) | the same path drawn |
 | [PARASOL-GRAMMAR.md](PARASOL-GRAMMAR.md) | the core grammar, and which shape a form should have |
-| [does-it-pay.md](../parasol/docs/does-it-pay.md) | what seven programs and four strangers say about whether a declared grammar is worth it |
+| [PARASOL-DOES-IT-PAY.md](PARASOL-DOES-IT-PAY.md) | what seven programs and four strangers say about whether a declared grammar is worth it |
 | [ROADMAP.md](../parasol/docs/ROADMAP.md) | what is outstanding, and what is refused |
 | [COMPLETED.md](../parasol/docs/COMPLETED.md) | the case for each finished piece, as argued before it |
 | [CHANGELOG.md](../parasol/docs/CHANGELOG.md) | what landed, per version, with the commit |
 | [POSTMORTEM.md](../parasol/docs/POSTMORTEM.md) | every defect found here, and **what found it** |
 | [journal.md](../parasol/docs/journal.md) | what a day consisted of |
-| [conventions.md](../parasol/docs/conventions.md) | the standing agreements and the method |
-| [targets.md](../parasol/docs/targets.md) | what Parasol targets, and what a program in Parasol targets |
-| [rules-and-logic.md](../parasol/docs/rules-and-logic.md) | how far the rules could go, and where they stop |
-| [solveig-notes.md](../parasol/docs/solveig-notes.md) | what Parasol has found in Solveig |
+| [method.md](method.md#what-came-in-from-parasols-conventionsmd-and-what-was-retired) | the standing agreements and the method, Parasol's folded into Solveig's |
+| [PARASOL-TARGETS.md](PARASOL-TARGETS.md) | what Parasol targets, and what a program in Parasol targets |
+| [PARASOL-RULES-AND-LOGIC.md](PARASOL-RULES-AND-LOGIC.md) | how far the rules could go, and where they stop |
+| [PARASOL-SOLVEIG-NOTES.md](PARASOL-SOLVEIG-NOTES.md) | what Parasol found in Solveig while it was outside; closed, its open findings on the roadmap |

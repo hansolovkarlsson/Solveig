@@ -1863,7 +1863,7 @@ at `-O2` against 0.24 ms for CPython's `int`, which is 170× and also 40 ms.
 The case for a C extension is that ratio and nothing else, and it has no
 customer. Python's `math` sorts, by 3.14's own argument, into C-library calls
 that would be primitives and arithmetic that would be `lib/math.sol`;
-`parasol/docs/solveig-notes.md` 5 has the inventory, and nothing in it was
+[PARASOL-SOLVEIG-NOTES.md](PARASOL-SOLVEIG-NOTES.md) 5 has the inventory, and nothing in it was
 wanted.
 
 **A run-time frame has a line and no column.** Compile errors carry one; a

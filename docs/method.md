@@ -37,6 +37,16 @@ evidence of anything.
 extensions kept getting longer instead of being tested. When it was finally
 acted on, an afternoon falsified two of its claims.
 
+**And its converse is the trap Parasol fell into for six versions:** a surface
+with no customer at all has never been tested. Optional and repeated parts in
+a pattern were declined **three times by three programs**, which is worth more
+than any argument either way, and the third declined them from the far side:
+`programs/minibasic` finding that BASIC's `PRINT a, b, c` and its optional
+`STEP` are repetition and an optional part in the *interpreted* language,
+where no Parasol feature reaches. Parasol's `conventions.md` stated the rule
+from `lib/text.sol`'s side, *one customer, satisfied in six lines, is not a
+reason to grow a surface*, and it is one rule.
+
 ## The throwaway comes before the design
 
 **Build the smallest thing that settles the question, and let it correct the
@@ -596,6 +606,13 @@ repeating it.
 **The habit that catches them is not a tool.** It is refusing to write *because
 X* until X has been run once.
 
+**And output is checked by hand, not trusted for having run.** `examples/clike.psol`
+printed `#54` where `#40` was right, compiled clean and failed nothing, because
+`make test` ran it and read none of its comments. Since 2026-09-15 those
+comments are claims the checker reads, which closes that occasion and not the
+rule: a run that nothing compares against an expectation has proved that the
+program stops.
+
 ## And a program that measures a class cannot load a library that extends it
 
 Found on 2026-08-30 when `expect.sol` began reporting the wrong number of
@@ -604,3 +621,155 @@ methods on `integer`. The count is read before the includes for that reason.
 
 Four of the nine libraries add methods to built-in classes and five do not, so
 the hazard is real and invisible until it fires.
+
+---
+
+## What came in from Parasol's `conventions.md`, and what was retired
+
+Parasol kept a page like this one while it was a repository of its own,
+`conventions.md`, *the standing agreements and the method*. On 2026-09-15 it
+was read against this page and folded in: the rules that survive being one
+project are below, each with the occasion Parasol learnt it on, and two went
+into sections above as second occasions of a rule already here. The rest were
+about being a separate repository and are retired with this line: that
+`scratch/` is not the repository's, which is this repository's own rule and
+the same one; that what Parasol finds in Solveig is logged in a file of its
+own rather than raised here, which ended when
+[the log](PARASOL-SOLVEIG-NOTES.md) became a page of these documents and its
+four open findings became 3.23 to 3.26 on the roadmap; that Solveig's README
+links Parasol and where on the page it does, which is history; that Solveig's
+own documents are read before designing anything that overlaps, which is what
+reading the documents of the project one is in is called; and *what the
+build guarantees*, which the Makefile's Parasol section states and enforces
+and [PARASOL.md](PARASOL.md) explains.
+
+## Predictions are recorded before a program is written, and a wrong one stays in
+
+In the manner of [ideas.md](ideas.md), so that *it found nothing* stays an
+available answer. All seven programs written in Parasol carry a table of
+predictions and a *What it found* section written afterwards, and the ones
+that were wrong stay in, marked wrong: `programs/ember` predicted Solveig would
+bite first and it did not; `programs/digest` predicted a template costs
+nothing at run time and it does not.
+
+**A finding is retracted in place, not edited away.** Parasol's
+[POSTMORTEM.md](../parasol/docs/POSTMORTEM.md) 11 exists because entries 7
+and 9 were written down somewhere somebody could go back and disagree with
+them. A page that quietly stops claiming something teaches nothing, which is
+the rule `ideas.md` keeps by leaving the claim above the outcome.
+
+## A claim about cost is measured, not argued
+
+`programs/digest` was going to say that a form is a method that costs nothing,
+because a template expands rather than calls. It is not true: the template
+saves 2.03 instructions per use and spends 2.00 on a constant nothing folds,
+and no amount of reasoning about expansion would have produced that number.
+The method is the binary search on `solvm --steps=N` that
+[performance.md](performance.md) describes, exact and one run per bit, and it
+turned a roadmap claim into a roadmap entry with a figure attached. It is 28
+runs to learn a number the machine had after the first, which is
+[3.25](ROADMAP.md#325-the-machine-counts-instructions-and-will-not-say-how-many).
+
+## Every text replacement asserts its match
+
+A replacement that matches nothing is not an error; it is a no-op that
+reports success, and three of them left Parasol's roadmap four versions stale
+while the commit messages said otherwise. Three of that project's recorded
+defects are this one mistake, and the fix is a line: assert the count of
+matches before replacing, and fail when it is not the number expected.
+
+## A new check is run against the unfixed code, and `make clean` goes between the two builds
+
+A check must fail if the thing it tests is removed;
+[POSTMORTEM.md](../parasol/docs/POSTMORTEM.md) 23 is that control passing when
+it should not have. `git stash`, `git checkout` and `git show >` all restore a
+file with its **original timestamp**, which is older than the object already
+built from it, so `make` rebuilds nothing and the control runs the code it was
+meant to exclude. **The failure mode is the control passing**, which is the one
+that gets believed. Rerun from a clean build, the same checks failed at once,
+and watching them fail showed the first attempt was testing a milder shape
+than the reported defect, so it improved the test as well as verifying it.
+
+## Everything is read once at the end of a day, and the sweep greps for the claim
+
+Whether or not anything is suspected. Parasol's
+[POSTMORTEM.md](../parasol/docs/POSTMORTEM.md) 13 said a claim about another
+document is re-derived when it is read; 19 is eight instances in one day of
+why that is not enough, because **nobody re-reads a document that is not being
+read**. A version heading is not consulted when adding a version, and a *Known
+gaps* table is not consulted when closing a gap. A sweep at the end found four
+of the eight in ten minutes, two of them in files nobody would have opened for
+months. A defence that depends on suspicion is not a defence.
+
+**And the sweep greps for the claim, not for the documents.** 20 is the next
+session's closeout correcting fifteen claims, six of which 19's sweep had
+already had its chance at, one the *same sentence* it corrected in two files
+and missed in a third. A claim repeated in three documents is one claim, and
+`grep -rn "five programs"` returns all three at once where opening the two you
+remember returns two. **The file stating the rule was the worst offender**: a
+document stating a rule is the least likely of all to be opened while the rule
+is being applied, and that includes this one.
+
+**A closeout is written where it can be corrected, because a day is not over
+when one runs.** 2026-09-03 was closed at midday saying *one commit, this one,
+and no version*, and ended with six and a version. The entry was corrected in
+place with the midday reading shown, and the part that went stale was, as
+always, the section of countable things: write the narrative to last and the
+numbers to be replaced.
+
+**The sweep runs on a day with no work in it too.** *There is nothing to close
+out* was the answer on 2026-09-03, and run anyway the sweep found three, one a
+sentence false since the commit that wrote it. A sweep audits the documents,
+not the day. 21.
+
+**And a record of a defect is written in the past tense.** *The entry below
+reports X* is false as soon as X is fixed, and the fix is usually in the same
+commit, because describing a defect and correcting it are one piece of work.
+*The entry below read X* survives it.
+
+## Two sessions do not share a working copy
+
+On 2026-09-02 a second session made a branch and left uncommitted changes to
+Parasol's `reader.c` in the checkout while the first was committing every few
+minutes with `git add -A`. The edit landed at 11:59 and the last such commit
+was 11:30; nothing was swept in, by half an hour and no more. A second
+checkout is one command and makes it structural rather than lucky:
+
+```sh
+git worktree add ../Solveig-<name> -b <name>
+```
+
+## `make sanitize` before a release, and after anything that touches a table of pointers
+
+The suite cannot find a use of freed memory on its own: whether a stale
+pointer is a crash is the allocator's decision, so a check can hold the exact
+shape of the bug and pass. Parasol's
+[POSTMORTEM.md](../parasol/docs/POSTMORTEM.md) 15 was latent from its 0.1.0 to
+0.10.0 with the invocation that catches it documented and unused in a Makefile
+the whole time. **A tool nobody runs is not a tool**, which is why `make
+sanitize` is a target of the one Makefile now, the whole suite under
+AddressSanitizer and UBSan from a clean build, and this is a rule rather than
+a good intention. It leaves an instrumented `bin/`; `make clean` restores a
+normal one.
+
+## A name that was given up is a defect where it survives
+
+Parasol was Phoenix until 2026-09-01 and Proto until 2026-09-14. The first
+name was already reserved, three days before it was taken, in
+[ideas.md](ideas.md), *a second language whose output Solum uses*, for a
+language that publishes a **library** Solum consumes, where Parasol emits a
+program's source; so any surviving `phx`, `Phx`, `PHX_` or `phoenix` under
+`parasol/` is a defect and not a distinction, and **the Phoenix entry in
+`ideas.md` is that project's reservation and is not to be rewritten**, which a
+search-and-replace across both trees would have taken. The same holds one
+step on for `Proto`, `proto_`, `PROTO_` and `.pro`, **except in the records of
+the first rename**, which keep the name they chose because they say what was
+chosen then; the names put and not taken are in Parasol's
+[COMPLETED.md](../parasol/docs/COMPLETED.md) 18. The archived repositories keep
+their names.
+
+## A commit message carries the argument
+
+Not the diff: what was decided, what was rejected, and what it cost. The diff
+is in the diff. Parasol's rule, and the one this repository's history already
+follows, written down so that it is a rule.
