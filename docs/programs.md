@@ -61,7 +61,7 @@ from them goes under `build/programs/`, never here.
 | [diff](../programs/diff.sol) | the shortest set of changes that turns one file into another | `solvm diff.sob [-u] [-q] old new` |
 | [sort](../programs/sort.sol) | lines in order, spilling to disk when they do not fit | `solvm sort.sob [-rnufbs] [-k F,F] [file...]` |
 | [gzip](../programs/gzip.sol) | inflates a gzip stream back into the bytes it was made from | `solvm gzip.sob [-dcktl] [file...]` |
-| [sqlite](../programs/sqlite.sol) | reads an SQLite database file and answers SELECT over it | `solvm sqlite.sob [file.db] [SQL]` |
+| [sqlite](../programs/sqlite.sol) | reads and writes an SQLite database file: CREATE, INSERT, SELECT | `solvm sqlite.sob [file.db] [SQL]` |
 
 Every one runs with no arguments at all, on input it supplies itself. That is
 deliberate — a program you have to feed before it will say anything is a program
@@ -2544,18 +2544,21 @@ merely non-zero, since 124 is what the deadline leaves and it means *did not
 stop*.
 
 
-## sqlite reads an SQLite file, and the writer is next
+## sqlite reads and writes an SQLite file
 
-The file format `sqlite3` writes, read from its description: the header, the
-B-tree pages, varints, records, overflow chains, and `sqlite_schema` parsed for
-the tables. SELECT of named columns, `rowid` or `*`, from one table, with a
-WHERE of one comparison and an ORDER BY, answered in the shell's list mode so
-that the two can be compared to the byte.
+The file format `sqlite3` uses, read and written from its description: the
+header, the B-tree pages, varints, records, overflow chains, and
+`sqlite_schema` parsed for the tables and indexes. SELECT of named columns,
+`rowid` or `*`, from one table, with a WHERE of one comparison and an ORDER
+BY, answered in the shell's list mode so that the two can be compared to the
+byte; CREATE TABLE, CREATE INDEX and INSERT into a fresh file, which `sqlite3`
+then opens.
 
 ```sh
 ./bin/solvm programs/sqlite.sob                              # it demonstrates itself
 ./bin/solvm programs/sqlite.sob notes.db 'SELECT * FROM t'
-./bin/solvm programs/sqlite.sob notes.db < queries.sql       # a statement per `;`
+./bin/solvm programs/sqlite.sob notes.db < statements.sql    # a statement per `;`
+./bin/solvm programs/sqlite.sob new.db 'CREATE TABLE t (a, b); INSERT INTO t VALUES (1, 2)'
 ```
 
 ```
@@ -2575,11 +2578,11 @@ each database in the corpus from a SQL script, and `sqlite3` says what is in
 it. [programs/sqlite/sweep.sh](../programs/sqlite/sweep.sh) runs thirteen
 chosen shapes and two hundred generated ones a seed; on the day the reader
 landed, four seeds agreed in every case, 852 of 852, after the third seed had
-found one defect, below. The plan it is
-step 1 of is in
+found one defect, below. The plan is in
 [ideas.md](ideas.md#an-sqlite-file-read-and-then-written-scoped-2026-09-15),
-prediction above outcome; the writer, steps 3 to 5, is where the prediction
-bites and is not yet begun. Step 2 followed the same day: a WHERE on a column
+prediction above outcome; steps 1 to 3 are built, and step 4, the writer into
+a file that exists, is where the prediction bites. Step 2 followed step 1 the
+same day: a WHERE on a column
 that is the first column of a plain index walks the index tree, pruning as it
 descends, and fetches each matching rowid from the table. `SQLITE_PAGES=1`
 in the environment reports the pages a run read, which is the number the
@@ -2640,9 +2643,59 @@ text is `-9.22337203685478e+18`. SQLite reads the sign with the digits and
 gets the minimum integer. Seeds 1 and 2, 426 cases, never produced the value
 in a WHERE; the generator's integer list has had it since the first day.
 
+### The writer, from nothing
+
+Step 3 the same evening: `CREATE TABLE`, `CREATE INDEX` and `INSERT` into a
+file that does not exist yet. Pages are objects in memory, cells in key
+order with their keys decoded beside them, serialised on demand from the end
+of the page down with no freeblocks and no fragments; the file is written
+whole when the statements are done. A table leaf that will not hold its cells
+splits and sends up a copy of its last left rowid; an index page sends up its
+middle entry; the page that split keeps its number, the root keeps its by
+moving its contents down, and so a tree gains a level. Values go in under
+SQLite's affinity rules, a whole real in a REAL column stored as the integer
+the reader turns back, and an `INTEGER PRIMARY KEY` column's value becomes the
+rowid and a NULL in the record.
+
+**Judged three ways, each stricter than the reader's check.** `PRAGMA
+integrity_check` over the written file answers `ok`; `sqlite3` reading the
+written file answers the same bytes as `sqlite3` reading its own file from
+the same script; and this program reading its own file agrees too. The
+writer's rung is the seven author cases without a `-- writer: skip` line and
+two hundred generated cases a seed kept inside its scope, with more rows on
+the small pages so the splits reach three levels: **420 of 420 on seed 1**,
+and the same on seed 2.
+
+**Two defects on the way to the first `ok`**, both found by `integrity_check`
+naming the byte. The content area was assembled in the wrong order, so two
+cell pointers named one offset (*Multiple uses for byte 4091 of page 2*); and
+the value list of an INSERT ended at the first `)` whatever kind of token it
+was, so a one-byte blob `X'29'`, which is `)`, ended it early. Punctuation is
+matched by kind now, everywhere.
+
+**The size of the work was predicted to be the thing most likely wrong, and
+it was about right**: an evening, and some five hundred lines. What the
+writer does not do is said by name when asked: a row or index entry that
+would need an overflow page, a `UNIQUE` index, whose constraint it does not
+check, and any statement outside the list. There is no journal, so a script
+that fails half way leaves a file half way, and the sweep judges only files
+whose script finished.
+
+**Numbers.** Ten thousand rows into one table: 3.6 seconds here, 88 pages of
+4 KB, against 4.7 seconds and 46 pages for `sqlite3`, whose time is a journal
+and an fsync per statement and whose pages are full because it appends into
+a fresh page rather than splitting a full one in half. Three thousand rows
+with two indexes on 512-byte pages: 1.9 seconds, three levels in all three
+trees, 566 pages against 335. Over the 207 written cases of the sweep, 8,949
+pages against 6,398, which is the split policy and nothing else, and the
+program says so rather than tuning it before something asks.
+
 ### What it wanted from the language, so far
 
-Nothing, and that was the prediction for the reader. Two notes rather than
+Nothing, and that was the prediction for the reader; the writer from nothing
+has not asked either, and the second prediction, that a page as an array of
+strings joined on demand is bearable, has its first number above: 0.36
+milliseconds a row, 0.6 with two indexes. Two notes rather than
 entries: the ninth byte of a varint and the eighth of an integer meet
 [3.12](ROADMAP.md#312-no-shift-can-produce-a-negative-integer) as disasm.sol
 did, by the same arithmetic; and `sob:f64` takes a float apart the way the

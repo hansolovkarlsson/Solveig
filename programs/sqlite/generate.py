@@ -3,11 +3,17 @@
 # generate.py -- SQL scripts nobody chose, for sweep.sh to hand to sqlite3.
 #
 #     python3 programs/sqlite/generate.py DIR SEED COUNT
+#     python3 programs/sqlite/generate.py DIR SEED COUNT writable
 #
 # Writes DIR/gen-SEED-0001.sql and so on, each in the shape of the files in
 # cases/: statements that build a database, a line `-- queries`, and then
 # statements to run on both sides. Everything is drawn from one seeded
 # generator, so a case that disagreed is reproduced by its name.
+#
+# `writable` keeps the build inside what sqlite.sol's writer does: no DELETE
+# (step 5), no row or index entry long enough to need an overflow page, and
+# in exchange more rows on the small page sizes, so that the writer's splits
+# reach three levels. The files are named gen-w-SEED-0001.sql.
 #
 # This is the second of the three authors method.md names. The cases beside it
 # are what one person thought of; a generator produces what it was told it
@@ -46,8 +52,9 @@ def fifteen(x):
 
 
 class Gen:
-    def __init__(self, seed):
+    def __init__(self, seed, writable=False):
         self.r = random.Random(seed)
+        self.writable = writable
 
     def integer(self):
         r = self.r
@@ -99,9 +106,10 @@ class Gen:
         if pick < 0.85:
             n = r.randint(1, 12)
             return ''.join(r.choice('abcdefgxyz  -') for _ in range(n)).strip() or 'z'
-        if pick < 0.95:
-            # Long, but inside a page.
-            return r.choice('abcxyz') * r.randint(20, max(21, page // 3))
+        if pick < 0.95 or self.writable:
+            # Long, but inside a page; for the writer, well inside it, since
+            # five of these have to fit one row.
+            return r.choice('abcxyz') * r.randint(20, max(21, page // (12 if self.writable else 3)))
         # Longer than a page: an overflow chain.
         return r.choice('mnop') * r.randint(page + 1, page * r.randint(2, 6))
 
@@ -110,7 +118,7 @@ class Gen:
         pick = r.random()
         if pick < 0.2:
             return b''
-        if pick < 0.9:
+        if pick < 0.9 or self.writable:
             return bytes(r.randint(0, 255) for _ in range(r.randint(1, 8)))
         return bytes(r.randint(0, 255) for _ in range(r.randint(page, page * 2)))
 
@@ -139,8 +147,8 @@ class Gen:
         return 'NULL'
 
 
-def case(seed, number, out):
-    g = Gen(seed * 100003 + number)
+def case(seed, number, out, writable=False):
+    g = Gen(seed * 100003 + number, writable)
     r = g.r
     page = r.choice([512, 512, 1024, 4096, 4096, 4096, 65536])
     lines = []
@@ -180,6 +188,8 @@ def case(seed, number, out):
         nrows = r.choice([0, 1, 2, 5, 10, 30, 80, 200, 400])
         if page >= 4096 and r.random() < 0.3:
             nrows = r.choice([300, 800, 1500])
+        if writable and page <= 1024 and r.random() < 0.3:
+            nrows = r.choice([1000, 2000])
         rowids = set()
         chosen_rowid = r.random() < 0.3
         for n in range(nrows):
@@ -214,7 +224,7 @@ def case(seed, number, out):
 
         # Deletes: by a key value, by a rowid range, by one rowid. Leaves
         # freeblocks, and on the small page sizes a freelist.
-        if nrows > 5 and r.random() < 0.5:
+        if nrows > 5 and r.random() < 0.5 and not writable:
             how = r.random()
             if how < 0.4 and key_cols:
                 i = r.choice(key_cols)
@@ -259,19 +269,26 @@ def case(seed, number, out):
             queries.append('SELECT * FROM %s WHERE %s = %d;' % (name, cols[pk][0], r.randint(-2, nrows + 2)))
         i = r.randrange(len(cols))
         queries.append('SELECT * FROM %s ORDER BY %s, rowid;' % (name, cols[i][0]))
-    queries.append('SELECT type, name, tbl_name, rootpage FROM sqlite_schema;')
+    # Without rootpage: two writers put roots on different pages, and the
+    # writer rung of the sweep runs these same queries over a file this
+    # program wrote.
+    queries.append('SELECT type, name, tbl_name FROM sqlite_schema;')
 
     with open(out, 'w', encoding='utf-8') as f:
         f.write('\n'.join(lines) + '\n-- queries\n' + '\n'.join(queries) + '\n')
 
 
 def main():
-    if len(sys.argv) != 4:
-        sys.stderr.write('usage: generate.py DIR SEED COUNT\n')
+    if len(sys.argv) not in (4, 5) or (len(sys.argv) == 5 and sys.argv[4] != 'writable'):
+        sys.stderr.write('usage: generate.py DIR SEED COUNT [writable]\n')
         sys.exit(2)
     d, seed, count = sys.argv[1], int(sys.argv[2]), int(sys.argv[3])
+    writable = len(sys.argv) == 5
     for n in range(1, count + 1):
-        case(seed, n, '%s/gen-%d-%04d.sql' % (d, seed, n))
+        if writable:
+            case(seed, n, '%s/gen-w-%d-%04d.sql' % (d, seed, n), True)
+        else:
+            case(seed, n, '%s/gen-%d-%04d.sql' % (d, seed, n))
 
 
 if __name__ == '__main__':

@@ -1,6 +1,7 @@
 #!/bin/sh
 #
-# sweep.sh -- sqlite.sol against the sqlite3 on the machine, over files it made.
+# sweep.sh -- sqlite.sol against the sqlite3 on the machine, over files it made,
+#             and then over files sqlite.sol made.
 #
 #     sh programs/sqlite/sweep.sh              # author cases, and 200 generated
 #     sh programs/sqlite/sweep.sh 1000         # more generated
@@ -29,6 +30,25 @@
 #              SQLITE_REAL as a space-separated list; none is given by default,
 #              since a database on this machine is somebody's data. Every
 #              table in each is read whole.
+#
+# And then the writer, step 3 of the plan, over the same shapes the other
+# way round: the program builds the database from the script and sqlite3
+# judges the file. Three checks a case, each stricter than the reader's:
+#
+#   integrity  `PRAGMA integrity_check` over the file this program wrote
+#              answers `ok`, which is SQLite's own account of whether the
+#              trees, cells and pages are well formed.
+#   sqlite3    the queries run by sqlite3 over this program's file answer
+#              the same bytes as sqlite3 over its own file from the same
+#              script. Two writers, one reader, one answer.
+#   itself     the queries run by this program over its own file agree too.
+#
+# The writer takes the author cases without a `-- writer: skip` line (the
+# line says why: WITH RECURSIVE, DELETE, UNIQUE, overflow) and its own
+# generated rung, `generate.py ... writable`, which keeps inside the writer's
+# scope and puts more rows on the small pages so the splits reach three
+# levels. Root page numbers differ between two writers, so no query here
+# asks for one.
 #
 # `keep DIR` is for looking at the corpus while writing the reader: the .sql,
 # the .db it became and the .q.sql that will be run over it, and nothing is
@@ -170,6 +190,72 @@ if [ "$n" -eq 0 ]; then
     echo "  real:      none given (SQLITE_REAL=\"a.db b.db\")"
 else
     echo "  real:      $n files, every table whole"
+fi
+
+# ---------------------------------------------------------------------------
+# The writer
+
+ourPages=0
+theirPages=0
+
+# $1 is the case name; $work/$1.build.sql and $work/$1.q.sql exist and
+# $work/$1.db is sqlite3's file. This program writes $work/$1.w.db.
+write_case() {
+    rm -f "$work/$1.w.db"
+    if ! $ours "$work/$1.w.db" < "$work/$1.build.sql" > "$work/w.out" 2> "$work/w.err"; then
+        cases=$((cases + 1)); bad=$((bad + 1))
+        [ "$bad" -le 5 ] && { printf '  REFUSED  %s (writing)\n' "$1"; sed 's/^/           /' "$work/w.err" | head -3; }
+        return
+    fi
+    check=$("$SQLITE" -batch "$work/$1.w.db" 'PRAGMA integrity_check' 2>&1)
+    cases=$((cases + 1))
+    if [ "$check" != "ok" ]; then
+        bad=$((bad + 1))
+        [ "$bad" -le 5 ] && { printf '  MALFORMED  %s (writing)\n' "$1"; printf '%s\n' "$check" | sed 's/^/           /' | head -6; }
+        return
+    fi
+    "$SQLITE" -batch -escape off "$work/$1.db" < "$work/$1.q.sql" > "$work/o.out" 2> "$work/o.err"
+    "$SQLITE" -batch -escape off "$work/$1.w.db" < "$work/$1.q.sql" > "$work/t.out" 2> "$work/t.err"
+    $ours "$work/$1.w.db" < "$work/$1.q.sql" > "$work/m.out" 2> "$work/m.err"
+    if ! cmp -s "$work/o.out" "$work/t.out" || ! cmp -s "$work/o.err" "$work/t.err"; then
+        bad=$((bad + 1))
+        [ "$bad" -le 5 ] && { printf '  DIFFERS  %s (sqlite3 over the written file)\n' "$1"
+            diff -u "$work/o.out" "$work/t.out" | sed -e '1,2d' -e 's/^/           /' | head -10; }
+        return
+    fi
+    if ! cmp -s "$work/o.out" "$work/m.out" || ! cmp -s "$work/o.err" "$work/m.err"; then
+        bad=$((bad + 1))
+        [ "$bad" -le 5 ] && { printf '  DIFFERS  %s (this program over the written file)\n' "$1"
+            diff -u "$work/o.out" "$work/m.out" | sed -e '1,2d' -e 's/^/           /' | head -10; }
+        return
+    fi
+    ourPages=$((ourPages + $("$SQLITE" "$work/$1.w.db" 'PRAGMA page_count')))
+    theirPages=$((theirPages + $("$SQLITE" "$work/$1.db" 'PRAGMA page_count')))
+}
+
+if [ -z "$keep" ]; then
+    echo
+    echo "the writer, judged by $SQLITE"
+    echo
+    n=0
+    for f in programs/sqlite/cases/*.sql; do
+        grep -q '^-- writer: skip' "$f" && continue
+        n=$((n + 1))
+        write_case "$(basename "$f" .sql)"
+    done
+    echo "  author:    $n cases"
+    python3 programs/sqlite/generate.py "$work" "$seed" "$count" writable || exit 2
+    while IFS= read -r f; do
+        name=$(basename "$f" .sql)
+        prepare "$f" "$name" || { bad=$((bad + 1)); continue; }
+        write_case "$name"
+    done <<GEN
+$(ls "$work"/gen-w-"$seed"-*.sql)
+GEN
+    echo "  generated: $count cases, seed $seed"
+    if [ "$theirPages" -gt 0 ]; then
+        echo "  pages:     $ourPages written here against $theirPages by sqlite3, over the cases that agreed"
+    fi
 fi
 
 echo

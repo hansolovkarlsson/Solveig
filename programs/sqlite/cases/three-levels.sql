@@ -1,3 +1,4 @@
+-- writer: skip (WITH RECURSIVE)
 -- A table tree three levels deep: root, interior, leaves. With 512-byte pages
 -- a leaf holds a few dozen rows and an interior page a hundred or so children,
 -- so five thousand rows is comfortably past two levels. `WHERE rowid = n`

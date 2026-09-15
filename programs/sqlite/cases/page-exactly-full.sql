@@ -20,7 +20,12 @@ INSERT INTO full VALUES ('xxxxxxxxxxxxxxx'), ('xxxxxxxxxxxxxxx'), ('xxxxxxxxxxxx
 INSERT INTO full VALUES ('xxxxxxxxxxxxxxx'), ('xxxxxxxxxxxxxxx'), ('xxxxxxxxxxxxxxx'), ('xxxxxxxxxxxxxxx');
 INSERT INTO full VALUES ('xxxxxxxxxxxxxxx'), ('xxxxxxxxxxxxxxx'), ('xxxxxxxxxxxxxxx'), ('xxxxxxxxxxxxxxx');
 INSERT INTO full VALUES ('xxxxxxxxxxxxxxx'), ('xxxxxxxxxxxxxxx'), ('xxxxxxxxxxxxxxx');
-INSERT INTO over SELECT s FROM full;
+INSERT INTO over VALUES ('xxxxxxxxxxxxxxx'), ('xxxxxxxxxxxxxxx'), ('xxxxxxxxxxxxxxx'), ('xxxxxxxxxxxxxxx');
+INSERT INTO over VALUES ('xxxxxxxxxxxxxxx'), ('xxxxxxxxxxxxxxx'), ('xxxxxxxxxxxxxxx'), ('xxxxxxxxxxxxxxx');
+INSERT INTO over VALUES ('xxxxxxxxxxxxxxx'), ('xxxxxxxxxxxxxxx'), ('xxxxxxxxxxxxxxx'), ('xxxxxxxxxxxxxxx');
+INSERT INTO over VALUES ('xxxxxxxxxxxxxxx'), ('xxxxxxxxxxxxxxx'), ('xxxxxxxxxxxxxxx'), ('xxxxxxxxxxxxxxx');
+INSERT INTO over VALUES ('xxxxxxxxxxxxxxx'), ('xxxxxxxxxxxxxxx'), ('xxxxxxxxxxxxxxx'), ('xxxxxxxxxxxxxxx');
+INSERT INTO over VALUES ('xxxxxxxxxxxxxxx'), ('xxxxxxxxxxxxxxx'), ('xxxxxxxxxxxxxxx');
 INSERT INTO over VALUES ('one more');
 -- queries
 SELECT * FROM full;

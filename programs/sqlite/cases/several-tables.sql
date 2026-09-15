@@ -1,3 +1,4 @@
+-- writer: skip (a UNIQUE column, whose automatic index the writer does not make)
 -- `sqlite_schema` with several rows of several kinds: two tables and two
 -- indexes, one of them automatic, so the reader meets an `sql` column that is
 -- NULL and a name it did not create. Roots are wherever `sqlite3` put them.

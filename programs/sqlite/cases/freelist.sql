@@ -1,3 +1,4 @@
+-- writer: skip (DELETE is step 5, and WITH RECURSIVE)
 -- Deletes. A cell removed leaves a freeblock inside its page; a leaf emptied
 -- goes to the freelist, whose trunk page lists the free leaves; and the header
 -- at offsets 32 and 36 points at the trunk and counts them. A reader must not

@@ -1,3 +1,4 @@
+-- writer: skip (rows that need overflow pages, which the writer refuses)
 -- Payloads longer than a page spill to overflow pages, chained by a four-byte
 -- pointer at the head of each. With a 512-byte page a 2,000-byte text is
 -- four or five pages of chain, and a 20,000-byte one is forty. The reader

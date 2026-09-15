@@ -1,3 +1,4 @@
+-- writer: skip (WITH RECURSIVE)
 -- The largest page: 65536 is spelled 1 in the two-byte field at offset 16,
 -- the one place in the header where the number is not the number.
 PRAGMA page_size = 65536;

@@ -1,3 +1,4 @@
+-- writer: skip (WITH RECURSIVE, and a UNIQUE index)
 -- Index trees: one on a text column with many ties, one on two columns, and a
 -- unique one. An index cell is a record whose last column is the rowid. A
 -- 512-byte page makes the index interior.

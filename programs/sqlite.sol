@@ -1,27 +1,33 @@
-; sqlite.sol -- an SQLite database file, read, and later written.
+; sqlite.sol -- an SQLite database file, read and written.
 ;
 ; Run with:  ./bin/solas programs/sqlite.sol && ./bin/solvm programs/sqlite.sob
-; Over a file:  ./bin/solvm programs/sqlite.sob notes.db < queries.sql
-; Or one query:  ./bin/solvm programs/sqlite.sob notes.db 'SELECT * FROM t'
-; With no arguments it demonstrates itself on a file sqlite3 makes under build/.
+; Over a file:  ./bin/solvm programs/sqlite.sob notes.db < statements.sql
+; Or one statement:  ./bin/solvm programs/sqlite.sob notes.db 'SELECT * FROM t'
+; With no arguments it demonstrates itself on a file it writes under build/.
 ;
 ; The twenty-third program here, and the first of the directions design.md
-; lists to be reached. It reads the file format that `sqlite3` writes, from the
-; format's own description and nothing else, and answers SELECT over it in the
-; shell's default list mode: columns with `|` between them, nothing for NULL,
-; one row a line. That is so the two can be compared byte for byte, which is
-; what programs/sqlite/sweep.sh does: `sqlite3` builds every database in the
-; corpus, and `sqlite3` says what is in it.
+; lists to be reached. It reads and writes the file format that `sqlite3`
+; uses, from the format's own description and nothing else, and answers
+; SELECT in the shell's default list mode: columns with `|` between them,
+; nothing for NULL, one row a line. That is so the two can be compared byte
+; for byte, which is what programs/sqlite/sweep.sh does in both directions:
+; `sqlite3` builds every database in the corpus and `sqlite3` says what is in
+; it, and then this program builds the same databases and `sqlite3` judges
+; the files, with `PRAGMA integrity_check` and by reading them.
 ;
 ; The plan is in ideas.md under *An SQLite file, read and then written*, with
-; what it predicted written above what it found. This file is steps 1 and 2 of
-; it, the reader: tables, then the index trees, which a WHERE on an indexed
-; column walks instead of scanning. The SQL it parses is the SQL the plan
-; bounds: SELECT of named columns, `rowid` or `*`, from one table, with a
-; WHERE of one comparison, and an ORDER BY. Nothing else, and a statement
-; outside that is reported as such rather than quietly meaning something
-; else. `SQLITE_PAGES=1` in the environment reports how many pages a run
-; read, which is the number a query is measured by here.
+; what it predicted written above what it found. This file is steps 1 to 3 of
+; it: the reader over tables, then the index trees, which a WHERE on an
+; indexed column walks instead of scanning; then the writer from nothing,
+; CREATE TABLE, CREATE INDEX and INSERT into a fresh file, pages built in
+; memory and the file written whole at the end. The SQL it parses is the SQL
+; the plan bounds: SELECT of named columns, `rowid` or `*`, from one table,
+; with a WHERE of one comparison and an ORDER BY; CREATE TABLE with plain
+; columns; CREATE INDEX on plain columns; INSERT of literals; PRAGMA
+; page_size. Nothing else, and a statement outside that is reported as such
+; rather than quietly meaning something else. `SQLITE_PAGES=1` in the
+; environment reports how many pages a run read and how many bytes it wrote,
+; which are the numbers a statement is measured by here.
 ;
 ; What the format is, in the amount this file needs:
 ;
@@ -60,7 +66,17 @@
 ;   A payload too long for its page keeps a local part and continues on
 ;   overflow pages, each a four-byte pointer to the next and then bytes. How
 ;   much stays local is a formula over the usable page size that every
-;   implementation shares, since `integrity_check` checks it.
+;   implementation shares, since `integrity_check` checks it. The writer
+;   here never makes one: a row that would need one is refused by name.
+;
+;   Writing is the same shapes in the other direction, and one more: a page
+;   that will not hold its cells splits. A table tree is a B+tree, so a leaf
+;   that splits sends up a copy of its last left rowid; an index tree is a
+;   B-tree, so a page that splits sends up its middle entry. The page that
+;   split keeps its number as the left half, the new page is the right, and
+;   the root keeps its number by moving its contents down when it splits,
+;   which is how a tree gains a level and why a root page number in the
+;   schema never changes.
 ;
 ; Three things about the language, found here:
 ;
@@ -343,32 +359,412 @@ db:usable := #0.
 db:pageCount := #0.
 db:cache := nil.
 db:reads := #0.
+db:dirty := nil.                ; page number -> page object, to be written
+db:changes := #0.               ; the file change counter, offset 24
+db:cookie := #0.                ; the schema cookie, offset 40
+db:freelistHead := #0.
+db:freelistCount := #0.
+db:written := #0.               ; bytes written by flush, for the measurement
 
+; A file that is there is opened; one that is not is a new database in
+; memory, one empty schema page, written when something has changed.
 db:open := { path | | d, header |
     d := self:new.
     d:path := path.
     d:cache := dictionary:new.
-    system:fileExists(path):ifFalse({ error:raise("no such file: ":concat(path)) }).
-    header := system:readFile(path, #1, #100).
-    header:size:lessThan(#100):or({ header:copyFrom(#1, #15):notEquals("SQLite format 3") })
-        :ifTrue({ error:raise("file is not a database: ":concat(path)) }).
-    d:pageSize := u16:value(header, #17).
-    d:pageSize:equals(#1):ifTrue({ d:pageSize := #65536 }).
-    d:usable := d:pageSize:sub(u8:value(header, #21)).
-    d:pageCount := u32:value(header, #29).
+    d:dirty := dictionary:new.
+    system:fileExists(path):ifElse(
+        { header := system:readFile(path, #1, #100).
+          header:size:lessThan(#100):or({ header:copyFrom(#1, #15):notEquals("SQLite format 3") })
+              :ifTrue({ error:raise("file is not a database: ":concat(path)) }).
+          d:pageSize := u16:value(header, #17).
+          d:pageSize:equals(#1):ifTrue({ d:pageSize := #65536 }).
+          d:usable := d:pageSize:sub(u8:value(header, #21)).
+          d:changes := u32:value(header, #25).
+          d:pageCount := u32:value(header, #29).
+          d:freelistHead := u32:value(header, #33).
+          d:freelistCount := u32:value(header, #37).
+          d:cookie := u32:value(header, #41) },
+        { d:pageSize := #4096.
+          d:usable := #4096.
+          d:pageCount := #1.
+          d:dirty:atPut(#1, page:of(#13)) }).
     d }.
 
-; One page, by number, from the cache or the file. A page is one ranged read,
-; and the count of them is the number to watch in a query.
+db:isEmpty := { self:pageCount:equals(#1):and({ self:object(#1):cells:size:equals(#0) }) }.
+
+; One page, by number: a page being written, serialised; else the cache; else
+; the file. A page from the file is one ranged read, and the count of them is
+; the number to watch in a query.
 db:page := { n | | from, p |
-    self:cache:includes(n):ifElse({ self:cache:at(n) }, {
+    self:dirty:includes(n):ifElse({ self:dirty:at(n):bytes(n, self) },
+    { self:cache:includes(n):ifElse({ self:cache:at(n) }, {
         from := n:dec:mul(self:pageSize):inc.
         p := system:readFile(self:path, from, self:pageSize).
         p:size:lessThan(self:pageSize):ifTrue({
             error:raise("page ":concat(n:asString):concat(" is not in the file")) }).
         self:reads := self:reads:inc.
         self:cache:atPut(n, p).
-        p }) }.
+        p }) }) }.
+
+; The same page as an object to change, which marks it to be written.
+db:object := { n | | o |
+    self:dirty:includes(n):ifElse({ self:dirty:at(n) }, {
+        o := decodePage:value(self, self:page(n), n).
+        self:dirty:atPut(n, o).
+        o }) }.
+
+; A fresh page at the end of the file.
+db:newPage := { kind | | o |
+    self:pageCount := self:pageCount:inc.
+    o := page:of(kind).
+    self:dirty:atPut(self:pageCount, o).
+    self:pageCount }.
+
+; The 100 bytes at the front of page 1.
+db:fileHeader := {
+    ["SQLite format 3":concat(#0:asCharacter),
+     u16Bytes:value(self:pageSize:equals(#65536):ifElse({ #1 }, { self:pageSize })),
+     #1:asCharacter, #1:asCharacter,                    ; rollback journal, both ways
+     self:pageSize:sub(self:usable):asCharacter,        ; reserved bytes a page
+     #64:asCharacter, #32:asCharacter, #32:asCharacter, ; the payload fractions, fixed
+     u32Bytes:value(self:changes),
+     u32Bytes:value(self:pageCount),
+     u32Bytes:value(self:freelistHead),
+     u32Bytes:value(self:freelistCount),
+     u32Bytes:value(self:cookie),
+     u32Bytes:value(#4),                                ; schema format
+     u32Bytes:value(#0),                                ; default cache size
+     u32Bytes:value(#0),                                ; largest root page: no autovacuum
+     u32Bytes:value(#1),                                ; UTF-8
+     u32Bytes:value(#0), u32Bytes:value(#0), u32Bytes:value(#0),   ; user version, incremental vacuum, application id
+     zeros:value(#20),
+     u32Bytes:value(self:changes),                      ; version-valid-for
+     u32Bytes:value(#0)]:join("") }.                    ; the library that wrote it: none SQLite knows
+
+; Everything, written whole. Step 3 of the plan writes a fresh file this way
+; and step 4 measures what it costs on a file that exists, which is the
+; argument the positioned write waits for.
+db:flush := { | pieces, n |
+    self:dirty:size:greaterThan(#0):ifTrue({
+        self:changes := self:changes:inc.
+        pieces := []. n := #1.
+        { n:lessOrEqual(self:pageCount) }:whileTrue({
+            pieces:add(self:page(n)). n := n:inc }).
+        system:writeFile(self:path, pieces:join("")).
+        self:written := self:written:add(self:pageCount:mul(self:pageSize)).
+        ; What was written is now what the file holds.
+        self:dirty:keysAndValuesDo({ k, o | self:cache:atPut(k, o:bytes(k, self)) }).
+        self:dirty := dictionary:new }) }.
+
+; ---------------------------------------------------------------------------
+; Bytes, written
+
+u16Bytes := { n | n:shiftRight(#8):bitAnd(#255):asCharacter:concat(n:bitAnd(#255):asCharacter) }.
+u32Bytes := { n |
+    [n:shiftRight(#24):bitAnd(#255), n:shiftRight(#16):bitAnd(#255),
+     n:shiftRight(#8):bitAnd(#255), n:bitAnd(#255)]:collect({ b | b:asCharacter }):join("") }.
+
+zeros := { n | | out, piece |
+    out := "". piece := #0:asCharacter.
+    { n:greaterThan(#0) }:whileTrue({
+        n:bitAnd(#1):equals(#1):ifTrue({ out := out:concat(piece) }).
+        piece := piece:concat(piece).
+        n := n:shiftRight(#1) }).
+    out }.
+
+; A varint: seven bits a byte, high bit for more, up to eight bytes, and a
+; ninth carrying all eight bits when the value needs sixty-four. The ninth
+; byte is the low eight bits of the value and the rest is the value shifted
+; right by eight, which for a negative value is an arithmetic shift, masked
+; down to fifty-six bits: the two's complement pattern SQLite stores.
+varintBytes := { v | | out, hi, groups, i |
+    (v:greaterOrEqual(#0):and({ v:lessThan(#72057594037927936) })):ifElse(       ; 2^56
+        { out := [v:bitAnd(#127):asCharacter].
+          v := v:shiftRight(#7).
+          { v:greaterThan(#0) }:whileTrue({
+              out:add(v:bitAnd(#127):bitOr(#128):asCharacter).
+              v := v:shiftRight(#7) }).
+          ; Built low group first; the format wants high first.
+          groups := []. i := out:size.
+          { i:greaterOrEqual(#1) }:whileTrue({ groups:add(out:at(i)). i := i:dec }).
+          groups:join("") },
+        { hi := v:shiftRight(#8):bitAnd(#72057594037927935).                     ; 2^56 - 1
+          out := []. i := #7.
+          { i:greaterOrEqual(#0) }:whileTrue({
+              out:add(hi:shiftRight(i:mul(#7)):bitAnd(#127):bitOr(#128):asCharacter).
+              i := i:dec }).
+          out:add(v:bitAnd(#255):asCharacter).
+          out:join("") }) }.
+
+; A signed integer in n big-endian bytes; the shift is arithmetic, so the
+; bytes of a negative value come out in two's complement.
+intBytes := { v, n | | out, i |
+    out := []. i := n:dec.
+    { i:greaterOrEqual(#0) }:whileTrue({
+        out:add(v:shiftRight(i:mul(#8)):bitAnd(#255):asCharacter). i := i:dec }).
+    out:join("") }.
+
+; The serial type an integer takes: 0 and 1 in no bytes, else the fewest
+; bytes that hold it.
+intSerial := { v |
+    v:equals(#0):ifElse({ #8 },
+    { v:equals(#1):ifElse({ #9 },
+    { (v:greaterOrEqual(#-128):and({ v:lessOrEqual(#127) })):ifElse({ #1 },
+    { (v:greaterOrEqual(#-32768):and({ v:lessOrEqual(#32767) })):ifElse({ #2 },
+    { (v:greaterOrEqual(#-8388608):and({ v:lessOrEqual(#8388607) })):ifElse({ #3 },
+    { (v:greaterOrEqual(#-2147483648):and({ v:lessOrEqual(#2147483647) })):ifElse({ #4 },
+    { (v:greaterOrEqual(#-140737488355328):and({ v:lessOrEqual(#140737488355327) })):ifElse({ #5 },
+    { #6 }) }) }) }) }) }) }) }.
+serialWidth := [#1, #2, #3, #4, #6, #8].
+
+; Eight bytes of a double from its parts, floatFromBytes inverted: the field
+; is the exponent plus 1075, or zero for a subnormal, and the implicit bit is
+; taken back off the mantissa.
+floatBytes := { parts | | sign, mantissa, e2, field, hi, lo |
+    sign := parts:at(#2). mantissa := parts:at(#3). e2 := parts:at(#4).
+    mantissa:equals(#0):ifElse(
+        { field := #0 },
+        { mantissa:lessThan(#4503599627370496):ifElse(                     ; 2^52: no implicit bit
+              { field := #0 },
+              { field := e2:add(#1075). mantissa := mantissa:sub(#4503599627370496) }) }).
+    hi := sign:shiftLeft(#31):bitOr(field:shiftLeft(#20)):bitOr(mantissa:shiftRight(#32)).
+    lo := mantissa:bitAnd(#4294967295).
+    u32Bytes:value(hi):concat(u32Bytes:value(lo)) }.
+
+; A record from an array of values: the header of serial types, its own
+; length in front, then the bodies.
+recordBytes := { values | | types, bodies, headerSize, headerBytes |
+    types := []. bodies := [].
+    values:do({ v |
+        v:isNil:ifTrue({ types:add(#0). bodies:add("") }).
+        v:isKindOf(integer):ifTrue({ | t |
+            t := intSerial:value(v). types:add(t).
+            bodies:add(t:greaterOrEqual(#8):ifElse({ "" }, { intBytes:value(v, serialWidth:at(t)) })) }).
+        v:isKindOf(real):ifTrue({ types:add(#7). bodies:add(floatBytes:value(v:parts)) }).
+        v:isKindOf(string):ifTrue({ types:add(v:size:mul(#2):add(#13)). bodies:add(v) }).
+        v:isKindOf(blob):ifTrue({ types:add(v:bytes:size:mul(#2):add(#12)). bodies:add(v:bytes) }) }).
+    headerBytes := types:collect({ t | varintBytes:value(t) }):join("").
+    ; The header's length counts its own varint, which is one byte until the
+    ; header is 127 bytes long and two after.
+    headerSize := headerBytes:size:inc.
+    headerSize:greaterThan(#127):ifTrue({ headerSize := headerBytes:size:add(#2) }).
+    varintBytes:value(headerSize):concat(headerBytes):concat(bodies:join("")) }.
+
+; ---------------------------------------------------------------------------
+; A page being written
+;
+; Cells in key order, each the raw bytes after any child pointer, with the
+; key decoded beside it: a rowid for a table page, the entry's values for an
+; index page. Serialised to bytes on demand, from the end of the page down,
+; with no freeblocks and no fragments, which is one well-formed page among
+; the many `integrity_check` accepts.
+
+page := object:new.
+page:kind := #13.
+page:cells := nil.
+page:keys := nil.
+page:children := nil.          ; interior pages only, parallel to cells
+page:right := #0.              ; interior pages only
+
+page:of := { kind | | p |
+    p := self:new.
+    p:kind := kind. p:cells := []. p:keys := []. p:children := []. p:right := #0.
+    p }.
+
+page:isLeaf := { self:kind:equals(#13):or({ self:kind:equals(#10) }) }.
+page:isTable := { self:kind:equals(#13):or({ self:kind:equals(#5) }) }.
+page:headerSize := { self:isLeaf:ifElse({ #8 }, { #12 }) }.
+
+; Bytes in use on page `n` of database `d`: the headers, the pointer array
+; and every cell with its child pointer.
+page:used := { n, d | | total, extra |
+    extra := self:isLeaf:ifElse({ #0 }, { #4 }).
+    total := n:equals(#1):ifElse({ #100 }, { #0 }):add(self:headerSize):add(self:cells:size:mul(#2)).
+    self:cells:do({ c | total := total:add(c:size):add(extra) }).
+    total }.
+page:fits := { n, d | self:used(n, d):lessOrEqual(d:usable) }.
+
+page:bytes := { n, d | | h, extra, pos, offsets, i, content, pointers, header, free |
+    extra := self:isLeaf:ifElse({ #0 }, { #4 }).
+    h := n:equals(#1):ifElse({ #100 }, { #0 }).
+    ; Cells from the end of the usable area downwards, so the last cell sits
+    ; highest and the first lowest, and the content area is the cells in
+    ; order from the first.
+    pos := d:usable. offsets := []. content := []. i := self:cells:size.
+    { i:greaterOrEqual(#1) }:whileTrue({
+        pos := pos:sub(self:cells:at(i):size):sub(extra).
+        offsets:add(pos).
+        i := i:dec }).
+    i := #1.
+    { i:lessOrEqual(self:cells:size) }:whileTrue({
+        self:isLeaf:ifFalse({ content:add(u32Bytes:value(self:children:at(i))) }).
+        content:add(self:cells:at(i)).
+        i := i:inc }).
+    pointers := []. i := offsets:size.
+    { i:greaterOrEqual(#1) }:whileTrue({ pointers:add(u16Bytes:value(offsets:at(i))). i := i:dec }).
+    header := [self:kind:asCharacter,
+               u16Bytes:value(#0),                                       ; no freeblocks
+               u16Bytes:value(self:cells:size),
+               u16Bytes:value(self:cells:size:equals(#0):ifElse({ d:usable }, { pos }):bitAnd(#65535)),
+               #0:asCharacter].                                          ; no fragments
+    self:isLeaf:ifFalse({ header:add(u32Bytes:value(self:right)) }).
+    free := pos:sub(h):sub(self:headerSize):sub(self:cells:size:mul(#2)).
+    free:lessThan(#0):ifTrue({ error:raise("page ":concat(n:asString):concat(" overflowed by ")
+        :concat(free:negated:asString):concat(" bytes")) }).
+    [n:equals(#1):ifElse({ d:fileHeader }, { "" }),
+     header:join(""), pointers:join(""), zeros:value(free), content:join(""),
+     zeros:value(d:pageSize:sub(d:usable))]:join("") }.
+
+; A page from its bytes, for changing: every cell copied raw and its key
+; decoded. A cell that spills to overflow pages is carried with its pointer,
+; which is what keeps a row this program did not write intact when it moves.
+decodePage := { d, s, n | | o, h, offsets, extra |
+    h := headerAt:value(n).
+    o := page:of(u8:value(s, h)).
+    offsets := cells:value(s, n).
+    extra := o:isLeaf:ifElse({ #0 }, { #4 }).
+    o:isLeaf:ifFalse({ o:right := u32:value(s, h:add(#8)) }).
+    offsets:do({ at | | start, v, size, local, rowid, end, key |
+        start := at:add(extra).
+        o:isLeaf:ifFalse({ o:children:add(u32:value(s, at)) }).
+        o:isTable:ifElse(
+            { o:isLeaf:ifElse(
+                  { v := varint:value(s, start). size := v:at(#1).
+                    v := varint:value(s, v:at(#2)). rowid := v:at(#1).
+                    local := localSize:value(d, size, false).
+                    end := v:at(#2):add(local):dec.
+                    local:lessThan(size):ifTrue({ end := end:add(#4) }).
+                    key := rowid },
+                  { v := varint:value(s, start).
+                    end := v:at(#2):dec. key := v:at(#1) }) },
+            { v := varint:value(s, start). size := v:at(#1).
+              local := localSize:value(d, size, true).
+              end := v:at(#2):add(local):dec.
+              local:lessThan(size):ifTrue({ end := end:add(#4) }).
+              key := decodeRecord:value(payload:value(d, s, v:at(#2), size, true)) }).
+        o:cells:add(s:copyFrom(start, end)).
+        o:keys:add(key) }).
+    o }.
+
+; ---------------------------------------------------------------------------
+; Putting a cell into a tree
+;
+; A table tree is a B+tree keyed by rowid: rows live in the leaves, and an
+; interior cell is a child and the largest rowid in it. An index tree is a
+; B-tree: an interior cell is a child and an entry of its own, everything in
+; the child less than it. So a table leaf that splits sends up a copy of its
+; last left key, and an index page that splits sends up its middle entry.
+; Either way the page that split keeps its number as the left half and the
+; new page is the right, so a parent has one cell to add and one child to
+; repoint. The root keeps its number too, by moving its contents down into a
+; new page when it splits, which is how a tree grows a level.
+
+compareEntry := { a, b | | c, i |
+    c := #0. i := #1.
+    { c:equals(#0):and({ i:lessOrEqual(a:size) }):and({ i:lessOrEqual(b:size) }) }:whileTrue({
+        c := compare:value(a:at(i), b:at(i)). i := i:inc }).
+    c }.
+
+keyLess := { isIndex, a, b |
+    isIndex:ifElse({ compareEntry:value(a, b):lessThan(#0) }, { a:lessThan(b) }) }.
+
+; Where a key goes among a page's keys: the first position whose key is
+; greater, or one past the end.
+positionFor := { o, key, isIndex | | i |
+    i := #1.
+    { i:lessOrEqual(o:keys:size):and({ keyLess:value(isIndex, o:keys:at(i), key):or({
+        isIndex:not:and({ o:keys:at(i):equals(key) }) }) }) }:whileTrue({ i := i:inc }).
+    i }.
+
+insertAt := { arr, i, v | | out, k |
+    out := []. k := #1.
+    { k:lessThan(i) }:whileTrue({ out:add(arr:at(k)). k := k:inc }).
+    out:add(v).
+    { k:lessOrEqual(arr:size) }:whileTrue({ out:add(arr:at(k)). k := k:inc }).
+    out }.
+
+; Split page `o` (number n) in two: it keeps the left half, a new page takes
+; the right, and the divider goes up as [raw, key, newPage]. The split point
+; is where the bytes reach half.
+splitPage := { d, o, n, isIndex | | half, sum, k, right, rn, divider, extra |
+    extra := o:isLeaf:ifElse({ #0 }, { #4 }).
+    half := o:used(n, d):div(#2). sum := #0. k := #0.
+    { sum:lessThan(half):and({ k:lessThan(o:cells:size:dec) }) }:whileTrue({
+        k := k:inc. sum := sum:add(o:cells:at(k):size):add(extra):add(#2) }).
+    k:lessThan(#1):ifTrue({ k := #1 }).
+    k:greaterOrEqual(o:cells:size):ifTrue({ k := o:cells:size:dec }).
+    rn := d:newPage(o:kind).
+    right := d:object(rn).
+    (o:isLeaf:and({ isIndex:not })):ifElse(
+        { ; Table leaf: cells 1..k stay, k+1.. go right, key k is copied up.
+          divider := [varintBytes:value(o:keys:at(k)), o:keys:at(k), rn].
+          right:cells := o:cells:copyFrom(k:inc, o:cells:size).
+          right:keys := o:keys:copyFrom(k:inc, o:keys:size).
+          o:cells := o:cells:copyFrom(#1, k).
+          o:keys := o:keys:copyFrom(#1, k) },
+        { ; Index page, or a table interior: cell k itself goes up.
+          divider := [o:cells:at(k), o:keys:at(k), rn].
+          right:cells := o:cells:copyFrom(k:inc, o:cells:size).
+          right:keys := o:keys:copyFrom(k:inc, o:keys:size).
+          o:isLeaf:ifFalse({
+              right:children := o:children:copyFrom(k:inc, o:children:size).
+              right:right := o:right.
+              o:right := o:children:at(k).
+              o:children := o:children:copyFrom(#1, k:dec) }).
+          o:cells := o:cells:copyFrom(#1, k:dec).
+          o:keys := o:keys:copyFrom(#1, k:dec) }).
+    divider }.
+
+; Insert `raw` with `key` under page n. Answers nil, or the divider a split
+; produced for the parent to place.
+insertCell := { d, n, raw, key, isIndex | | o, i, below |
+    o := d:object(n).
+    o:isLeaf:ifElse(
+        { i := positionFor:value(o, key, isIndex).
+          (isIndex:not:and({ i:lessOrEqual(o:keys:size) }):and({ o:keys:at(i):equals(key) })):ifTrue({
+              error:raise("UNIQUE constraint failed: rowid ":concat(key:asString)) }).
+          o:cells := insertAt:value(o:cells, i, raw).
+          o:keys := insertAt:value(o:keys, i, key) },
+        { i := positionFor:value(o, key, isIndex).
+          below := insertCell:value(d, i:greaterThan(o:children:size):ifElse({ o:right }, { o:children:at(i) }),
+                                    raw, key, isIndex).
+          below:notNil:ifTrue({
+              ; The child at i split: it stays as the left half under the
+              ; divider, and the new page takes the child's old place.
+              i:greaterThan(o:children:size):ifElse(
+                  { o:cells:add(below:at(#1)). o:keys:add(below:at(#2)).
+                    o:children:add(o:right). o:right := below:at(#3) },
+                  { o:cells := insertAt:value(o:cells, i, below:at(#1)).
+                    o:keys := insertAt:value(o:keys, i, below:at(#2)).
+                    o:children := insertAt:value(o:children, i, o:children:at(i)).
+                    o:children:atPut(i:inc, below:at(#3)) }) }) }).
+    o:fits(n, d):ifElse({ nil }, { splitPage:value(d, o, n, isIndex) }) }.
+
+; Insert at a tree's root, which keeps its page number however the tree
+; grows: when the root splits, its left half moves to a new page and the root
+; becomes an interior page over the two.
+treeInsert := { d, root, raw, key, isIndex | | divider, o, left, ln |
+    divider := insertCell:value(d, root, raw, key, isIndex).
+    divider:notNil:ifTrue({
+        o := d:object(root).
+        ln := d:newPage(o:kind).
+        left := d:object(ln).
+        left:cells := o:cells. left:keys := o:keys. left:children := o:children. left:right := o:right.
+        o:kind := o:isTable:ifElse({ #5 }, { #2 }).
+        o:cells := [divider:at(#1)]. o:keys := [divider:at(#2)].
+        o:children := [ln]. o:right := divider:at(#3) }) }.
+
+; The largest rowid in a table tree, or nil when it is empty: down the
+; right-most path to the last leaf.
+lastRowid := { d, n | | p, h, offsets, v |
+    p := d:page(n). h := headerAt:value(n).
+    offsets := cells:value(p, n).
+    u8:value(p, h):equals(#13):ifElse(
+        { offsets:size:equals(#0):ifElse({ nil },
+              { v := varint:value(p, offsets:at(offsets:size)).
+                varint:value(p, v:at(#2)):at(#1) }) },
+        { lastRowid:value(d, u32:value(p, h:add(#8))) }) }.
 
 ; ---------------------------------------------------------------------------
 ; B-tree pages
@@ -566,41 +962,35 @@ unhex := { h | | out, i |
         i := i:add(#2) }).
     out:join("") }.
 
-tokenize := { text | | s, out, c, word |
+tokenize := { text | | s, out, c, word, from, push |
     s := scan:on(text). out := [].
+    ; A token is [kind, text, from, to], the last two the positions in the
+    ; source, so that a CREATE statement can be stored as it was written.
+    push := { kind, t | out:add([kind, t, from, s:pos:dec]) }.
     { s:atEnd:not }:whileTrue({
-        c := s:peek.
-        isSpace:value(c):ifTrue({ s:step }).
-        c:equals("-"):and({ s:peekAt(#1):equals("-") }):ifTrue({
-            s:skipWhile({ ch | ch:notEquals("\n") }) }).
-        isWordStart:value(c):ifTrue({
-            word := s:takeWhile(isWordChar).
-            (word:asUppercase:equals("X"):and({ s:peek:equals("'") })):ifElse(
-                { s:step. out:add(['blob, unhex:value(quoted:value(s, "'"))]) },
-                { out:add(['word, word]) }) }).
-        isDigit:value(c):or({ c:equals("."):and({ s:peekAt(#1):notNil }):and({ isDigit:value(s:peekAt(#1)) }) }):ifTrue({
-            word := s:takeWhile({ ch | isDigit:value(ch):or({ ch:equals(".") }) }).
-            s:peek:notNil:and({ s:peek:asUppercase:equals("E") }):ifTrue({
-                word := word:concat(s:next).
-                s:peek:equals("+"):or({ s:peek:equals("-") }):ifTrue({ word := word:concat(s:next) }).
-                word := word:concat(s:takeWhile(isDigit)) }).
-            out:add(['number, word]) }).
-        c:equals("'"):ifTrue({ s:step. out:add(['text, quoted:value(s, "'")]) }).
-        c:equals("\""):ifTrue({ s:step. out:add(['name, quoted:value(s, "\"")]) }).
-        c:equals("`"):ifTrue({ s:step. out:add(['name, quoted:value(s, "`")]) }).
-        c:equals("["):ifTrue({ s:step. out:add(['name, s:takeUntil({ ch | ch:equals("]") })]). s:step }).
-        ("(),;*=.<>":indexOf(c):notNil:and({ c:notEquals(".") })):ifTrue({
-            s:step. out:add(['punct, c]) }).
-        ; Anything else is a byte this SQL has no use for.
-        (isSpace:value(c):or({ c:equals("-") }):or({ isWordStart:value(c) })
-            :or({ isDigit:value(c) }):or({ c:equals(".") }):or({ c:equals("'") })
-            :or({ c:equals("\"") }):or({ c:equals("`") }):or({ c:equals("[") })
-            :or({ "(),;*=<>":indexOf(c):notNil })):ifFalse({
-            error:raise("unexpected character: ":concat(c)) }).
-        (c:equals("."):and({ s:peekAt(#1):isNil:or({ isDigit:value(s:peekAt(#1)):not }) })):ifTrue({
-            s:step. out:add(['punct, "."]) }).
-        (c:equals("-"):and({ s:peekAt(#1):notEquals("-") })):ifTrue({
-            s:step. out:add(['punct, "-"]) }) }).
+        c := s:peek. from := s:pos.
+        isSpace:value(c):ifElse({ s:step },
+        { (c:equals("-"):and({ s:peekAt(#1):equals("-") })):ifElse(
+            { s:skipWhile({ ch | ch:notEquals("\n") }) },
+        { isWordStart:value(c):ifElse(
+            { word := s:takeWhile(isWordChar).
+              (word:asUppercase:equals("X"):and({ s:peek:equals("'") })):ifElse(
+                  { s:step. push:value('blob, unhex:value(quoted:value(s, "'"))) },
+                  { push:value('word, word) }) },
+        { (isDigit:value(c):or({ c:equals("."):and({ s:peekAt(#1):notNil }):and({ isDigit:value(s:peekAt(#1)) }) })):ifElse(
+            { word := s:takeWhile({ ch | isDigit:value(ch):or({ ch:equals(".") }) }).
+              (s:peek:notNil:and({ s:peek:asUppercase:equals("E") })):ifTrue({
+                  word := word:concat(s:next).
+                  (s:peek:equals("+"):or({ s:peek:equals("-") })):ifTrue({ word := word:concat(s:next) }).
+                  word := word:concat(s:takeWhile(isDigit)) }).
+              push:value('number, word) },
+        { c:equals("'"):ifElse({ s:step. push:value('text, quoted:value(s, "'")) },
+        { c:equals("\""):ifElse({ s:step. push:value('name, quoted:value(s, "\"")) },
+        { c:equals("`"):ifElse({ s:step. push:value('name, quoted:value(s, "`")) },
+        { c:equals("["):ifElse({ s:step. word := s:takeUntil({ ch | ch:equals("]") }). s:step. push:value('name, word) },
+        { "(),;*=.<>-":indexOf(c):notNil:ifElse({ s:step. push:value('punct, c) },
+            ; Anything else is a byte this SQL has no use for.
+            { error:raise("unexpected character: ":concat(c)) }) }) }) }) }) }) }) }) }) }).
     out }.
 
 ; Statements: the tokens split at `;`.
@@ -627,6 +1017,7 @@ table:name := "".
 table:root := #0.
 table:columns := [].           ; each [name, affinity, isRowid]
 table:indexes := [].           ; each [name, root, column names], plain ascending BINARY ones
+table:maxRowid := nil.         ; the largest rowid, once it has been looked for
 
 ; The affinity rules, from the declared type: INT anywhere is INTEGER; CHAR,
 ; CLOB or TEXT is TEXT; BLOB or no type is BLOB; REAL, FLOA or DOUB is REAL;
@@ -753,6 +1144,11 @@ loadSchema := { d | | out, t |
 
 tok := { tokens, i | i:greaterThan(tokens:size):ifElse({ ['end, ""] }, { tokens:at(i) }) }.
 
+; Punctuation is matched by kind as well as text: a blob of the one byte
+; `)` or the text `','` is a value, and the first sweep of the writer found
+; a value list ending at one.
+isPunct := { tokens, i, ch | | t | t := tok:value(tokens, i). t:at(#1):equals('punct):and({ t:at(#2):equals(ch) }) }.
+
 expect := { tokens, i, text |
     (i:greaterThan(tokens:size):or({ tok:value(tokens, i):at(#2):asUppercase:notEquals(text:asUppercase) })):ifTrue({
         error:raise("expected ":concat(text):concat(i:greaterThan(tokens:size):ifElse({ " at the end" },
@@ -804,7 +1200,7 @@ parseSelect := { tokens | | i, columns, tableName, where, order, r, done |
         (tok:value(tokens, i):at(#1):equals('punct):and({ tok:value(tokens, i):at(#2):equals("*") })):ifElse(
             { columns:add("*"). i := i:inc },
             { r := columnRef:value(tokens, i). columns:add(r:at(#1)). i := r:at(#2) }).
-        (i:lessOrEqual(tokens:size):and({ tok:value(tokens, i):at(#2):equals(",") })):ifElse(
+        isPunct:value(tokens, i, ","):ifElse(
             { i := i:inc }, { done := true }) }).
     i := expect:value(tokens, i, "FROM").
     tableName := tok:value(tokens, i):at(#2). i := i:inc.
@@ -824,7 +1220,7 @@ parseSelect := { tokens | | i, columns, tableName, where, order, r, done |
             r := columnRef:value(tokens, i). i := r:at(#2).
             order:add(r:at(#1)).
             isWord:value(tokens, i, "ASC"):ifTrue({ i := i:inc }).
-            (i:lessOrEqual(tokens:size):and({ tok:value(tokens, i):at(#2):equals(",") })):ifElse(
+            isPunct:value(tokens, i, ","):ifElse(
                 { i := i:inc }, { done := true }) }) }).
     i:lessOrEqual(tokens:size):ifTrue({
         error:raise("this SELECT goes on past what is understood, at: ":concat(tok:value(tokens, i):at(#2))) }).
@@ -953,40 +1349,235 @@ runSelect := { d, tables, parsed | | t, wanted, whereCol, whereVal, orderCols, r
         emit:value(wanted:collect({ w | render:value(valueAt:value(row:at(#1), row:at(#2), w)) }):join("|")) }) }.
 
 ; ---------------------------------------------------------------------------
+; CREATE TABLE, CREATE INDEX, INSERT, and PRAGMA page_size
+;
+; Step 3 of the plan: the writer, from nothing. Each statement changes pages
+; in memory and the file is written whole at the end, which is enough for a
+; fresh file and is what step 4 measures against on a file that exists.
+
+; A statement's text as written, from its first token to its last.
+statementText := { text, st | text:copyFrom(st:at(#1):at(#3), st:at(st:size):at(#4)) }.
+
+; A real that is a whole number and fits is stored as the integer; SQLite
+; does the same, for NUMERIC affinity as the rule and for REAL as the disk
+; trick the reader undoes.
+integralOf := { v | | f |
+    f := v:value.
+    (f:abs:lessThan(9.2e18):and({ f:equals(f:floor:asFloat) })):ifElse({ f:floor }, { v }) }.
+
+; The affinity applied to a value on its way into a column: text that reads
+; as a number becomes one under a numeric affinity, a number becomes text
+; under TEXT, and a blob or a NULL is left alone.
+storeAffinity := { v, affinity | | n |
+    v:isNil:or({ v:isKindOf(blob) }):ifElse({ v }, {
+        affinity:equals('text):ifElse(
+            { isNumber:value(v):ifElse({ render:value(v) }, { v }) },
+        { affinity:equals('blob):ifElse({ v }, {
+            ; INTEGER, NUMERIC and REAL: a numeric text is read, and a whole real
+            ; becomes the integer.
+            n := v:isKindOf(string):ifElse({ numberFromText:value(v) }, { v }).
+            n:isNil:ifElse({ v },
+                { n:isKindOf(real):ifElse({ integralOf:value(n) }, { n }) }) }) }) }) }.
+
+; What a value written to the INTEGER PRIMARY KEY column means as a rowid.
+rowidOf := { v | | n |
+    v:isKindOf(integer):ifElse({ v }, {
+        n := v:isKindOf(string):ifElse({ numberFromText:value(v) }, { v }).
+        n:isKindOf(real):ifTrue({ n := integralOf:value(n) }).
+        n:isKindOf(integer):ifElse({ n }, { error:raise("datatype mismatch") }) }) }.
+
+; One row into a table and each of its indexes. `values` is one per column,
+; affinities applied; the rowid is given or is one past the largest.
+insertRow := { d, t, values, rowidGiven | | rowid, record, payload, raw, maxLocal |
+    rowid := rowidGiven.
+    rowid:isNil:ifTrue({
+        t:maxRowid:isNil:ifTrue({ t:maxRowid := lastRowid:value(d, t:root) }).
+        rowid := t:maxRowid:isNil:ifElse({ #1 }, {
+            t:maxRowid:equals(#9223372036854775807):ifTrue({
+                error:raise("database or disk is full: no rowid is left to assign") }).
+            t:maxRowid:inc }) }).
+    ; The rowid column's value in the record is NULL: it is the rowid.
+    record := [].
+    [#1, t:columns:size]:loop({ i |
+        record:add(t:columns:at(i):at(#3):ifElse({ nil }, { i:lessOrEqual(values:size):ifElse({ values:at(i) }, { nil }) })) }).
+    payload := recordBytes:value(record).
+    maxLocal := d:usable:sub(#35).
+    payload:size:greaterThan(maxLocal):ifTrue({
+        error:raise("a row of ":concat(payload:size:asString):concat(" bytes needs an overflow page, and this program does not write those (")
+            :concat(maxLocal:asString):concat(" fit)")) }).
+    raw := varintBytes:value(payload:size):concat(varintBytes:value(rowid)):concat(payload).
+    treeInsert:value(d, t:root, raw, rowid, false).
+    (t:maxRowid:isNil:or({ rowid:greaterThan(t:maxRowid) })):ifTrue({ t:maxRowid := rowid }).
+    t:indexes:do({ ix | | entry |
+        entry := ix:at(#3):collect({ name | | which |
+            which := resolve:value(t, name).
+            which:equals('rowid):ifElse({ rowid }, { values:at(which) }) }).
+        entry:add(rowid).
+        payload := recordBytes:value(entry).
+        maxLocal := d:usable:sub(#12):mul(#64):div(#255):sub(#23).
+        payload:size:greaterThan(maxLocal):ifTrue({
+            error:raise("an index entry of ":concat(payload:size:asString):concat(" bytes needs an overflow page, and this program does not write those")) }).
+        raw := varintBytes:value(payload:size):concat(payload).
+        treeInsert:value(d, ix:at(#2), raw, entry, true) }).
+    rowid }.
+
+; A row of sqlite_schema, which is a table like any other with page 1 as
+; its root and no rowid column of its own.
+schemaRow := { d, tables, kind, name, tblName, root, sql |
+    insertRow:value(d, tables:at("sqlite_schema"), [kind, name, tblName, root, sql], nil).
+    d:cookie := d:cookie:inc }.
+
+; `text` is the whole source, since the tokens' positions are into it.
+createTable := { d, tables, st, text | | name, t, sql |
+    st:size:lessThan(#4):ifTrue({ error:raise("CREATE TABLE needs a name and columns") }).
+    name := tok:value(st, #3):at(#2).
+    tables:includes(name:asLowercase):ifTrue({ error:raise("table ":concat(name):concat(" already exists")) }).
+    t := table:new.
+    t:name := name.
+    t:columns := columnsFromSql:value(statementText:value(text, st)).
+    t:columns:size:equals(#0):ifTrue({ error:raise("CREATE TABLE ":concat(name):concat(" has no columns")) }).
+    t:indexes := []. t:maxRowid := nil.
+    t:root := d:newPage(#13).
+    ; Stored as written, after the two words SQLite spells for itself.
+    sql := "CREATE TABLE ":concat(text:copyFrom(st:at(#3):at(#3), st:at(st:size):at(#4))).
+    schemaRow:value(d, tables, "table", name, name, t:root, sql).
+    tables:atPut(name:asLowercase, t) }.
+
+createIndex := { d, tables, st, text | | name, tblName, t, cols, root, sql, ix |
+    st:size:lessThan(#7):ifTrue({ error:raise("CREATE INDEX needs a name, a table and columns") }).
+    name := tok:value(st, #3):at(#2).
+    isWord:value(st, #4, "ON"):ifFalse({ error:raise("expected ON in CREATE INDEX") }).
+    tblName := tok:value(st, #5):at(#2).
+    t := tables:at(tblName:asLowercase, nil).
+    t:isNil:ifTrue({ error:raise("no such table: ":concat(tblName)) }).
+    cols := indexColumnsFromSql:value(statementText:value(text, st)).
+    cols:isNil:ifTrue({ error:raise("an index with DESC, COLLATE, an expression or a WHERE is not written here") }).
+    cols:do({ c | resolve:value(t, c) }).
+    root := d:newPage(#10).
+    sql := "CREATE INDEX ":concat(text:copyFrom(st:at(#3):at(#3), st:at(st:size):at(#4))).
+    schemaRow:value(d, tables, "index", name, t:name, root, sql).
+    ix := [name, root, cols].
+    t:indexes:add(ix).
+    ; A table that already has rows is indexed now.
+    eachRow:value(d, t:root, { rowid, p | | values, entry, payload, raw |
+        values := decodeRecord:value(p).
+        entry := cols:collect({ c | | which |
+            which := resolve:value(t, c).
+            which:equals('rowid):ifElse({ rowid }, { which:greaterThan(values:size):ifElse({ nil }, { values:at(which) }) }) }).
+        entry:add(rowid).
+        payload := recordBytes:value(entry).
+        raw := varintBytes:value(payload:size):concat(payload).
+        treeInsert:value(d, root, raw, entry, true) }) }.
+
+; INSERT INTO t [(cols)] VALUES (v, ...), (v, ...)
+insertStatement := { d, tables, st | | i, name, t, which, r, rowValues, values, rowidGiven, done, v, count |
+    i := expect:value(st, #1, "INSERT").
+    i := expect:value(st, i, "INTO").
+    name := tok:value(st, i):at(#2). i := i:inc.
+    t := tables:at(name:asLowercase, nil).
+    t:isNil:ifTrue({ error:raise("no such table: ":concat(name)) }).
+    ; The columns named, resolved; none named is every column in order.
+    which := nil.
+    isPunct:value(st, i, "("):ifTrue({
+        i := i:inc. which := [].
+        { isPunct:value(st, i, ")"):not:and({ i:lessOrEqual(st:size) }) }:whileTrue({
+            r := columnRef:value(st, i). i := r:at(#2).
+            which:add(resolve:value(t, r:at(#1))).
+            isPunct:value(st, i, ","):ifTrue({ i := i:inc }) }).
+        i := i:inc }).
+    which:isNil:ifTrue({
+        which := [].
+        [#1, t:columns:size]:loop({ k | which:add(t:columns:at(k):at(#3):ifElse({ 'rowid }, { k })) }) }).
+    i := expect:value(st, i, "VALUES").
+    count := #0.
+    done := false.
+    { done:not }:whileTrue({
+        i := expect:value(st, i, "(").
+        rowValues := [].
+        { isPunct:value(st, i, ")"):not:and({ i:lessOrEqual(st:size) }) }:whileTrue({
+            r := literal:value(st, i). i := r:at(#2).
+            rowValues:add(r:at(#1)).
+            isPunct:value(st, i, ","):ifTrue({ i := i:inc }) }).
+        i := i:inc.
+        rowValues:size:notEquals(which:size):ifTrue({
+            error:raise("table ":concat(t:name):concat(" has "):concat(which:size:asString)
+                :concat(" columns but "):concat(rowValues:size:asString):concat(" values were supplied")) }).
+        values := []. rowidGiven := nil.
+        [#1, t:columns:size]:loop({ k | values:add(nil) }).
+        [#1, which:size]:loop({ k |
+            v := rowValues:at(k).
+            which:at(k):equals('rowid):ifElse(
+                { v:isNil:ifFalse({ rowidGiven := rowidOf:value(v) }) },
+                { values:atPut(which:at(k), storeAffinity:value(v, t:columns:at(which:at(k)):at(#2))) }) }).
+        insertRow:value(d, t, values, rowidGiven).
+        count := count:inc.
+        isPunct:value(st, i, ","):ifElse(
+            { i := i:inc }, { done := true }) }).
+    i:lessOrEqual(st:size):ifTrue({
+        error:raise("this INSERT goes on past what is understood, at: ":concat(tok:value(st, i):at(#2))) }).
+    count }.
+
+; PRAGMA page_size = N sets the size of a database that is still empty, and
+; is ignored on one that is not, as SQLite ignores it. Any other pragma is
+; not understood, and says so rather than answering nothing.
+pragmaStatement := { d, st | | n |
+    (isWord:value(st, #2, "PAGE_SIZE"):and({ isPunct:value(st, #3, "=") })):ifFalse({
+        error:raise("only PRAGMA page_size = N is understood") }).
+    n := tok:value(st, #4):at(#2):asInteger.
+    ([#512, #1024, #2048, #4096, #8192, #16384, #32768, #65536]:indexOf(n)):isNil:ifTrue({
+        error:raise("page_size must be a power of two from 512 to 65536") }).
+    d:isEmpty:ifTrue({ d:pageSize := n. d:usable := n }) }.
+
+; One statement of any kind this program has.
+execute := { d, tables, st, text | | first |
+    first := st:at(#1):at(#2):asUppercase.
+    first:equals("SELECT"):ifElse({ runSelect:value(d, tables, parseSelect:value(st)) },
+    { first:equals("INSERT"):ifElse({ insertStatement:value(d, tables, st) },
+    { first:equals("PRAGMA"):ifElse({ pragmaStatement:value(d, st) },
+    { (first:equals("CREATE"):and({ isWord:value(st, #2, "TABLE") })):ifElse({ createTable:value(d, tables, st, text) },
+    { (first:equals("CREATE"):and({ isWord:value(st, #2, "INDEX") })):ifElse({ createIndex:value(d, tables, st, text) },
+    { (first:equals("CREATE"):and({ isWord:value(st, #2, "UNIQUE") })):ifElse(
+        { error:raise("a UNIQUE index is not written here; the constraint is not checked") },
+        { error:raise("only SELECT, CREATE TABLE, CREATE INDEX, INSERT and PRAGMA page_size are understood; this begins with ":concat(st:at(#1):at(#2))) }) }) }) }) }) }) }.
+
+; ---------------------------------------------------------------------------
 ; The demonstration
 ;
 ; Every program here runs with no arguments on input it supplies itself. This
-; one reads and does not yet write, so until step 3 of the plan the input is
-; made by the `sqlite3` on the machine, which is also the oracle: a small
-; database under build/, read back here. If there is no sqlite3 it says so.
+; one writes a small database under build/, reads it back, and if the sqlite3
+; on the machine is there, asks it whether the file is well formed and what
+; it reads, since that is the judge the sweep uses. Until step 3 the file
+; was made by sqlite3; now it is made here.
 
-demonstrate := { | path, status, run |
+demonstrate := { | path, run, verdict |
     system:makeDirectory("build").
     path := "build/sqlite-demo.db".
     system:fileExists(path):ifTrue({ system:remove(path) }).
-    status := system:run(["sqlite3", path,
-        "CREATE TABLE fruit (name TEXT, count INTEGER, price REAL);
-         CREATE INDEX fruit_name ON fruit (name);
-         INSERT INTO fruit VALUES ('pear', 3, 0.5), ('apple', 10, 0.25), ('fig', 1, 2.0);
-         INSERT INTO fruit VALUES ('banana', 2, 0.3), ('apple', 7, 0.25), (NULL, 0, 1e20);"],
-        ["stdout", 'discard, "stderr", 'discard]).
-    status:equals(#0):ifFalse({
-        error:raise("the demonstration needs sqlite3 on this machine to make its file (exit ":concat(status:asString):concat(")")) }).
+    demoDb := db:open(path).
+    demoTables := loadSchema:value(demoDb).
     run := { sql |
         "-- ":concat(sql):display.
         statements:value(tokenize:value(sql)):do({ st |
-            runSelect:value(demoDb, demoTables, parseSelect:value(st)) }).
-        system:write(out:join("")). out := [].
-        "":display }.
-    demoDb := db:open(path).
-    demoTables := loadSchema:value(demoDb).
+            execute:value(demoDb, demoTables, st, sql) }).
+        out:size:greaterThan(#0):ifTrue({ system:write(out:join("")). out := []. "":display }) }.
+    run:value("CREATE TABLE fruit (name TEXT, count INTEGER, price REAL)").
+    run:value("CREATE INDEX fruit_name ON fruit (name)").
+    run:value("INSERT INTO fruit VALUES ('pear', 3, 0.5), ('apple', 10, 0.25), ('fig', 1, 2.0)").
+    run:value("INSERT INTO fruit VALUES ('banana', 2, 0.3), ('apple', 7, 0.25), (NULL, 0, 1e20)").
+    "":display.
     run:value("SELECT * FROM fruit").
     run:value("SELECT rowid, name FROM fruit WHERE name = 'apple'").
     run:value("SELECT name, price FROM fruit ORDER BY price, rowid").
     run:value("SELECT count FROM fruit WHERE rowid = 3").
     run:value("SELECT type, name, rootpage FROM sqlite_schema").
-    "-- ":concat(demoDb:reads:asString):concat(" pages read, of ")
-        :concat(demoDb:pageCount:asString):concat(" in the file"):display }.
+    demoDb:flush.
+    "-- ":concat(demoDb:pageCount:asString):concat(" pages of "):concat(demoDb:pageSize:asString)
+        :concat(" bytes written to "):concat(path):display.
+    verdict := system:capture(["sqlite3", path, "PRAGMA integrity_check; SELECT name, count FROM fruit WHERE name = 'apple'"],
+                              ["stderr", 'discard]).
+    verdict:at("status"):equals(#0):ifElse(
+        { "-- sqlite3 on this machine says: ":concat(verdict:at("output"):trim:split("\n"):join(" / ")):display },
+        { "-- no sqlite3 on this machine to judge it":display }) }.
 
 demoDb := nil.
 demoTables := nil.
@@ -1008,19 +1599,22 @@ main := { | args, d, tables, text, tokens, status |
         system:exit(#1) }).
     text := args:size:greaterOrEqual(#2):ifElse({ args:at(#2) }, { system:readFile("/dev/stdin") }).
     statements:value(tokenize:value(text)):do({ st |
-        { | parsed |
-          isWord:value(st, #1, "SELECT"):ifFalse({
-              error:raise("only SELECT is read so far; this begins with ":concat(st:at(#1):at(#2))) }).
-          parsed := parseSelect:value(st).
-          runSelect:value(d, tables, parsed) }
+        { execute:value(d, tables, st, text) }
         :onError({ e |
             system:write(out:join("")). out := [].
             system:writeError("Error: ":concat(e:message):concat("\n")).
             status := #1 }) }).
     system:write(out:join("")).
-    ; The number to watch, on request: how many pages the whole run read.
+    ; What changed is written now, whole, as the statements that finished left
+    ; it; there is no journal, so a statement that failed half way is in the
+    ; file half way, and the sweep judges only files whose script finished.
+    { d:flush }:onError({ e |
+        system:writeError("Error: ":concat(e:message):concat("\n")).
+        status := #1 }).
+    ; The numbers to watch, on request: pages read, and bytes written.
     system:environment("SQLITE_PAGES"):notNil:ifTrue({
-        system:writeError(d:reads:asString:concat(" pages read of "):concat(d:pageCount:asString):concat("\n")) }).
+        system:writeError(d:reads:asString:concat(" pages read of "):concat(d:pageCount:asString)
+            :concat(", "):concat(d:written:asString):concat(" bytes written\n")) }).
     system:exit(status) }.
 
 main:value.
