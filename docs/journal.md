@@ -46,6 +46,15 @@ never as a target, the shape Parasol's POSTMORTEM.md 15 is about. The
 suite is 1 minute 48 on this machine with Parasol's checks inside it, where
 it was about the same as two runs.
 
+**Then step 3, and it was a `git mv`.** Parasol's C is `parasol/{cmd,
+include,src}` now, the shape `solas/` and `solid/` have, and its five tests
+are `tests/test_parasol_*.c` among the forty, built by the one rule with
+both libraries linked. The only thing worth writing down is what it found
+beside the move: `test_use` had been leaving its temporary directory
+behind on every run since its cleanup list fell seven files behind what
+the test writes, fifty-five of them in `/tmp` by the evening. It reads the
+directory now.
+
 ## 2026-09-14, five to six: the camera moves in
 
 **Hans said build**, and the engine took the reading of twelve's three

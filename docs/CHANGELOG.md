@@ -5,6 +5,14 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### Parasol's C is laid out as the other tools' — `a9f299c`, 2026-09-14
+
+**Step 3 of the plan.** `parasol/cmd/`, `parasol/include/parasol/` and
+`parasol/src/`, the shape every component here has, and its five tests are
+`tests/test_parasol_*.c` beside the others, built by the one test rule,
+which links `libparasol.a` alongside `libsol.a` into every test. Nothing in
+any compiler changed.
+
 ### Parasol is built by this Makefile — `b4b4ba0`, 2026-09-14
 
 **`parasol/Makefile` is gone and its rules are a section of this one**, the

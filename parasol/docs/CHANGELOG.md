@@ -10,6 +10,17 @@ piece of work as it was argued *before* the work is in
 
 ---
 
+### The C laid out as the other tools' — `a9f299c`, 2026-09-14
+
+**No version, and step 3 of the roadmap's plan.** `parasol/parasol/{cmd,
+include,src}` is `parasol/{cmd,include,src}`, the shape `solas/` and
+`solid/` have, and the five tests are `tests/test_parasol_*.c` beside
+Solveig's forty, built by the same rule, which links both libraries into
+every test. Nothing in the code changed; the include path in the Makefile
+lost one `parasol/`. `test_parasol_use` now removes what it wrote by
+reading its directory rather than from a list that was seven files short,
+which had left fifty-five directories in `/tmp`.
+
 ### One Makefile — `b4b4ba0`, 2026-09-14
 
 **No version, and step 2 of the roadmap's plan.** `parasol/Makefile` is

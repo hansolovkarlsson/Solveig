@@ -140,6 +140,27 @@ directory and read; `clean` was run and `git status` read after it. The
 root README's pipeline line still said `proto`, a survivor of the rename the
 conventions call a defect, and it says `parasol` now.
 
+### Step 3: the C where the other tools keep theirs
+
+`git mv`, three directories and five files, and one `parasol/` fewer in the
+Makefile's include path. The one decision the plan had left open was taken
+both ways: every test links both libraries under the one rule, because a
+second rule for five files would have been the make 3.81 ordering question
+again for nothing, *and* the five carry a `test_parasol_` prefix, because
+`test_map` and `test_use` beside forty Solveig tests would not say whose
+map or whose `@use`. The documents needed almost nothing: they had been
+naming `parasol/src/emit.c` relative to their own directory since the
+first version, and from the root those paths are now simply the paths.
+
+What the move found was not in the move. `test_use` cleans up from a list
+of the files it wrote, and the list was seven files short of what the
+cycle and collision cases add, so `rmdir` had been failing quietly since
+those cases went in and there were fifty-five `parasol-test-*` directories
+in `/tmp`, the oldest from this morning's rename run. It reads the
+directory now. A hand-kept list of what a test wrote is the same stale
+list as every other hand-kept list in this project, and the conventions
+already say so about text replacements.
+
 ## 2026-09-13: a program written to find a boundary, and the boundary was not there
 
 **Hans asked what was outstanding, then for a program to write, then for the
