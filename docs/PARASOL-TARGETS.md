@@ -93,9 +93,9 @@ end became a declared thing the way the grammar already is, and "Parasol targets
 ARM64" was a line in a file rather than a fork of the project.
 
 **That sentence names the right feature and the wrong directive**, which is why
-`@language` was removed in 0.10.0 rather than grown into it. Read `@language
-<name>.` at the top of a file and it says *the body below is written in
-`<name>`* — and that is false in every file with a header, because a module that
+`@language` was removed in 0.10.0 rather than grown into it. Read
+`@language <name>.` at the top of a file and it says *the body below is
+written in `<name>`* — and that is false in every file with a header, because a module that
 declares `+` and `while` is exactly not Solveig any more. The only reading under
 which it was true, *the substrate is Solveig*, is the same for every `.psol`
 there will ever be and is already carried by the extension.
