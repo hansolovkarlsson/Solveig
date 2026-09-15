@@ -5,6 +5,58 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### `parasol/` is `cmd`, `include` and `src` — `d6cf91d`, 2026-09-15
+
+**The plan that made Parasol a member of the toolkit is done but for the
+version**, which is [7.1](ROADMAP.md#71-one-version-for-the-tree-at-the-next-release)
+and waits on the next release. Its `CLAUDE.md` and `LICENSE` are gone, the
+first folded into the root's, the second byte for byte the root's already.
+[COMPLETED.md](COMPLETED.md#72-what-is-left-in-parasol--done) 7.2.
+
+### Parasol's records are frozen under `docs/parasol/` — `24596a6`, 2026-09-15
+
+`journal`, `COMPLETED`, `ROADMAP`, `CHANGELOG` and `POSTMORTEM`, each opening
+with a note dated today saying what it is, where its job continues, and that
+nothing is appended below the note. The changelog froze at **0.17.0**, the
+last version Parasol had of its own; from the next release the tree has one
+number. Parasol's ten open roadmap entries are
+[section 7](ROADMAP.md#7-parasol) of this roadmap, words kept, and a line
+stands where each was. The archived postmortem is closed and is not the
+start of one here.
+
+### Parasol's essays are pages here, and its findings are on the roadmap — `e300aeb`, 2026-09-15
+
+[PARASOL-DOES-IT-PAY.md](PARASOL-DOES-IT-PAY.md),
+[PARASOL-SECOND-READER.md](PARASOL-SECOND-READER.md),
+[PARASOL-RULES-AND-LOGIC.md](PARASOL-RULES-AND-LOGIC.md),
+[PARASOL-TARGETS.md](PARASOL-TARGETS.md) and
+[PARASOL-SOLVEIG-NOTES.md](PARASOL-SOLVEIG-NOTES.md). The last is a closed
+log: its four open findings about this machine are
+[3.23 to 3.26](ROADMAP.md#3-known-limitations), each still reproducing.
+Parasol's `conventions.md` is folded into [method.md](method.md), which says
+what was kept and what was retired.
+
+### Parasol's front page, reference and grammar are pages here — `cf3a854`, 2026-09-15
+
+[PARASOL.md](PARASOL.md), [PARASOL-REFERENCE.md](PARASOL-REFERENCE.md),
+[PARASOL-GRAMMAR.md](PARASOL-GRAMMAR.md) and
+[PARASOL-PIPELINE.html](PARASOL-PIPELINE.html), on the SolaBasic naming.
+The front page absorbed `what-is-parasol.md` as a section, *How it works, as
+it was asked*. Every fence on them is tagged, so the checker runs what is a
+program and skips what is a picture. The published site's nav has a
+*Parasol* entry.
+
+### The checker reads a `parasol` fence, the `.psol` examples, and every README under `programs/` — `ad4e33e`, 2026-09-15
+
+A ```parasol block goes through `parasol --sob` and `solvm` and its `; #14`
+claims are checked as a bare block's are. The five `.psol` examples are
+files of claims, twenty-three of them, which `make test` had run and never
+read. A directory subject is walked to the bottom, so `extensions/net/` and
+the seven program READMEs are inside the set; the test asserts that the run
+covered the checker's whole set, which a stale binary showed it could pass
+without. Claims 1070 to 1100<!--count claims--> over the day, and documents
+twenty-nine to forty-one<!--count docs-documents-->.
+
 ### The links in the seven program READMEs — `6cae6a0`, 2026-09-14
 
 Step 4 had left them reaching Parasol's documents as `../../docs/`, which

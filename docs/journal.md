@@ -11,6 +11,103 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-09-15: the documents, and Parasol is a member
+
+**The two calls came first, and the answer was neither of the shapes the
+plan had written.** The standup had asked whether Parasol's records fold
+into Solveig's, journal interleaved by date and the rest as section 7, or
+stay whole under a `PARASOL-` prefix, and whether `POSTMORTEM.md` survives.
+Hans's proposal was a third thing: the records go under `docs/parasol/` as
+an archive, and from that day anything done in Parasol is documented with
+Solveig. It resolves both calls at once and cheaply. The records fold *from
+today* rather than retroactively, so no nine thousand lines of journal are
+interleaved; the postmortem dies with the archive, readable and closed, and
+a Parasol defect after the date is scored in `ideas.md` like any other; and
+the freeze line is the version line, the changelog ending at 0.17.0 and the
+next release's entry saying Parasol joined there. Three amendments were
+put and taken. The archive is the records and not the reference, since an
+archived reference is a lie the day the tool changes, so the ten pages that
+describe the living tool go live as `docs/PARASOL*.md`. Open items leave
+before the freeze, because an archive with a to-do list in it is not an
+archive. And the checker reads the archive, because `expect.sol` listed
+`docs/` one level deep and a `docs/parasol/` would have been outside the
+set exactly as `parasol/docs/` was, which was yesterday's lesson verbatim.
+Two smaller calls: `pipeline.html` goes with the reference and
+`solveig-notes.md` with the essays.
+
+**Sub-step 1 was the checker, and it found more than it was built to.**
+The `parasol` fence is what the plan asked for: a block goes to `build/` as
+a `.psol`, through `parasol --sob` and then `solvm`, and its claims are
+read as a bare block's are, since what Parasol emits is Solveig. The tag
+had been on a page for a year, in `ideas.md`, counted on every run as
+*names a language and is not Solum*, three claims with it. What the plan
+did not know: the five `.psol` examples had carried twenty-three claims
+that `make test` compiled, ran and never read, four of them in the
+convention the checker dropped on 2026-09-01; and a directory subject
+walked to the bottom is what puts the program READMEs in the set and is
+the only reason `extensions` checks anything, its one top-level entry
+being a directory, so it had been a subject of `make test` for a week and
+checked nothing. The proof against the pages as they stood came out the
+other way from the scoping: 3 findings, not 150, because a bare fence with
+no claim in it is quiet. The cost of sub-step 2 was choosing which blocks
+become claims, not repairing failures.
+
+**And the test had a hole that the same hour showed.** A stale
+`test_documents` binary, built before the test's subject list changed, ran
+the old list against the new `wanted`; the per-run counts were deferred as
+they should be for a partial run, and the test passed green with ten counts
+unchecked, a clause in the report the only thing saying so. The test now
+asserts the run was over the checker's whole set. A check that quietly
+narrows its own scope is the file-set lesson wearing a different coat.
+
+**Sub-step 2 made one page of two.** The front page and
+`what-is-parasol.md` overlapped, and the plan had said one should become
+the other's section; the transcript's four questions that explain the tool
+are a section of `PARASOL.md` now, first person and date kept and paths
+brought to today's, and the first, a status answer at 0.9.0, is not, its
+items being on the roadmap. *Why it is not a folder inside Solveig* is *Why
+it takes nothing from Solveig*, the argument untouched and the first
+paragraph saying where the distance went. Thirty-three fences tagged, eight
+`parasol` and the rest `text`, since a fragment that declares `&&` and uses
+`>` is a picture and the trace in the transcript opens with a directive
+deleted in 0.10.0. The one checker change was forced by the two source
+maps quoted on the new pages: eight `#` comment lines took *headings inside
+a fenced block* from 3 to 11 against a ceiling of 4, and rather than move
+the ceiling every time a page quotes a map, the count reads only a fence no
+tag opened, since that is the fence a wrapped paragraph opens and the fault
+the count exists to witness. Today's figure is 0; the historical fault
+would read 11.
+
+**Sub-step 3 was the essays, and closing a log meant raising it.**
+`solveig-notes.md` had been *kept there rather than raised here*, and once
+there and here were one place that sentence meant nothing, while a list of
+open defects off the single list made the single list false. Its four open
+findings are 3.23 to 3.26 on the roadmap, each re-run today and still
+reproducing, each pointing back for the account. `conventions.md` was read
+against `method.md` and folded: nine rules as sections with Parasol's
+occasions, two as second occasions of rules already there, five retired
+and named in the section that says so, and the twenty-odd links to it in
+Parasol's records land on that section.
+
+**Sub-step 4 was the archive as decided in the morning**, the five records
+under `docs/parasol/` with a freeze note at the head of each, and the ten
+open roadmap entries carried to section 7 of this roadmap, words kept, a
+line standing where each was. One thing tried and withdrawn: the
+changelog-hash check over the archived changelog, where thirty-three
+headings name a version or a date and no commit, which was that page's
+convention for a release heading and not this one's. A frozen page is read
+for its links and its blocks and not held to a rule it was not written
+under. Sub-step 5 was then two files whose whole content was pointers to
+things that had moved, and `parasol/` is `cmd`, `include` and `src`.
+
+**Five commits, and what remains of the plan is 7.1, one version, at the
+next release.** `docs/` went from twenty-nine documents to forty-one and
+the checker from 1070 claims to 1100, 3574 links in 196 files. The
+published site gains a *Parasol* entry in the nav between Design and Speed
+when this is pushed, which it has not been.
+
+---
+
 ## 2026-09-14, evening: Parasol runs solas, one version is decided, and the Makefile is one
 
 **Hans asked whether Parasol could write a `.sob` directly**, *essentially,
