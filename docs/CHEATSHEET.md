@@ -418,6 +418,7 @@ The process, rather than any value. One object with slots, not a class.
 | `readFile(path)` | the whole file as a string; `"/dev/stdin"` reads a pipe too |
 | `readFile(path, #from, #count)` | `count` bytes from the one-based position `from`; short at the end, `""` past it |
 | `writeFile(path, text)` `appendFile(path, text)` | nil, having written |
+| `writeFile(path, #from, text)` | nil, having replaced the bytes from the one-based `from`; grows the file past its end |
 | `fileExists(path)` `isDirectory(path)` | a boolean |
 | `fileSize(path)` | an integer, without reading the file; nil if nothing is there |
 | `fileId(path)` | which file is at that path, as a string; nil if nothing is there |

@@ -1660,6 +1660,45 @@ measurable CPU.
 It is the machine's price rather than this language's: plain C doing the same
 `fopen`, `fread` and `fclose` measures 28 microseconds on the same machine.
 
+#### A range of a file, written
+
+`writeFile(path, from, text)` is the mirror: the bytes from `from` are replaced
+by `text`, and nothing else in the file moves.
+
+```
+system:writeFile("notes.txt", "apples 3\npears 12\n").
+system:writeFile("notes.txt", #8, "7").
+system:readFile("notes.txt", #1, #8):print.      ; "apples 7"
+system:fileSize("notes.txt"):print.              ; #18
+```
+
+**The file grows when the text runs past its end**, and a `from` past the end
+leaves the bytes between as zeros, which is what the filesystem does with a
+gap and what `readFile` reads back from one. A file that is not there is
+created, as the whole-file form creates one. `#0` is not a position, as it is
+not on the read, and the arguments are checked before anything is opened, so a
+refused write wrote nothing:
+
+```
+system:writeFile("notes.txt", #19, "figs 2\n").
+system:fileSize("notes.txt"):print.              ; #25
+system:writeFile("notes.txt", #30, "!").
+system:readFile("notes.txt", #26, #5):size:print.   ; #5
+system:remove("notes.txt").
+```
+
+**Same design, same reason.** It is a range and not a handle, so there is
+nothing open between two writes and no question of what a write after a close
+should do, and it costs what the read costs: an open, a seek and a close each
+time, about 30 microseconds, whatever the size. A program that changes three
+pages of a large file pays for three pages. Before this existed it paid for
+the file: [sqlite.sol](../programs/sqlite.sol) changes a leaf, the page above
+it and the header to insert one row, and rewriting a 100 MB file to put 12 KB
+back took 1.16 seconds where the same tool in C takes 0.04, which is the
+measurement [3.27](COMPLETED.md#327-a-file-is-written-whole-or-appended-to-and-nothing-in-between--done)
+closed on. Nothing here flushes to the disk or locks the file; one process at a
+time is the assumption, as it is everywhere in this section.
+
 #### Reading it whole, and what that costs
 
 **Two gigabytes is the hard limit** for the whole-file form, a string's length
@@ -4114,6 +4153,7 @@ it delegates to `object` like everything else. See
 | `readFile(path)` | the whole file as a string; an error if it is not there |
 | `load(path)` | **true** having run a compiled `.sob` here, **false** if it was already loaded |
 | `writeFile(path, text)` | nil, having replaced the file's contents |
+| `writeFile(path, from, text)` | nil, having replaced the bytes from the one-based position `from`; grows the file past its end |
 | `fileExists(path)` | true if a file — not a directory — is at that path |
 | `isDirectory(path)` | true if a directory is at that path |
 | `filesIn(path)` | an array of the names in a directory; an error if it is not one |

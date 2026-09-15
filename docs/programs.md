@@ -442,7 +442,7 @@ because somebody looked, once, at the time — the same standing the `.sob` form
 table had when [disasm](#disasm--a-sob-file-read-and-disassembled) found it
 three sections out of date. They are also the first thing a newcomer reads.
 
-**It is in `make test` now**, in `tests/test_documents.c` — **1100<!--count claims-->
+**It is in `make test` now**, in `tests/test_documents.c` — **1104<!--count claims-->
 claims on every build**, and it fails the build if one stops holding. It was in
 `test_cli.c` until 2026-09-03, with the other tests that run the binaries as a
 shell would, and it moved when the cost was broken down: **55 seconds**, which
@@ -528,7 +528,7 @@ and had nothing but a clause in the report to say so.
 
 **And it checks the documentation too.** The guide and the reference carry the
 same notation inside ``` fences, and nothing checked those either — they are the
-two documents a newcomer actually reads. 487<!--count docs-claims--> claims
+two documents a newcomer actually reads. 491<!--count docs-claims--> claims
 across forty-one<!--count docs-documents--> documents,
 and two more on `README.md` and `index.md` — the front pages, which were the
 last two things nothing checked.
@@ -570,7 +570,7 @@ no notation saying what it counts — so it is given one, which renders as nothi
 and leaves the sentence as it was:
 
 ```text
-[expect.sol](../programs/expect.sol) checks 1100<!--count claims--> claims
+[expect.sol](../programs/expect.sol) checks 1104<!--count claims--> claims
 ```
 
 Each name is recounted from the repository as it stands. A name the table does
@@ -2681,8 +2681,9 @@ that fails half way leaves a file half way, and the sweep judges only files
 whose script finished.
 
 **Numbers.** Ten thousand rows into one table: 3.6 seconds here, 88 pages of
-4 KB, against 4.7 seconds and 46 pages for `sqlite3`, whose time is a journal
-and an fsync per statement and whose pages are full because it appends into
+4 KB, against 46 pages for `sqlite3` in 0.04 seconds inside one transaction
+(4.7 seconds autocommit, which is a journal and an fsync per statement, a
+cost this program does not pay). Its pages are full because it appends into
 a fresh page rather than splitting a full one in half. Three thousand rows
 with two indexes on 512-byte pages: 1.9 seconds, three levels in all three
 trees, 566 pages against 335. Over the 207 written cases of the sweep, 8,949
@@ -2716,18 +2717,34 @@ the whole file, having read every page first:
 | 10 MB | 2,384 | 4 read, 3 written | 2,380 more read, 2,384 written | 0.16 s | 0.033 s |
 | 100 MB | 24,390 | 4 read, 3 written | 24,386 more read, 24,390 written | 1.16 s | 0.039 s |
 
-`SQLITE_PAGES=1` prints the two halves of that for any run that wrote. It is
-[3.27](ROADMAP.md#327-a-file-is-written-whole-or-appended-to-and-nothing-in-between)
-now, with the shape the plan recommended, `writeFile(path, from, text)`, and
-the decision held for Hans. A thousand inserts in one run pay the file once,
-1.7 seconds, so a program that keeps the file open is slowed and not
-blocked; one invoked per statement pays it every time.
+That was raised as 3.27 with the shape the plan recommended,
+`writeFile(path, from, text)`, Hans chose it the same afternoon, and it is
+[3.27 in COMPLETED.md](COMPLETED.md#327-a-file-is-written-whole-or-appended-to-and-nothing-in-between--done)
+by the evening. The program writes only the pages that changed now, each
+where it lives, and the whole-file route is gone rather than kept as a
+fallback:
+
+| file | pages read | pages written | bytes written | time | `sqlite3` |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 1 MB | 3 | 2 | 8,292 | 0.035 s | 0.038 s |
+| 10 MB | 4 | 3 | 12,388 | 0.037 s | 0.033 s |
+| 100 MB | 4 | 3 | 12,388 | 0.032 s | 0.039 s |
+
+Flat, and that is the whole of the claim: one INSERT is three pages either
+way and the 30 ms is the process starting, so the equal columns say the cost
+that grew with the file is gone, not that the engines run at one speed. Where
+the work is large enough to see they do not: a thousand inserts in one run
+into 100 MB went from 1.7 seconds and 100 MB written to 0.64 seconds and 49
+KB, against `sqlite3`'s 0.031 seconds in one transaction; ten thousand into a
+fresh file are 3.35 seconds here against 0.040. Fifteen to a hundred times,
+the interpreter's ratio, as `gzip` and `sha256sum` found. `SQLITE_PAGES=1`
+prints pages read, pages changed and bytes written for any run that wrote.
 
 ### What it wanted from the language, so far
 
 The positioned write, above, at step 4 and not before, which is what the
-plan said; the reader and the writer from nothing asked for nothing, which
-is also what it said. The second prediction, that a page as an array of
+plan said, and it was built the same day; the reader and the writer from
+nothing asked for nothing, which is also what it said. The second prediction, that a page as an array of
 strings joined on demand is bearable, has its first number above: 0.36
 milliseconds a row, 0.6 with two indexes. Two notes rather than
 entries: the ninth byte of a varint and the eighth of an integer meet

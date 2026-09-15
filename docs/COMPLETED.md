@@ -375,6 +375,83 @@ The limitations themselves are still live and are in
 [ROADMAP.md](ROADMAP.md#3-known-limitations). These were limitations until they
 stopped being ones.
 
+### 3.27 A file is written whole, or appended to, and nothing in between — **done**
+
+`system:writeFile(path, from, text)` replaces the bytes from the one-based
+position `from` with `text`, grows the file when the text runs past its end,
+and leaves nothing else in it moved. Built on 2026-09-15, the day the entry
+was raised, as the mirror of
+[3.22](#322-a-file-is-read-whole-or-not-at-all--done)'s read: a range and not
+a handle, nothing to open or close, `#0` refused, a file that is not there
+created. Nothing about flushing or locking came with it, since nothing asked.
+
+**What it was.** `writeFile` replaced a file and `appendFile` added to its
+end, and no message changed bytes in the middle of one. The design page had
+said since 2026-08-31 that a database would be the program to want that, and
+the plan for [sqlite.sol](programs.md#sqlite-reads-and-writes-an-sqlite-file)
+in [ideas.md](ideas.md#an-sqlite-file-read-and-then-written-scoped-2026-09-15)
+predicted the moment: not the reader, not the writer into a fresh file, which
+is small and is written whole, but the first INSERT into a file of a few
+megabytes that `sqlite3` had made, changing one leaf, the interior page above
+it and the file header, with no way to put three pages back but to rewrite
+the file, having first read every page it did not need.
+
+**The trigger fired at step 4, as predicted, and was measured before anything
+was built**, with `SQLITE_PAGES=1`, which the program prints for exactly this:
+
+| file | pages | an INSERT needs | the whole-file route | time | `sqlite3` |
+| --- | ---: | --- | --- | ---: | ---: |
+| 1 MB | 235 | 3 read, 2 written | 232 more read, 235 written | 0.07 s | 0.038 s |
+| 10 MB | 2,384 | 4 read, 3 written | 2,380 more read, 2,384 written | 0.16 s | 0.033 s |
+| 100 MB | 24,390 | 4 read, 3 written | 24,386 more read, 24,390 written | 1.16 s | 0.039 s |
+
+The cost grew with the file and the work did not, and the reference tool's
+time was flat. Hans chose the shape the plan recommended the same afternoon,
+and the program went over to it with the whole-file route removed rather than
+kept as a fallback, two paths through a writer being the shape that hides a
+defect in the one not taken.
+
+**After**, the same three files, the same INSERT:
+
+| file | pages read | pages written | bytes written | time | `sqlite3` |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 1 MB | 3 | 2 | 8,292 | 0.035 s | 0.038 s |
+| 10 MB | 4 | 3 | 12,388 | 0.037 s | 0.033 s |
+| 100 MB | 4 | 3 | 12,388 | 0.032 s | 0.039 s |
+
+Flat, which is the claim, and the only one the table supports. **The two
+columns are equal because neither is doing anything measurable**: one INSERT
+is three page reads and three page writes on either side, and the 30 ms is
+the process starting. The table says the write removed a cost that grew with
+the file and left one that grows with the work; it does not say the engines
+run at one speed, and where the work is large enough to see, they do not:
+
+| | this program | `sqlite3` |
+| --- | ---: | ---: |
+| 1,000 inserts into 100 MB, one run | 0.64 s, 49 KB written (1.7 s and 100 MB before) | 0.031 s in one transaction; 0.46 s autocommit, an fsync a statement |
+| 10,000 inserts into a fresh file | 3.35 s | 0.040 s in one transaction; 4.7 s autocommit |
+| 5,000 rows scanned | 0.11 s | 0.006 s |
+
+Fifteen to a hundred times, which is an interpreter at about four nanoseconds
+an instruction building pages as joined strings and decoding cells a byte at
+a time, against C; `gzip` and `sha256sum` measured the same ratio for the
+same reason. The sweep, three rungs judged by `sqlite3`, is what says the
+files are still well formed.
+
+**What the entry is not.** A truncate was named as a candidate third
+operation and is not wanted: an SQLite file never shrinks on a delete, and
+nothing else here has asked. Flushing to the disk and locking stay on the
+design page's list, unpressed by a single process that a checker reads after
+it exits. The whole-file form's cost note in the reference stands: a copy
+still streams from the string.
+
+**The machine.** One primitive gained an arity; `fopen("r+b")`, then `"wb"`
+when the file is not there, `fseeko` to the position and `fwrite`. It
+allocates no object and answers nil, so no root is held across an allocation
+and no GC proof is owed. Three tests in `tests/test_system.c` beside the
+read's: the bytes named and no others, the gap of zeros, the file created,
+and the refusals with the file shown untouched afterwards.
+
 ### 3.22 A file is read whole, or not at all — **done**
 
 `system:readFile(path, from, count)` answers `count` bytes from the one-based
@@ -1308,7 +1385,7 @@ is a failure, confirmed by breaking one both ways.
 one. The comment renders as nothing and the reader sees the sentence:
 
 ```text
-[expect.sol](../programs/expect.sol) checks 1100<!--count claims--> claims
+[expect.sol](../programs/expect.sol) checks 1104<!--count claims--> claims
 ```
 
 [expect.sol](../programs/expect.sol) recounts each of them from the repository
@@ -1329,7 +1406,7 @@ that order under its headings. The two are now held together.
 | ROADMAP 3.14, on whether `float` should gain trigonometry | `float` answers **21** messages | **35**<!--count float-answers--> — the count that entry's whole size argument rests on, five releases out of date |
 | [REFERENCE.md](REFERENCE.md)'s message index | **121** messages across **215** registrations | **122** across **216** |
 | [programs.md](programs.md)'s sample output | 21 files, **398** claims | 22 files, **611**<!--count examples-claims--> claims |
-| `README.md`, `programs.md` and the entry itself | **589** claims | **1100**<!--count claims--> |
+| `README.md`, `programs.md` and the entry itself | **589** claims | **1104**<!--count claims--> |
 
 #### What is left, which is not a gap
 

@@ -21,10 +21,11 @@
 ; indexed column walks instead of scanning; then the writer from nothing,
 ; CREATE TABLE, CREATE INDEX and INSERT into a fresh file, pages built in
 ; memory and the file written whole at the end; then the same into a file
-; sqlite3 made, its pages decoded, changed and written back the only way the
-; language has, which is whole. That is ROADMAP 3.27, raised from here with
-; the measurement `SQLITE_PAGES=1` prints: one INSERT into 100 MB needs four
-; pages read and three written, and pays 24,390 of each. The SQL it parses is the SQL
+; sqlite3 made, its pages decoded, changed and written back where they live.
+; That last part is COMPLETED 3.27, raised from here on 2026-09-15 with the
+; measurement `SQLITE_PAGES=1` prints and built the same day: one INSERT into
+; 100 MB needs four pages read and three written, paid 24,390 of each while
+; the only write the language had replaced the file, and pays 3 now. The SQL it parses is the SQL
 ; the plan bounds: SELECT of named columns, `rowid` or `*`, from one table,
 ; with a WHERE of one comparison and an ORDER BY; CREATE TABLE with plain
 ; columns; CREATE INDEX on plain columns; INSERT of literals; PRAGMA
@@ -450,27 +451,31 @@ db:fileHeader := {
      u32Bytes:value(self:changes),                      ; version-valid-for
      u32Bytes:value(#0)]:join("") }.                    ; the library that wrote it: none SQLite knows
 
-; Everything, written whole. Step 3 of the plan writes a fresh file this way
-; and step 4 measures what it costs on a file that exists, which is the
-; argument the positioned write waits for.
-db:flush := { | pieces, n |
+; The pages that changed, each written where it lives, and the file header
+; with them. `writeFile(path, from, text)` is ROADMAP 3.27, raised from this
+; program on 2026-09-15 and built the same day: until then the only write the
+; language had replaced the file, so three changed pages cost every page
+; read and every page written, 100 MB for 12 KB. The whole-file route is
+; gone rather than kept as a fallback, since two paths through a writer is
+; the shape that hides a defect in the one not taken.
+db:flush := { | n |
     self:dirty:size:greaterThan(#0):ifTrue({
         self:changes := self:changes:inc.
         self:changed := self:dirty:size.
         self:readBefore := self:reads.
-        pieces := []. n := #1.
-        { n:lessOrEqual(self:pageCount) }:whileTrue({
-            pieces:add(self:page(n)). n := n:inc }).
-        ; The file header is rewritten whether or not page 1's tree changed:
-        ; the page count and the change counter live there, and a file that
-        ; grew under an unchanged schema page kept the old count until
-        ; integrity_check named page 191 of 187.
-        pieces:atPut(#1, self:fileHeader:concat(pieces:at(#1):copyFrom(#101, pieces:at(#1):size))).
-        system:writeFile(self:path, pieces:join("")).
-        self:written := self:written:add(self:pageCount:mul(self:pageSize)).
-        ; What was written is now what the file holds.
-        self:dirty:keysAndValuesDo({ k, o | self:cache:atPut(k, o:bytes(k, self)) }).
-        self:cache:atPut(#1, pieces:at(#1)).
+        ; A new file has no page 1 on disk yet; a fresh header goes with the
+        ; schema page in either case, since the change counter and the page
+        ; count live in it and both moved.
+        self:dirty:keysAndValuesDo({ k, o | | bytes |
+            bytes := o:bytes(k, self).
+            system:writeFile(self:path, k:dec:mul(self:pageSize):inc, bytes).
+            self:written := self:written:add(bytes:size).
+            self:cache:atPut(k, bytes) }).
+        self:dirty:includes(#1):ifFalse({
+            system:writeFile(self:path, #1, self:fileHeader).
+            self:written := self:written:add(#100).
+            self:cache:includes(#1):ifTrue({
+                self:cache:atPut(#1, self:fileHeader:concat(self:cache:at(#1):copyFrom(#101, self:pageSize))) }) }).
         self:dirty := dictionary:new }) }.
 
 ; ---------------------------------------------------------------------------
@@ -1630,14 +1635,13 @@ main := { | args, d, tables, text, tokens, status |
         system:writeError("Error: ":concat(e:message):concat("\n")).
         status := #1 }).
     ; The numbers to watch, on request: pages read, and for a run that wrote,
-    ; how many pages the statements needed against how many the whole-file
-    ; write cost, which is the measurement step 4 of the plan exists for.
+    ; pages changed and bytes written, which is the measurement step 4 of the
+    ; plan exists for and 3.27 was closed on.
     system:environment("SQLITE_PAGES"):notNil:ifTrue({
         d:written:equals(#0):ifElse(
             { system:writeError(d:reads:asString:concat(" pages read of "):concat(d:pageCount:asString):concat("\n")) },
-            { system:writeError(d:readBefore:asString:concat(" pages read and "):concat(d:changed:asString)
-                  :concat(" changed by the statements; writing the file whole read "):concat(d:reads:sub(d:readBefore):asString)
-                  :concat(" more and wrote "):concat(d:pageCount:asString):concat(" pages, ")
+            { system:writeError(d:reads:asString:concat(" pages read, "):concat(d:changed:asString)
+                  :concat(" changed and written of "):concat(d:pageCount:asString):concat(", ")
                   :concat(d:written:asString):concat(" bytes\n")) }) }).
     system:exit(status) }.
 

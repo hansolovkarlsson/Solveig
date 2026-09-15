@@ -5219,26 +5219,88 @@ static SolValue prim_system_read_file(SolVM *vm, SolValue self, SolValue *args, 
     return SOL_STRING_VAL(text);
 }
 
-/* Replaces what is there, and creates the file if it is not. Answers nil: there
-   is nothing useful to chain from a write, and the count of bytes written is the
-   size of what you already had. */
+/* The whole file, or a range of it.
+ *
+ *     system:writeFile(path, text)          replaces the file
+ *     system:writeFile(path, from, text)    `text` over the bytes from `from`
+ *
+ * The two-argument form replaces what is there and creates the file if it is
+ * not. Answers nil: there is nothing useful to chain from a write, and the
+ * count of bytes written is the size of what you already had.
+ *
+ * The three-argument form is the mirror of `readFile(path, from, count)`, and
+ * it is ROADMAP 3.27 closing the way 3.22 did: a range and not a handle, one
+ * `from`, one-based like every index here, nothing to open or close. The bytes
+ * from `from` are replaced by `text`, the file grows if the text runs past its
+ * end, and a `from` past the end leaves the bytes between as zeros, which is
+ * what the filesystem does and what `readFile` reads back. The file is created
+ * if it is not there. #0 is not a position, as it is not on the read.
+ *
+ * Its customer is programs/sqlite.sol, which changes three pages of a database
+ * and had no way to put them back but to rewrite the file: 100 MB paid for 12
+ * KB owed, measured before this was written and again after.
+ *
+ * `"r+b"` opens for writing without truncating and refuses a file that is not
+ * there; `"wb"` then creates one. Between the two a file could appear, which
+ * the second `fopen` would truncate; a process racing another to create the
+ * same database has larger problems than this, and neither form here locks.
+ */
 static SolValue prim_system_write_file(SolVM *vm, SolValue self, SolValue *args, int argc)
 {
     (void)self;
-    if (!check_argc(vm, "writeFile", argc, 2)) return SOL_NIL_VAL;
+    if (argc != 2 && argc != 3) {
+        sol_vm_runtime_error(vm,
+            "'writeFile' takes a path and text, or a path, a position and text, got %d",
+            argc);
+        return SOL_NIL_VAL;
+    }
     if (!path_argument(vm, "writeFile", args[0])) return SOL_NIL_VAL;
-    if (!SOL_IS_STRING(args[1])) {
+
+    bool ranged = argc == 3;
+    int64_t from = 1;
+    if (ranged) {
+        if (!SOL_IS_INT(args[1])) {
+            sol_vm_runtime_error(vm, "'writeFile' expects an integer position, got %s",
+                                 sol_type_name(args[1]));
+            return SOL_NIL_VAL;
+        }
+        from = SOL_AS_INT(args[1]);
+        if (from < 1) {
+            sol_vm_runtime_error(vm,
+                "'writeFile' starts at #%lld, which is not a position in a file",
+                (long long)from);
+            return SOL_NIL_VAL;
+        }
+    }
+    SolValue what = args[ranged ? 2 : 1];
+    if (!SOL_IS_STRING(what)) {
         sol_vm_runtime_error(vm, "'writeFile' expects a string to write, got %s",
-                             sol_type_name(args[1]));
+                             sol_type_name(what));
         return SOL_NIL_VAL;
     }
 
     const char     *path = SOL_AS_STRING(args[0])->chars;
-    const SolString *text = SOL_AS_STRING(args[1]);
+    const SolString *text = SOL_AS_STRING(what);
 
-    FILE *file = fopen(path, "wb");
+    FILE *file = NULL;
+    if (ranged) {
+        file = fopen(path, "r+b");
+        if (file == NULL && errno == ENOENT) file = fopen(path, "wb");
+    } else {
+        file = fopen(path, "wb");
+    }
     if (file == NULL) {
         sol_vm_runtime_error(vm, "cannot write '%s': %s", path, strerror(errno));
+        return SOL_NIL_VAL;
+    }
+
+    /* `fseeko`, as the read uses, since a position in a file is an `off_t`.
+       Seeking past the end is allowed and the write there extends the file. */
+    if (ranged && fseeko(file, (off_t)(from - 1), SEEK_SET) != 0) {
+        int reason = errno;
+        fclose(file);
+        sol_vm_runtime_error(vm, "cannot write '%s' at #%lld: %s", path,
+                             (long long)from, strerror(reason));
         return SOL_NIL_VAL;
     }
 

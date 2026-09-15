@@ -587,6 +587,100 @@ static void test_a_range_refuses_what_is_not_a_position(void)
     printf("  a range refuses #0, a negative count and the wrong arity\n");
 }
 
+/* `writeFile(path, from, text)`: the mirror of the ranged read, and ROADMAP
+   3.27 closing. The bytes from `from` are replaced, the file grows when the
+   text runs past its end, and a gap left by a `from` past the end is zeros,
+   which is what `readFile` then reads. Nothing else in the file moves. */
+static void test_a_range_writes_part_of_a_file(void)
+{
+    remove_the_test_file();
+
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    assert(run(&vm, &chunk,
+        "system:writeFile(\"" FILE_PATH "\", \"abcdefghij\")."
+        "system:writeFile(\"" FILE_PATH "\", #4, \"XYZ\")."
+        "middle := system:readFile(\"" FILE_PATH "\")."
+        "system:writeFile(\"" FILE_PATH "\", #9, \"12345\")."
+        "grown := system:readFile(\"" FILE_PATH "\")."
+        "system:writeFile(\"" FILE_PATH "\", #16, \"!\")."
+        "gap := system:readFile(\"" FILE_PATH "\", #14, #3)."
+        "system:writeFile(\"" FILE_PATH "\", #1, \"\")."
+        "size := system:fileSize(\"" FILE_PATH "\").") == SOL_OK);
+
+    assert(strcmp(SOL_AS_STRING(global(&vm, "middle"))->chars, "abcXYZghij") == 0);
+    assert(strcmp(SOL_AS_STRING(global(&vm, "grown"))->chars, "abcXYZgh12345") == 0);
+    const SolString *gap = SOL_AS_STRING(global(&vm, "gap"));
+    assert(gap->length == 3 && gap->chars[0] == '\0' && gap->chars[1] == '\0' && gap->chars[2] == '!');
+    assert(SOL_AS_INT(global(&vm, "size")) == 16);      /* an empty write moves nothing */
+
+    sol_chunk_free(&chunk);
+    sol_vm_free(&vm);
+    remove_the_test_file();
+    printf("  a ranged write replaces the bytes it names and grows the file past them\n");
+}
+
+/* A file that is not there is created, as the whole-file form creates one,
+   and a position past #1 in it is a gap of zeros. */
+static void test_a_ranged_write_creates_the_file(void)
+{
+    remove_the_test_file();
+
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    assert(run(&vm, &chunk,
+        "system:writeFile(\"" FILE_PATH "\", #3, \"new\")."
+        "made := system:readFile(\"" FILE_PATH "\").") == SOL_OK);
+
+    const SolString *made = SOL_AS_STRING(global(&vm, "made"));
+    assert(made->length == 5 && memcmp(made->chars, "\0\0new", 5) == 0);
+
+    sol_chunk_free(&chunk);
+    sol_vm_free(&vm);
+    remove_the_test_file();
+    printf("  a ranged write creates a file that is not there\n");
+}
+
+/* The same refusals as the read: #0, a float for a position, something that
+   is not text, the wrong arity, and a directory. */
+static void test_a_ranged_write_refuses_what_is_not_a_position(void)
+{
+    static const char *refused[] = {
+        "system:writeFile(\"" FILE_PATH "\", #0, \"x\").",
+        "system:writeFile(\"" FILE_PATH "\", #-1, \"x\").",
+        "system:writeFile(\"" FILE_PATH "\", 1.5, \"x\").",
+        "system:writeFile(\"" FILE_PATH "\", #1, #5).",
+        "system:writeFile(\"" FILE_PATH "\", #1, \"x\", #2).",
+        "system:writeFile(\"build/tests\", #1, \"x\").",
+    };
+
+    FILE *f = fopen(FILE_PATH, "wb");
+    assert(f != NULL);
+    assert(fwrite("abcdefghij", 1, 10, f) == 10);
+    fclose(f);
+
+    for (size_t i = 0; i < sizeof(refused) / sizeof(refused[0]); i++) {
+        SolVM vm; sol_vm_init(&vm);
+        SolChunk chunk;
+        assert(run(&vm, &chunk, refused[i]) == SOL_RUNTIME_ERROR);
+        sol_chunk_free(&chunk);
+        sol_vm_free(&vm);
+    }
+
+    /* And the file is as it was: a refused write wrote nothing. */
+    f = fopen(FILE_PATH, "rb");
+    assert(f != NULL);
+    char back[16];
+    size_t got = fread(back, 1, sizeof back, f);
+    fclose(f);
+    assert(got == 10 && memcmp(back, "abcdefghij", 10) == 0);
+
+    remove_the_test_file();
+    printf("  a ranged write refuses #0, a float, a non-string and the wrong arity\n");
+}
+
 /* A file of `size` bytes that occupies almost none of them. Answers false if
    the filesystem materialised the holes, because then this is not a test worth
    running -- it just wrote three gigabytes to somebody's disk. */
@@ -2535,6 +2629,9 @@ int main(void)
     test_a_range_reads_part_of_a_file();
     test_a_range_past_the_end_is_short_rather_than_refused();
     test_a_range_refuses_what_is_not_a_position();
+    test_a_range_writes_part_of_a_file();
+    test_a_ranged_write_creates_the_file();
+    test_a_ranged_write_refuses_what_is_not_a_position();
     test_a_range_reads_a_file_too_large_to_hold();
     test_a_range_survives_a_collection();
     test_a_file_that_is_not_there_is_an_error();
