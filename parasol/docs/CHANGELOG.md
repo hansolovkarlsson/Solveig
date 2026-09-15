@@ -10,6 +10,14 @@ piece of work as it was argued *before* the work is in
 
 ---
 
+### Forty-four links repointed — `6cae6a0`, 2026-09-14
+
+The seven program READMEs reached this directory's documents as
+`../../docs/`, which from `programs/<name>/` is Solveig's `docs/` since step
+4, and `REFERENCE.md` and the front page reached the examples and programs
+where they used to be. None of these pages is read by the document
+checker, so the suite had stayed green; [POSTMORTEM.md](POSTMORTEM.md) 33.
+
 ### The examples, the dialects and the programs beside Solveig's — `ed3876f`, 2026-09-14
 
 **No version, and step 4 of the roadmap's plan.** `examples/*.psol` beside

@@ -9,20 +9,24 @@ shipped. This is the failures.
 
 ## Scope
 
-Twenty-nine, from seven days, in five cohorts that failed for five different
+Thirty-three, from eight days, in five cohorts that failed for five different
 reasons:
 
-- **In the compiler** — eight, five of which were latent from 0.1.0 and 0.2.0.
-- **In the method** — two: a negative control that passed because `make` had
-  rebuilt nothing, and a reader experiment whose own prompt changed the surface
-  it was measuring.
-- **In the documents**, ten: three an edit that reported success and changed
+- **In the compiler** — nine, five of which were latent from 0.1.0 and 0.2.0,
+  and one in a test rather than the compiler, which left a directory behind
+  on every run for ten days.
+- **In the method** — three: a negative control that passed because `make` had
+  rebuilt nothing, a reader experiment whose own prompt changed the surface
+  it was measuring, and a scoping that assumed the make on the machine.
+- **In the documents**, twelve: three an edit that reported success and changed
   nothing, two where no edit was attempted at all, one where a sweep looked in
   the files it remembered instead of for the claim, one where the fix falsified
   the sentence describing it, one where a file's closing sentence outlived the
-  section that settled it, and one where a sweep corrected a count in three
-  files and missed the fourth, which spelled it with a different noun, and
-  one where a respelling reached the record of the respelling before it.
+  section that settled it, one where a sweep corrected a count in three
+  files and missed the fourth, which spelled it with a different noun, one
+  where a respelling reached the record of the respelling before it, one
+  where the same respelling missed a line in the other project's front page,
+  and one where a move broke forty-four links in pages no check reads.
 - **In the programs** — four, found by the first real use of a thing.
 - **In the reasoning** — five, where something true was written down as
   something else and had to be retracted.
@@ -373,6 +377,54 @@ already named `realpath` as the fix. **The sentence was right and the severity
 was wrong**: the entry described the display and never asked what *else*
 compared those strings. Nothing else on that list has been checked that way.
 
+### 30. A test that cleaned up from a list, seven files behind what it wrote — 2026-09-14
+
+**What.** `test_use` writes its fixture files into a `mkdtemp` directory and
+removes them at the end from a hand-kept list of names, then `rmdir`s the
+directory. The cases that came in with 0.17.0 on 2026-09-04, a file being its
+identity and not its path, added seven files after the list was written and
+the list was not, so `rmdir` failed quietly, every run for ten days left a
+`parasol-test-*` directory behind, and there were fifty-five of them in
+`/tmp` when this was found.
+
+**Cause.** The list is the same thing as every other hand-kept list this
+project has recorded against itself, a copy of a fact that lives somewhere
+else, and it went stale the way they all do. The failure was invisible
+because `rmdir` was not checked and a leftover directory fails nothing.
+
+**Fix.** The test reads its directory and removes what is there
+(`a9f299c`). A test that wants to know what it wrote asks the filesystem.
+
+**Found by** listing `/tmp` after running the moved test, to confirm the
+move had not broken the cleanup. It had not; the cleanup had been broken
+since before the move, and nothing but a look at the directory could have
+said so.
+
+### 32. The build the scoping assumed was not the build on the machine — 2026-09-14
+
+**What.** Step 2's scoping said a `$(BUILD)/parasol/%.o` rule would win over
+the generic `$(BUILD)/%.o` because GNU make prefers the shortest stem. The
+first build under the merged Makefile compiled a Parasol source with
+Solveig's include path: macOS ships GNU make 3.81, which takes the first
+matching pattern rule in file order, and the shortest-stem rule is 3.82's.
+
+**What it cost.** One failed build, read and understood in a minute, and the
+Parasol section sits above the generic rule with a comment saying why. Had
+the rule been placed the other way round and the build *succeeded*, which on
+a 4.x make it would have, the boundary the section exists to keep would have
+been open on every macOS checkout and closed on every Linux one, and nothing
+in the suite would have said so until `nm` did.
+
+**Cause.** A claim about the tool from memory of its manual rather than from
+the tool: `make --version` was never run.
+
+> A scoping that names how a tool behaves has checked the tool on the
+> machine, or it says which version it read about.
+
+**Found by** the build failing on the first try. The reverse case, the build
+succeeding for the wrong reason, is what the `nm -g` check in `test` is for,
+and it was written the same hour.
+
 ---
 
 ## In the documents
@@ -697,6 +749,51 @@ protected lines in their paragraphs showed the unprotected sentences beside
 them saying things that were no longer true. The grep found what it was
 asked for; the paragraph around it is what found this.
 
+### 31. The rename missed a line in the other project's front page — 2026-09-14
+
+**What.** Solveig's `README.md`, in the paragraph on why Parasol is inside
+the tree, kept a pipeline line reading `proto vectors.psol -o vectors.sol`
+through the rename that made `.psol` the extension: the extension was
+respelled on the line and the command was not. Beside it, *six programs are
+written in it* with six named, on the day a seventh had existed for a day.
+
+**Cause.** The rename's rules were run over the files under `parasol/`; the
+one paragraph about Parasol in Solveig's own front page was outside the
+directory and was edited by hand for the extension only. [29](#29-a-respelling-that-reached-the-record-of-the-previous-respelling-2026-09-14)
+is the same day's other rename defect, the rules reaching too far; this is
+the hand not reaching far enough.
+
+**Fix.** `parasol`, and seven programs (`b4b4ba0`).
+
+**Found by** reading the paragraph in order to add a sentence to it. The
+document checker runs the fenced blocks in `README.md`, but this one is a
+`sh` fence, which is the escape for a transcript, so `proto` was never run.
+
+### 33. A move broke forty-four links in pages nothing reads — 2026-09-14
+
+**What.** Step 4 moved the seven programs from `parasol/programs/` to
+`programs/`. Each program's README reached Parasol's documents as
+`../../docs/`, which from the new place is Solveig's `docs/`; four of the
+targets, `ROADMAP.md` and `GRAMMAR.md` twice each, resolved there to the
+wrong document, and the rest to nothing. Parasol's own `REFERENCE.md` and
+front page reached the examples and programs at their old places. Forty-four
+links, and the suite green throughout.
+
+**Cause.** `programs/expect.sol` checks every link in `docs/`, `README.md`,
+`index.md` and the `.sol` files, path by path, and reports the number; the
+seven READMEs and everything under `parasol/docs/` are outside that set, so
+a move that would have turned the suite red anywhere else turned nothing.
+The plan for step 4 had listed what enumerates the moved files and had not
+asked what does *not*.
+
+**Fix.** Repointed (`6cae6a0`). The lasting fix is step 5's first sub-step:
+the checker reads every `README.md` under `programs/`, and Parasol's pages
+move to where it already reads.
+
+**Found by** resolving every link in Parasol's pages by hand with a shell
+loop, while scoping step 5 and counting what the move of the documents
+would break. The count was for the future; it found the present.
+
 ---
 
 ## In the programs
@@ -955,6 +1052,10 @@ corrected where it stands rather than made never to have happened.
 | What found it | |
 | --- | --- |
 | A test written earlier, for something else | **1** |
+| Looking at the directory a test had just cleaned up | **1** |
+| The build failing on the first try | **1** |
+| Reading a paragraph in order to add to it | **1** |
+| Resolving every link by hand while counting what a move would break | **1** |
 | A test that was itself wrong | **1** |
 | Writing a real program in the language | **5** |
 | Checking output by hand rather than trusting a clean run | **2** |
@@ -978,11 +1079,20 @@ corrected where it stands rather than made never to have happened.
 | Re-deriving a claim about another document while reading for something else | **1** |
 | Reading the lines a sweep protected, in their paragraphs | **1** |
 
-**Two of twenty-nine were found by tests**, and one of those two was a broken
-test. Five came from writing programs in the language (four of the six
-programs found one, and the sixth found none) and six more came from reading
-something rather than running it. The rows sum to one more than the entries,
-because 16 was found by two things and sits in two of them.
+**Two of thirty-three were found by tests**, and one of those two was a broken
+test; a third was found by a build failing, which is the nearest thing. Five
+came from writing programs in the language (four of the six programs found
+one, and the sixth found none) and eight more came from reading something
+rather than running it. The rows sum to one more than the entries, because
+16 was found by two things and sits in two of them.
+
+**The four from the evening of 2026-09-14 were all found beside the work
+and none by the suite**, which was green through every one of them. Two are
+the same lesson as 4, 5 and 20: a check that reads a fixed set of files is
+blind to a file outside the set, whether the set is a cleanup list in a test
+or the document checker's list of pages, and a move is what puts a file
+outside the set. 33 is the reason step 5 of the roadmap's plan begins with
+the checker rather than with a document.
 
 The unit tests are worth having — 151 of them, and they caught 1 immediately —
 but they check what was thought of. **What found the rest was a customer, or a

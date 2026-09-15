@@ -195,6 +195,38 @@ fourth place it looked. The editor's `test.py`, which is not in `make
 test`, had the old example path in two lines and was run by hand: 81
 cases, 24 headers, 0 problems.
 
+### Two questions after step 4, and what scoping the last step found
+
+Hans asked whether `examples/` and `programs/` should now be grouped into
+kinds, `lang`, `utils` and so on. No for the first, which the guide already
+organises one file per concept; not now for the second, because 400 links
+in the records name `programs/<name>.sol` and the checker verifies each one,
+so a move would mean rewriting history or teaching the checker a moved-from
+table. Held on the roadmap with that as the precondition and a trigger, and
+the map, `docs/programs.md`, named as the place to group instead.
+
+Then the plan for the documents, scoped in five sub-steps, and the scoping
+found two things. About 150 fences in these pages carry no language word,
+and Solveig's checker runs every such fence as Solveig, so no page can move
+until each fence is tagged or checkable; the answer is to teach the checker
+a `parasol` fence first, through `--sob`, which makes the examples in the
+prose claims rather than pictures and is the customer `--sob` was built
+without. And the count of links a move would break found forty-four already
+broken: step 4 had left every README under `programs/` reaching Parasol's
+documents as `../../docs/`, which from there is Solveig's, two of them
+resolving to the *wrong* roadmap and grammar rather than to nothing, with
+the suite green because none of those pages is one the checker reads.
+Repointed the same hour, and [POSTMORTEM.md](POSTMORTEM.md) 33 says why it
+is the reason step 5 starts with the checker. The evening's other three
+defects, 30 to 32, are there too: the leaked test directories, the `proto`
+survivor on Solveig's front page, and the make the scoping assumed. All
+four found beside the work, none by the suite.
+
+The day closed with steps 2, 3 and 4 done, 1 waiting on the release, and 5
+scoped, with two calls left to Hans before its second sub-step: whether the
+records fold into Solveig's or stay whole under a prefix, and whether the
+postmortem survives at all.
+
 ## 2026-09-13: a program written to find a boundary, and the boundary was not there
 
 **Hans asked what was outstanding, then for a program to write, then for the

@@ -5,6 +5,14 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### The links in the seven program READMEs — `6cae6a0`, 2026-09-14
+
+Step 4 had left them reaching Parasol's documents as `../../docs/`, which
+from `programs/<name>/` is this directory, so `ROADMAP.md` and `GRAMMAR.md`
+resolved to Solveig's and the rest to nothing. Repointed at
+`../../parasol/docs/`. The checker reads none of those pages, which is
+what the plan for the documents now begins by fixing.
+
 ### Parasol's examples, dialects and programs are beside Solveig's — `ed3876f`, 2026-09-14
 
 **Step 4 of the plan.** Five `.psol` files in `examples/`, three dialects in

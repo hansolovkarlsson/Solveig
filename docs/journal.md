@@ -69,6 +69,19 @@ checker now verifies. `parasol` looks in `bin/../lib` for a dialect as
 `solas` does for the library, with `PARASOL_LIB_DIR` written into the same
 `config.h` from the same `PREFIX`.
 
+**Then two questions, and the evening's one defect of its own.** Should
+`examples/` and `programs/` be grouped into kinds? No and not now: the
+guide already organises the first, and 400 links in the records name
+`programs/<name>.sol` and are verified path by path, so the second waits
+on the checker accepting a historical link through a moved-from table;
+the map, `programs.md`, is where to group meanwhile. And the plan for the
+documents, scoped: the checker first, because Parasol's pages hold about
+150 untagged fences that `expect.sol` would run as Solveig, and because
+counting the links a move would break found forty-four that step 4 had
+already broken in the program READMEs, with the suite green, since it
+reads none of those pages. Repointed. Steps 2, 3 and 4 of the plan went
+in this evening; 1 waits on the release and 5 on two calls of Hans's.
+
 ## 2026-09-14, five to six: the camera moves in
 
 **Hans said build**, and the engine took the reading of twelve's three
