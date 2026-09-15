@@ -192,9 +192,95 @@ and be written once.
    way of using or developing the tool, and the step that should describe
    the layout the four before it made.
 
+   **Scoped on 2026-09-14, after step 4, in five sub-steps**, each leaving
+   the suite green. What the scoping found that the paragraph above did
+   not know: Parasol's pages hold about 150 fences with no language word,
+   and `expect.sol` runs every such fence as Solveig, so a page cannot
+   move into `docs/` until each fence is either tagged or checkable; the
+   house convention for a sub-language's pages is already set by
+   `SOLABASIC.md`, `SOLABASIC-REFERENCE.md` and `SOLABASIC-CHEATSHEET.md`,
+   flat in `docs/` under a prefix, where a `docs/parasol/` subdirectory
+   would be read by the checker for links and for nothing else; every one
+   of Parasol's changelog hashes resolves in this history; the two
+   LICENSE files are identical; and `solas/`, `solum/` hold C and nothing
+   else, which is what `parasol/` becomes. And a reason to do it at all
+   that step 4 supplied: forty-four links in the program READMEs and
+   Parasol's own pages were left pointing at the wrong tree or at nothing
+   by the move, and the suite stayed green, because none of those pages is
+   one the checker reads.
+
+   1. **The checker first.** `expect.sol` learns a `parasol` fence: the
+      block goes through `parasol --sob` and `solvm`, and its `; #14`
+      claims are checked as a `sol` block's are, so Parasol's examples in
+      prose become claims rather than pictures. The same change makes the
+      checker read every `README.md` under `programs/`, so the forty-four
+      cannot happen again. Its own step because it can be built and proved
+      against the pages where they are now, before any of them moves.
+   2. **The reference pages.** `REFERENCE.md`, `GRAMMAR.md` and the front
+      page (`parasol/README.md`, 794 lines, with `what-is-parasol.md` read
+      against it, since the two overlap and one should become the other's
+      section) to `docs/PARASOL.md`, `docs/PARASOL-REFERENCE.md`,
+      `docs/PARASOL-GRAMMAR.md`; every fence tagged `parasol`, `sol`, `sh`
+      or `text` as it is read; the `<!--count-->` markers re-synced; the
+      editor's `messages.py` repointed; the site's nav given a Parasol
+      entry. The pages a user reads, first, because they are the ones that
+      make the tool feel like a member.
+   3. **The essays.** `does-it-pay.md`, `second-reader.md`,
+      `rules-and-logic.md`, `targets.md` under the same prefix.
+      `conventions.md` is Parasol's `method.md`: the agreements that
+      survive being one project (predictions before a program, a claim
+      about cost measured, a new check run against the unfixed compiler
+      from a clean build) go into `method.md` with their occasions, and
+      the ones that were about being a separate repository are retired
+      with a line saying so.
+   4. **The records.** `journal.md` interleaves into the root's by date,
+      each section keeping its words; `COMPLETED.md` becomes section 7 of
+      the root's, `7.1` to `7.19`, numbers kept; this page's open entries
+      become section 7 of the root roadmap; `CHANGELOG.md` becomes
+      `docs/PARASOL-CHANGELOG.md`, closed at the version merge, with every
+      later Parasol entry in the root changelog as today's already are;
+      `POSTMORTEM.md` becomes `docs/PARASOL-POSTMORTEM.md`, kept whole,
+      with the root `CLAUDE.md` saying it is the record of Parasol's
+      defects up to the merge and that the rule against a root postmortem
+      stands; `solveig-notes.md`'s open items go where they were always
+      addressed to, the root roadmap or ideas, and the file is retired.
+      Fourth because the records are read least and moved most carefully.
+   5. **What is left in `parasol/`.** `CLAUDE.md` folds into the root's as
+      a paragraph; `README.md` is gone by sub-step 2; `LICENSE` goes,
+      being the root's byte for byte. `parasol/` is `cmd`, `include`,
+      `src`, as `solas/` is. The memory notes and the root `README.md`
+      table row say so.
+
+   The calls that are the author's, before sub-step 2: whether the records
+   fold (sub-step 4 as written) or stay whole under the prefix; and
+   whether `POSTMORTEM.md` is kept at all, since the root's position is
+   that predictions scored in `ideas.md` do its job.
+
 What is not in the plan: any change to what Parasol does. The driver, the
 reader, the expander and the emitter are the same before and after, and the
 only thing about the boundary that moves is which file states it.
+
+**Grouping `programs/` and `examples/` into kinds.** Asked by Hans on
+2026-09-14 after step 4 had put seven directories beside twenty-two
+programs and twelve corpora: should the two directories be organised, `lang`,
+`utils` and so on? Held, with a trigger, and the reasons. `examples/` is
+already organised by the guide, one file per concept it names, every name its
+own category, and the checker, the Makefile and the guide's twenty-nine links
+all read it flat. `programs/` is mixed, four kinds of program and two kinds
+of directory, but it has a convention already: `x.sol`, and `x/` when it has
+data or an oracle. What a move costs is the records: 400 links name
+`programs/<name>.sol`, the checker verifies each one path by path, and
+most of them are in the changelog, the ideas and the journal, which say
+where a file *was* and are not supposed to be rewritten. So the map is the
+place to group, and `docs/programs.md` says of itself that it is the map:
+its table by kind (tools, languages, the project's own, demonstrations,
+written in Parasol) is an hour and moves nothing. What would fire the
+directories moving: the flat listing stopping being readable, or a kind of
+program the map cannot place. And it would need one thing first: the
+checker accepting a historical link through a moved-from table, so that a
+2026-08 entry naming `programs/log.sol` stays true after the file goes to
+`programs/tools/log.sol`. Rewriting the records instead is the option that
+is not on the table.
 
 **A logical xor still has no spelling, and now needs one less.** For booleans,
 xor *is* not-equals, and the argument for `^^` was that a module using
