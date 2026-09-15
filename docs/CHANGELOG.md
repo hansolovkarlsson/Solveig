@@ -5,6 +5,59 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### `sqlite` deletes, and the plan that made it is done — `1036d10`, 2026-09-15
+
+`DELETE FROM t [WHERE ...]`, with a WHERE that is comparisons joined by AND
+(`= < > <= >=`) for SELECT as well. Rows go from the table tree and every
+index; emptied pages go to the freelist, which INSERT draws from before the
+file grows; every leaf of a tree stays at one depth. The generator deletes in
+its writable mode and `cases/deletes.sql` is the author's hand at it. 629 of
+629 on two seeds, three rungs each. The plan in
+[ideas.md](ideas.md#an-sqlite-file-read-and-then-written-scoped-2026-09-15)
+is scored prediction by prediction, and the account of what
+`integrity_check` named on the way is in
+[programs.md](programs.md#sqlite-reads-and-writes-an-sqlite-file).
+
+### `writeFile(path, from, text)`: a range of a file, written — `7b24b44`, 2026-09-15
+
+The mirror of `readFile(path, from, count)`: the bytes from the one-based
+position `from` are replaced, the file grows past its end, a gap is zeros, a
+missing file is created, `#0` is refused. [3.27](COMPLETED.md#327-a-file-is-written-whole-or-appended-to-and-nothing-in-between--done)
+closed the day it opened, with the table before and after: one INSERT into a
+100 MB database wrote 100 MB and now writes 12 KB. `sqlite` writes only the
+pages that changed. [REFERENCE.md](REFERENCE.md#a-range-of-a-file-written)
+has the form; the cheatsheet has the row.
+
+### `sqlite` writes into a file `sqlite3` made, and the positioned write is wanted — `a8e98f0`, 2026-09-15
+
+INSERT, CREATE TABLE and CREATE INDEX land in existing databases; the
+sweep's third rung has `sqlite3` build the first half of every script and
+this program the second. Measured before anything was built: one INSERT
+needs three pages and the only write the language had rewrote the whole
+file, 1.16 s for 100 MB against `sqlite3`'s 0.039. Raised as 3.27 with the
+table, at the step the plan predicted.
+
+### `sqlite` writes: CREATE TABLE, CREATE INDEX and INSERT into a fresh file — `4412376`, 2026-09-15
+
+Pages built in memory and the file written whole; table trees split as a
+B+tree and index trees as a B-tree; the root keeps its page number. Judged
+three ways: `PRAGMA integrity_check`, `sqlite3` reading the written file
+against its own from the same script, and this program reading its own. 420
+of 420 on two seeds. A row that would need an overflow page and a UNIQUE
+index are refused by name.
+
+### `sqlite`, the twenty-third program: SQLite's file format, read — `4b0654d`, 2026-09-15
+
+[programs/sqlite.sol](../programs/sqlite.sol) reads the database file
+`sqlite3` writes and answers SELECT over it in the shell's list mode, so the
+two compare to the byte; by rowid, through a plain index, or by a scan.
+[programs/sqlite/sweep.sh](../programs/sqlite/sweep.sh) has `sqlite3` build
+every database in the corpus from a script and say what is in it: 852 of 852
+over four seeds. The first of the directions
+[design.md](design.md#the-directions-intended-stated-2026-08-31) lists to be
+reached, and the plan it follows is in
+[ideas.md](ideas.md#an-sqlite-file-read-and-then-written-scoped-2026-09-15).
+
 ### `PARASOL-TARGETS.md` renders whole on the site — `e49d350`, 2026-09-15
 
 Five of its six headings had reached the published page: a code span

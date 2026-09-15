@@ -121,6 +121,123 @@ surprise. Rewrapped, pushed, and the second run after the deploy was clean:
 thirty-nine pages, 2032 headings, 1481 internal links, nothing to look at.
 The *Parasol* entry is in the nav.
 
+**The second half of the day was a database, and it began as a choice
+between two things.** Hans put it as a small database engine or expanding
+Parasol, and the records decided it: section 7's entries were all held on
+triggers none of which had fired, and `method.md` names a surface grown
+without a customer as the trap Parasol had fallen into for six versions; the
+database direction had stood in `design.md` since 2026-08-31 with its
+blocker written down, a positioned write, and a program is what asks for
+one. So the database, scoped first. Three kinds were weighed on the oracle
+alone: a log-structured store that presses on nothing, a paged B-tree in a
+format of our own whose file only our own `check` would judge, and the same
+B-tree in SQLite's file format, judged by `sqlite3`, which is on the machine,
+reads what we write, and has `PRAGMA integrity_check`. Hans took the third
+knowing it was the largest, and the plan went into `ideas.md` in the house
+shape: six steps, each held against `sqlite3` before the next, and the
+predictions above the space for the outcome. The one that mattered said the
+positioned write would be wanted at step 4 and not before, the first INSERT
+into a file of a few megabytes that `sqlite3` had made, changing a leaf, the
+page above it and the header.
+
+**Step 0 was the corpus, and it found the first wrong number before a line
+of the program existed.** Thirteen author cases, each a SQL script `sqlite3`
+builds a file from, with the queries below a `-- queries` line; a generator
+for the rest. A page inspector in the scratch confirmed every shape the cases
+claimed, three levels, interior index pages, overflow chains, a freelist, the
+page size spelled `1`, and disagreed with one: a 512-byte leaf holds 24 rows
+of 21 bytes by arithmetic and `sqlite3` splits at the 24th. The case keeps
+both shapes and says so.
+
+**The reader took the afternoon and pressed on nothing, as predicted, and
+what it found was in the oracle.** A REAL column stores whole numbers as
+integers and reads them back as reals, the one place a declared type changes
+what a record says. An unordered query has as many right answers as the
+planner has plans: `SELECT c1 FROM t3` through a covering index comes out in
+`c1` order, NULLs first, and 39 of the first 200 generated cases differed
+with neither side wrong, so every generated query is `ORDER BY rowid` unless
+ordered otherwise. And `sqlite3` prints a REAL with `%!.15g` from an
+approximate expansion: over six thousand random doubles an exact printer
+disagreed at eight with exponents past 130 and at one corpus value 2e-20
+relative below a tie. The printer here is exact, from the mantissa and a
+small base-10^9 integer, and generated reals stop at fifteen digits, where
+the question has one answer; that also falsified the prediction's detail
+that awk's `%g` would move to the library, since awk's divides by a power of
+ten and is near. The shell escapes control characters since 3.47, so the
+sweep passes `-escape off`. The third seed found the one defect in the
+reader, `-9223372036854775808` read as a real because the sign went on after
+the digits. Step 2, the index trees, followed the same evening: an in-order
+walk that prunes, with the one thing that differs from the table tree, that
+an interior index cell is an entry in its own right.
+
+**The writer from nothing was the step the plan said it was most likely to
+be wrong about, and it was about right: an evening and five hundred lines.**
+Pages as objects, cells in key order, serialised on demand from the end of
+the page down; a B+tree split for tables and a B-tree split for indexes; the
+root keeping its number by moving its contents down. `integrity_check` named
+the two defects on the way to its first `ok` to the byte: the content area
+assembled backwards, and a value list ending at the first `)` whatever kind
+of token it was, so that the one-byte blob `X'29'` ended it. The sweep gained
+a rung judged three ways, `integrity_check`, `sqlite3` reading our file
+against its own, and this program reading its own file.
+
+**Step 4 fired the prediction where it said it would, and the measurement
+was taken before anything was built.** One INSERT into a file `sqlite3` made
+needs four pages read and three written; the only write the language had
+replaced the file, so it read 24,386 more and wrote 24,390 for a 100 MB
+file, 1.16 s against `sqlite3`'s 0.039, a cost that grows with the file and
+not the work. That went onto the roadmap as 3.27 with the table and the
+shape the plan recommended, `writeFile(path, from, text)`, the mirror of the
+read, held for Hans; he took it the same afternoon and the entry closed by
+the evening, the second in section 3 whose trigger fired rather than being
+argued away. The primitive is `fopen("r+b")`, `fseeko` and `fwrite`,
+allocates nothing and answers nil, so no GC proof was owed. The program went
+over to writing only the pages that changed and the whole-file route was
+dropped rather than kept as a fallback. After: 0.03 s at every size, 12 KB
+written for 12 KB owed.
+
+**And the after column was written up wrong before it was written up
+right.** "Level with the tool in C" was the first draft, and Hans asked
+whether the performance was really almost the same. It is not. One
+statement is three pages and 30 ms of process start-up on either side, so
+the equal columns say the cost that grew with the file is gone and nothing
+about the engines; where the work is large enough to see them, a thousand
+inserts in one run are 0.64 s here against 0.031 in one `sqlite3`
+transaction, and ten thousand into a fresh file 3.35 s against 0.040,
+fifteen to a hundred times, the interpreter's ratio as `gzip` and
+`sha256sum` found it. The earlier comparison against `sqlite3`'s autocommit
+time had also flattered this program, since that time is an fsync a
+statement and this program pays for no durability at all. The records carry
+the throughput table beside the flat one now.
+
+**Delete closed the plan, and the fifth seed of the sweep earned its
+place.** The first shape handed a page's lone child up in place of the page,
+and `integrity_check` said *Child page depth differs*: every leaf of a tree
+stands at one depth, and only the root may collapse into its child, since
+that shortens every path together. The second shape freed a parent and not
+the pages under it, and seventeen leaves full of rows the tree could no
+longer reach were *never used*. A third, tried by hand on a file `sqlite3`
+made, is one `integrity_check` accepts and a read refuses: an empty leaf
+left standing passes the check and then fails `SELECT count(*)` with
+*malformed*, so the judge is the three checks together. The shape that
+stands hands a lone child's entries back to the root and frees its pages,
+which SQLite would do by merging siblings, and frees fewer pages for it, 98
+against 115 on the three-thousand-row file. The same seed found one more
+thing in the writer: a whole real converts to an integer on its way into a
+numeric column strictly inside the integers, and the bound was 9.2e18 where
+SQLite's is 2^63. Seed 1's four hundred cases had produced neither shape nor
+the number. One fact about the oracle came out of the freelist work: the
+`sqlite3` on this machine reserves twelve bytes a page in every file it
+makes, which the reader had honoured from its first line without anyone
+knowing.
+
+**The scoring is under the prediction in `ideas.md`**: every prediction held
+as written, one wrong in its detail, and four things unpredicted, the last
+of them that a six-step plan scoped at midday was done and scored by night.
+Six steps, five commits, and the sixth step is the paragraph that says so.
+The design page's table of directions now says the database direction was
+reached and what it found.
+
 ---
 
 ## 2026-09-14, evening: Parasol runs solas, one version is decided, and the Makefile is one
