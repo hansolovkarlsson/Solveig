@@ -5,6 +5,29 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### Parasol is built by this Makefile — `b4b4ba0`, 2026-09-14
+
+**`parasol/Makefile` is gone and its rules are a section of this one**, the
+second of five steps by which Parasol becomes a member of the toolkit
+(the plan is in [parasol/docs/ROADMAP.md](../parasol/docs/ROADMAP.md),
+*A member of the toolkit*; the first, one version for the tree, waits on the
+next release). `make` builds five binaries; `make test` runs Parasol's
+suite in the same recipe after the conformance corpus and the C tests;
+`make install` puts `bin/parasol` beside the four and its dialects beside
+the library. Two targets are new for the whole tree: `make sanitize`, the
+suite under AddressSanitizer and UBSan from a clean build, and `make
+examples`. One program of Parasol's at a time is `make ember`, `grammar`,
+`digest`, `ledger`, `prose`, `basic` or `bignum`.
+
+**Nothing about Parasol's boundary moved, and the build now enforces it**
+rather than a separate file: Parasol's objects are compiled with Parasol's
+include path only, `bin/parasol` links `libparasol.a` only, and `test`
+refuses a `bin/parasol` whose symbol table exports `sol_`. The section sits
+above the generic object rule because macOS's GNU make 3.81 takes the first
+matching pattern rule. Nothing in the machine or the language changed. And
+`parasol --sob`, from earlier in the day on Parasol's side, is one command
+from `.psol` to `.sob`, running the `solas` beside it.
+
 ## 0.46.0 — 2026-09-14
 
 **The `@expr` region is behind a flag, Proto is Parasol, and `ifElseIf` is

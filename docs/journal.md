@@ -11,6 +11,41 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-09-14, evening: Parasol runs solas, one version is decided, and the Makefile is one
+
+**Hans asked whether Parasol could write a `.sob` directly**, *essentially,
+add solas into parasol*, with `-I` and the rest and `--expr` off. Two shapes
+were put: link `libsol.a` and call `sol_compile_options` on the emitted
+text, forty lines; or write the `.sol` and run the `solas` beside the
+binary. The first would have made four statements of what Parasol is false
+to save a `fork`, so the second was recommended and taken: `parasol --sob`,
+with a test that runs the binary and a `cmp` against `solas`'s own bytes.
+Parasol's journal has the afternoon; this is the evening, which was about
+the tree.
+
+**He said where it is going**: Parasol as a permanent member of the tools,
+its C laid out as `solas/` and `solid/` are, its records, build, examples
+and library folded in, *not some outside experiment any more*. And he
+agreed one version, the tree's, from the next release. Asked for an order,
+the answer was the reverse of the obvious one: **documents last**, because
+`docs/` is counted, `expect.sol` runs what is fenced there, and the pages
+should describe the layout the moves made. Version, Makefile, C source and
+tests, then examples, library and programs, then the documents; five steps
+in Parasol's roadmap, each leaving both suites green.
+
+**Step 2 went in the same evening.** `parasol/Makefile` is a section of this
+one now, and the claim it kept, that Parasol's build takes nothing from
+Solveig, is kept by the build: a Parasol object sees Parasol's include path
+only, the binary links Parasol's library only, and `test` reads the symbol
+table. The first build under the merged file compiled a Parasol source with
+Solveig's include path, because macOS's GNU make 3.81 takes the first
+matching pattern rule where 4.x would have taken the shortest stem; the
+section moved above the generic rule and says why. `sanitize` is a root
+target now, which this Makefile had carried as a documented invocation and
+never as a target, the shape Parasol's POSTMORTEM.md 15 is about. The
+suite is 1 minute 48 on this machine with Parasol's checks inside it, where
+it was about the same as two runs.
+
 ## 2026-09-14, five to six: the camera moves in
 
 **Hans said build**, and the engine took the reading of twelve's three

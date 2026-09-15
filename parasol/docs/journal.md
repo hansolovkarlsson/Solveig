@@ -11,7 +11,7 @@ produced no code because they were decisions.
 
 ---
 
-## 2026-09-14: the project changed its name a second time, a hole was asked to be a selector, and the compiler learnt to run solas
+## 2026-09-14: the project changed its name a second time, a hole was asked to be a selector, the compiler learnt to run solas, and the Makefile went to the root
 
 **Two things reached this directory from Solveig's morning, and both came
 from a reading of `engine.sol` in the SDL extension.** Hans proposed a region
@@ -98,6 +98,47 @@ The version stayed at `0.17.0`. A bump was typed and taken back: the
 roadmap's first entry says the next release is what decides one version or
 two, and a number from here would have decided it sideways. The changelog
 entry is dated instead, and says so.
+
+### The version decided, the plan written, and step 2 the same evening
+
+Hans agreed one version, the tree's, from the next release, and asked for
+the order in which Parasol becomes a member of the toolkit: documents first,
+or Makefile, or examples, or source? The rule that answered it is that
+`docs/` is counted and `expect.sol` runs what is fenced there, so the
+documents go **last** and describe the layout the other steps made. Five
+steps went into the roadmap entry, and he said *step 2*.
+
+**The Makefile moved as a section**, above the generic object rule, and the
+thing it was for turned out to be enforceable by the build rather than by a
+file boundary. The scoping had planned a grep over the sources for a Solveig
+include; the compile rule is that check already, since a Parasol object is
+built with Parasol's include path and nothing else, and a probe file holding
+`#include "solum/common.h"` failed to compile as it should. What a grep could
+not have seen, the link can: `bin/parasol` links `libparasol.a` alone, and
+`test` reads its symbol table with `nm -g` and refuses a `sol_` export, a
+pattern checked against `bin/solas` (matches) and against `parasol_` (does
+not, because the space or the underscore has to come right before `sol_`).
+
+**One thing the scoping did not know.** The first build compiled a Parasol
+source with Solveig's include path, because the generic `$(BUILD)/%.o` rule
+matched first. GNU make 4 prefers the shortest stem, which would have chosen
+the Parasol rule; macOS ships 3.81, which takes the first match. The section
+sits above the generic rule and its comment says so, and the order satisfies
+both.
+
+Decisions on the way: `sanitize` and `examples` became root targets for the
+whole tree rather than Parasol's alone, since a sanitised run of Solveig's
+suite was documented in the root Makefile as an invocation and never as a
+target, which is the exact shape of POSTMORTEM.md 15; `run` and `check`
+went; the dialects install beside Solveig's library rather than under
+`lib/parasol`, so that step 4, where `parasol` learns to look beside its own
+binary, finds one directory and not two; Parasol's `dist` went with the
+file, a release earlier than the plan said, because a `dist` that cuts a
+tarball under a number the roadmap has already retired was not worth
+carrying for a week. `install` and `uninstall` were run into a staging
+directory and read; `clean` was run and `git status` read after it. The
+root README's pipeline line still said `proto`, a survivor of the rename the
+conventions call a defect, and it says `parasol` now.
 
 ## 2026-09-13: a program written to find a boundary, and the boundary was not there
 

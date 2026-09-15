@@ -10,6 +10,27 @@ piece of work as it was argued *before* the work is in
 
 ---
 
+### One Makefile — `b4b4ba0`, 2026-09-14
+
+**No version, and step 2 of the roadmap's plan.** `parasol/Makefile` is
+gone; its rules are a section of Solveig's, paths prefixed `parasol/`, the
+objects under `build/parasol/`. `make` at the root builds five binaries,
+`make test` runs Solveig's suite and then this one in the same recipe, and
+`make install` puts `bin/parasol` beside the four and the dialects beside
+Solveig's library, printing the `PARASOL_PATH` to export. `check`,
+`SOLVEIG=`, `run` and Parasol's `dist` went; `sanitize` and `examples` came
+to the root as targets for the whole tree; `ember`, `grammar`, `digest`,
+`ledger`, `prose`, `basic` and `bignum` are root targets now.
+
+**The claim the separate file kept is kept by the build instead.** A Parasol
+object is compiled with Parasol's include path and no other, so a
+`#include "solum/common.h"` fails to compile (a probe file was seen to);
+`bin/parasol` is linked against `libparasol.a` only, so a `sol_*` reference
+fails to link; and `test` runs `nm -g` over the binary and refuses one that
+exports a `sol_` symbol, a check seen to match `bin/solas`. The section sits
+above the generic object rule because GNU make 3.81, macOS's, takes the
+first matching pattern rule and not the shortest stem.
+
 ### `parasol --sob` — `0b9ed0e`, 2026-09-14
 
 **No version.** `--sob` writes the `.sol` as before and then runs `solas` on
