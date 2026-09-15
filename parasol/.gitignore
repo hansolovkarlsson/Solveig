@@ -1,28 +1,15 @@
-# Build artefacts
-build/
-bin/
-*.o
-*.d
-*.a
-*.dSYM/
+# What the root .gitignore does not already cover. The build goes under the
+# root's build/ and bin/ since 2026-09-14, so nothing about objects or binaries
+# is here.
 
 # What programs/ember writes: assembly, and the binaries cc makes of it
 *.s
 *.out
 
-# What the compiler writes: Solveig source, its map, and the bytecode after it
+# What the compiler writes: Solveig source and its map; the .sob after it is
+# the root's rule
 *.sol
 *.sol.map
-*.sob
-
-# What `make dist` writes
-dist/
-*.tar.gz
 
 # Yours, not the repository's -- comments, thoughts and experiments
 scratch/
-
-# Editor / OS
-.DS_Store
-*.swp
-compile_commands.json

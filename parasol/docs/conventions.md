@@ -181,8 +181,13 @@ good intention.
 ## What the build guarantees
 
 `make` needs a C11 compiler and nothing else — no Solveig header, archive or
-symbol. `make test` needs Solveig, because it runs every example and all seven
-programs all the way through `solas` and `solvm`, `programs/ember` all the way to
+symbol, and since 2026-09-14 the Makefile that says so is Solveig's own, with
+the Parasol rules in a section that carries its own include path and its own
+library and nothing of the rest; a Parasol source that includes a Solveig
+header does not compile, one that names a `sol_` function does not link, and
+`make test` reads the binary's symbol table. `make test` needs Solveig,
+because it runs every example and all seven programs all the way through
+`solas` and `solvm`, `programs/ember` all the way to
 a linked binary diffed against expected output, and `programs/digest` against
 digests that an independent oracle produced first.
 

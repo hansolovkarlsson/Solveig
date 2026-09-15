@@ -32,7 +32,9 @@ customers were real.
 ## Open, and undecided
 
 **Parasol's version is its own, and so is its Makefile, and the second waits
-on the first.** *Decided on 2026-09-14, in the evening: one version. From the
+on the first.** *Decided on 2026-09-14, in the evening: one version. And the
+Makefile did not wait after all: the merge was step 2 of the plan and went in
+the same evening, the version half being all that is left of this entry. From the
 next Solveig release `parasol --version` reports the tree's number, this
 changelog's entries carry it, `PARASOL_SOLVEIG_MINIMUM` goes since the parent
 is the version by construction, and Parasol's `dist` goes with it. The entry
@@ -108,7 +110,19 @@ and be written once.
    `sol_` symbol. The comment moves to the rules and says which experiment
    it is guarding. This is second because every later step is tested by the
    merged Makefile, and doing it once means every later path edit is in one
-   file.
+   file. **Done, 2026-09-14, the same evening.** The include check turned
+   out not to need a grep: the compile rule *is* the check, since a Parasol
+   object is built with Parasol's include path and no other, and a probe
+   file with `#include "solum/common.h"` was seen to fail. The symbol check
+   is `nm -g` over `bin/parasol` in `test`, seen to match `bin/solas` and
+   not `bin/parasol`. One thing the scoping did not know: GNU make 3.81,
+   which macOS ships, takes the *first* matching pattern rule rather than
+   the shortest stem, so the Parasol section sits above the generic object
+   rule and says why. `sanitize` and `examples` came to the root as targets
+   for the whole tree; `run` and `check` went; the dialects install beside
+   Solveig's library rather than under a directory of their own, so that
+   step 4's *look beside the binary* finds one place. Parasol's `dist`
+   went with the file, a release early.
 3. **The C source and its tests.** `parasol/parasol/{cmd,include,src}` to
    `parasol/{cmd,include,src}`, laid out as `solas/` is, by `git mv`;
    `parasol/tests/*.c` to `tests/`, none of the five names colliding. One

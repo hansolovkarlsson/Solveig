@@ -19,11 +19,14 @@ message send. ~20k lines of C11, no dependencies. Docs are published at
 <https://hansolovkarlsson.github.io/Solveig/>.
 
 `parasol/` is Parasol, a second compiler that emits Solveig source, brought in as a
-subproject on 2026-09-12 with its history. It has its own `CLAUDE.md`, records
-under `parasol/docs/` (including a `POSTMORTEM.md`, which is Parasol's convention
-and not this repository's) and its own version. The root `make` builds it and
-`make test` runs its suite. Nothing under `parasol/` is counted by
-`docs/programs.md`.
+subproject on 2026-09-12 with its history and being made a member of the
+toolkit step by step (the plan is in `parasol/docs/ROADMAP.md`, *A member of
+the toolkit*). It has its own `CLAUDE.md`, records under `parasol/docs/`
+(including a `POSTMORTEM.md`, which is Parasol's convention and not this
+repository's) and, until the next release, its own version. The root Makefile
+builds it since 2026-09-14, in a section that must include no Solveig header
+and link no Solveig library, and `make test` runs its suite. Nothing under
+`parasol/` is counted by `docs/programs.md`.
 
 ## Commands
 

@@ -118,7 +118,7 @@ lights, and **Solveig** carries the same star into Norse: *sól* joined to
 | `lib/`    | The library that ships with the language, found on the search path |
 | `extensions/` | Bundles built by `make` and loaded only when a host names one -- [net](extensions/net/README.md), UDP sockets, documented in [NET.md](docs/NET.md) |
 | `editors/` | Editor support: [vscode](editors/vscode/README.md), syntax colouring, bracket matching and completion for VS Code, `.sol` and `.psol` alike, installed from the folder |
-| `parasol/`  | **Parasol** -- a second compiler, whose syntax arrives with the file it is compiling and whose output is Solveig source. Its own Makefile, records and version; [what it is](parasol/README.md) |
+| `parasol/`  | **Parasol** -- a second compiler, whose syntax arrives with the file it is compiling and whose output is Solveig source. Built by the one Makefile since 2026-09-14, with its own records and, until the next release, its own version; [what it is](parasol/README.md) |
 
 Two more live outside this repository, and outside it on purpose — the front
 page says *no dependencies beyond a C11 compiler and `make`*, and it stays true
@@ -146,14 +146,19 @@ file format and a command line, which is the same surface anybody else would
 have.** What moved it in is the other half of that dependence: Parasol emits
 *this* language and nothing else, so every change here is a change it has to
 follow, and two repositories meant finding that out one suite run late. Now
-`make test` here runs Parasol's suite after its own.
+`make test` here runs Parasol's suite after its own, and since 2026-09-14 the
+one Makefile builds it, in a section that keeps the claim above mechanical:
+Parasol's objects see Parasol's include path only, its binary links its own
+library only, and the suite refuses a `bin/parasol` that exports a `sol_`
+symbol.
 
 ```sh
-proto vectors.psol -o vectors.sol && solas vectors.sol && solvm vectors.sob
+parasol vectors.psol -o vectors.sol && solas vectors.sol && solvm vectors.sob
+parasol --sob vectors.psol && solvm vectors.sob     # the same, since 2026-09-14
 ```
 
-Six programs are written in it — an assembler reaching ARM64, a PEG toolkit,
-SHA-256, a ledger, a document, and a BASIC interpreter — and what they say about
+Seven programs are written in it — an assembler reaching ARM64, a PEG toolkit,
+SHA-256, a ledger, a document, a BASIC interpreter and a bignum calculator — and what they say about
 whether a grammar declared per module is worth having is in
 [parasol/docs/does-it-pay.md](parasol/docs/does-it-pay.md).
 

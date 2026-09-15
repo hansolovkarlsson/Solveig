@@ -54,20 +54,25 @@ a `solas` is there, which is every `bin/` this repository makes; otherwise
 
 ### make
 
+From Solveig's root, whose Makefile has held the Parasol rules since
+2026-09-14 in a section of its own; there is no Makefile in this directory.
+
 | | |
 | --- | --- |
-| `make` | `../bin/parasol`, beside Solveig's four binaries. A C11 compiler and `make`, and nothing else. |
-| `make test` | the unit tests, plus every example and program through `solas` and `solvm` |
-| `make sanitize` | the same under AddressSanitizer and UBSan, from a clean build. **Worth doing before a release** — see [POSTMORTEM.md](POSTMORTEM.md) 15. It leaves an instrumented `bin/parasol`; `make clean` restores a normal one. |
-| `make run` | `examples/vectors.psol`, compiled and executed |
-| `make examples` / `ember` / `grammar` / `digest` | one group at a time |
-| `make install` | `../bin/parasol` to `$PREFIX/bin`, `lib/*.psol` to `$PREFIX/lib/parasol`; it prints the `PARASOL_PATH` to export |
-| `make check` | that `$SOLVEIG` has a built `bin/solas` |
-| `make clean` | remove `build/`, `bin/` and everything generated |
+| `make` | `bin/parasol`, beside Solveig's four binaries. A C11 compiler and `make`, and nothing else. |
+| `make test` | Solveig's suite, then this one: the unit tests, plus every example and program through `solas` and `solvm` |
+| `make sanitize` | the whole suite under AddressSanitizer and UBSan, from a clean build. **Worth doing before a release** — see [POSTMORTEM.md](POSTMORTEM.md) 15. It leaves an instrumented `bin/`; `make clean` restores a normal one. |
+| `make examples` | every example, Solveig's and Parasol's, to a `.sob` |
+| `make ember` / `grammar` / `digest` / `ledger` / `prose` / `basic` / `bignum` | one program at a time, built and run |
+| `make install` | `bin/parasol` to `$PREFIX/bin` with the four, `lib/*.psol` to `$PREFIX/lib/solum` with Solveig's library; it prints the `PARASOL_PATH` to export |
+| `make clean` | remove `build/`, `bin/` and everything generated here |
 
-The build needs no Solveig. `make test`, `make run` and the group targets do:
-`SOLVEIG` defaults to `..`, the Solveig tree this directory lives in, whose own
-`make test` runs this suite.
+The build needs no Solveig. `make test`, `make examples` and the program
+targets do, and hand it the `solas` and `solvm` the same run built. What the
+rules enforce, so that the claim does not depend on anybody remembering it:
+Parasol objects are compiled with Parasol's include path only, `bin/parasol`
+is linked against `libparasol.a` only, and `make test` refuses a `bin/parasol`
+that exports a `sol_` symbol.
 
 ---
 

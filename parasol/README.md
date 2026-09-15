@@ -82,7 +82,14 @@ then have proved only that Solveig's author can write a front end for Solveig.
 
 So the build takes nothing from Solveig at all. No header, no archive, no symbol.
 Parasol emits text; `solas` reads text. **The coupling is a file format and a
-command line, and it is the same surface anybody else would have.**
+command line, and it is the same surface anybody else would have.** Since
+2026-09-14 the rules that build Parasol live in Solveig's own Makefile, in a
+section of their own, and the claim is kept by the build rather than by a
+separate file: every Parasol object is compiled with Parasol's include path
+and no other, so a `#include "solum/..."` fails to compile; `bin/parasol` is
+linked against `libparasol.a` and nothing else, so a `sol_*` reference fails
+to link; and `make test` reads the binary's symbol table and refuses one that
+exports any.
 
 ## What Parasol is allowed to know about Solveig
 
@@ -610,22 +617,23 @@ impossible to add.
 
 ## Building
 
+From Solveig's root, since 2026-09-14, where the one Makefile is:
+
 ```sh
-make            # -> ../bin/parasol, beside Solveig's four. Needs a C11 compiler and make, and nothing else.
-make test       # the unit tests, and every example run through solas and solvm
-make run        # examples/vectors.psol, compiled and executed
+make            # bin/parasol beside Solveig's four; a C11 compiler and make, nothing else
+make test       # Solveig's suite, then Parasol's: the unit tests, every example and
+                # every program run through solas and solvm
+make examples   # every example, Solveig's and Parasol's, to a .sob
+make ember      # one program at a time: ember, grammar, digest, ledger, prose, basic, bignum
+make sanitize   # the whole suite under AddressSanitizer and UBSan, from a clean build
 ```
 
-**The build needs no Solveig.** `make test`, `make run`, `make examples` and
-`parasol --sob` do, because each hands it a file. Parasol lives in Solveig's
-tree as `parasol/`, so `SOLVEIG` defaults to `..` and the parent's `make` and
-`make test` cover this directory; run here on its own, the Makefile says what is missing rather than
-letting `solas` fail with a shell error:
-
-```
-parasol: .. has not been built -- no bin/solas.
-      make -C ..
-```
+**The build needs no Solveig.** `make test`, `make examples`, the program
+targets and `parasol --sob` do, because each hands it a file, and the file
+goes through the `solas` and `solvm` that the same `make` built. There is no
+Makefile in this directory any more; the section that builds Parasol in the
+root's says why it takes nothing from the rest of that file, and how the
+build enforces it.
 
 **The examples are compiled and run, not just compiled.** A front end that emits
 text can be wrong in a way no unit test sees: Solveig-looking source that
