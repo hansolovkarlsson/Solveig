@@ -24,17 +24,23 @@ subproject on 2026-09-12 with its history and a member of the toolkit since
 what is left of it is `docs/ROADMAP.md` 7.1 and 7.2). Its pages are
 `docs/PARASOL*.md`, its records to the day it joined are frozen under
 `docs/parasol/`, its open roadmap entries are section 7 of `docs/ROADMAP.md`,
-and its house rules are in `docs/method.md`. It still has its own `CLAUDE.md`
-and, until the next release, its own version. The root Makefile builds it
-since 2026-09-14, in a section that must include no Solveig header and link no
-Solveig library, and `make test` runs its suite. Its examples are in
+and its house rules are in `docs/method.md`. Until the next release it has
+its own version, and nothing else of its own: `parasol/` is `cmd`, `include`
+and `src`, as `solas/` is. The root Makefile builds it since 2026-09-14, in a
+section that must include no Solveig header and link no Solveig library, and
+`make test` runs its suite; nothing under `parasol/` includes a Solveig
+header, and that is the arrangement being tested. Its examples are in
 `examples/`, its dialects in `lib/` and its seven programs are directories
 under `programs/`, none of them counted by `docs/programs.md`, and everything
 `parasol` generates goes under `build/`.
 
 ## Commands
 
-`make`, `make test`, `make embed`, `make dist`, `make install`, `make clean`.
+`make`, `make test`, `make embed`, `make dist`, `make install`, `make clean`;
+`make examples` for every example to a `.sob`, `make sanitize` for the suite
+under AddressSanitizer and UBSan from a clean build, and one Parasol program
+at a time as `make ember`, `grammar`, `digest`, `ledger`, `prose`, `minibasic`
+or `bignum`.
 
 ## The records
 

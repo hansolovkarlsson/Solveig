@@ -5221,3 +5221,39 @@ before it.
 `system:modifiedAt` is the companion `fileSize` was waiting for, and could not
 have been written until this existed.
 
+## 7. Parasol
+
+Parasol's entries, numbered on the roadmap on 2026-09-15 when its own roadmap
+froze under [docs/parasol/](parasol/ROADMAP.md). The nineteen pieces of work
+it finished before that day are on its own
+[COMPLETED.md](parasol/COMPLETED.md), with the numbers they had there; an
+entry that closes after it closes here.
+
+### 7.2 What is left in `parasol/` — **done**
+
+**The last sub-step of the plan that made Parasol a member of the toolkit**,
+done on 2026-09-15, the afternoon the records froze. The entry as it stood:
+`parasol/CLAUDE.md` folds into the root's as a paragraph, `LICENSE` goes,
+being the root's byte for byte, and `parasol/` is `cmd`, `include`, `src`, as
+`solas/` is. The root `README.md` table row and the memory notes say so. The
+records are under `docs/parasol/` since this entry was written and the pages
+under `docs/PARASOL*.md` since the morning before it, so nothing else of
+Parasol's is in the way of that move; it waits only on being done.
+
+**What the fold turned out to be.** Two sentences the root `CLAUDE.md` did not
+already have: that nothing under `parasol/` includes a Solveig header and that
+this is the arrangement being tested, and the three `make` targets Parasol
+brought (`examples`, `sanitize`, and one program at a time) which the root's
+Commands line had never listed. Everything else the Parasol file said had been
+said by the root's since the morning, or was about a records layout that had
+stopped being true at noon. `LICENSE` was checked byte for byte before it
+went. One link in the frozen journal named the Parasol file and names the
+root's now, which is the page that says the same thing.
+
+**Why last, and why it was cheap.** The plan's rule was *move what the checker
+cannot see first, and the documents last*, and this was the step after last:
+what remained in `parasol/` after the documents left was two files whose
+whole content was pointers to things that had moved. A directory holding C
+and nothing else is what `solas/` and `solum/` are, and the sentence in
+[PARASOL.md](PARASOL.md), *working on Parasol feels like working on the other
+four*, is now a fact about the tree rather than a direction.

@@ -1221,8 +1221,10 @@ with a nonterminal, emitting bytecode, `@expr`, a signed bare number) and stand
 as written; a refusal reopened is argued again here or in
 [ideas.md](ideas.md), not there. The plan that made Parasol a member of the
 toolkit is on that page too, under *A member of the toolkit*, with four of its
-five steps and three of the fifth's five sub-steps marked done; what is left
-of it is 7.1 and 7.2.
+five steps and three of the fifth's five sub-steps marked done; the fourth
+and fifth sub-steps were done the day it froze, the fifth being
+[7.2](COMPLETED.md#72-what-is-left-in-parasol--done), and what is left of the
+plan is 7.1.
 
 ### 7.1 One version for the tree, at the next release
 
@@ -1252,16 +1254,6 @@ What would have to be true: one version for the tree. Then `dist` and
 `install` are one thing, the collision list empties, and the Makefiles
 merge in the same move, keeping the claim as a comment on the Parasol rules
 and a check that no Parasol object is built with a solum include path.
-
-### 7.2 What is left in `parasol/`
-
-The last sub-step of the plan: `parasol/CLAUDE.md` folds into the root's as a
-paragraph, `LICENSE` goes, being the root's byte for byte, and `parasol/` is
-`cmd`, `include`, `src`, as `solas/` is. The root `README.md` table row and
-the memory notes say so. The records are under `docs/parasol/` since this
-entry was written and the pages under `docs/PARASOL*.md` since the morning
-before it, so nothing else of Parasol's is in the way of that move; it waits
-only on being done.
 
 ### 7.3 Grouping `programs/` into kinds
 

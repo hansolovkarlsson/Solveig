@@ -118,7 +118,7 @@ lights, and **Solveig** carries the same star into Norse: *sól* joined to
 | `lib/`    | The library that ships with the language, found on the search path; Parasol's three dialects are here too, since 2026-09-14 |
 | `extensions/` | Bundles built by `make` and loaded only when a host names one -- [net](extensions/net/README.md), UDP sockets, documented in [NET.md](docs/NET.md) |
 | `editors/` | Editor support: [vscode](editors/vscode/README.md), syntax colouring, bracket matching and completion for VS Code, `.sol` and `.psol` alike, installed from the folder |
-| `parasol/`  | **Parasol** -- a second compiler, whose syntax arrives with the file it is compiling and whose output is Solveig source. Built by the one Makefile since 2026-09-14 and a member of the toolkit since 2026-09-15, its pages under `docs/`, its records to that day frozen under `docs/parasol/`, and, until the next release, its own version; [what it is](docs/PARASOL.md) |
+| `parasol/`  | **Parasol** -- a second compiler, whose syntax arrives with the file it is compiling and whose output is Solveig source. Built by the one Makefile since 2026-09-14 and a member of the toolkit since 2026-09-15: `cmd`, `include` and `src` as the other four, its pages under `docs/`, its records to that day frozen under `docs/parasol/`, and, until the next release, its own version; [what it is](docs/PARASOL.md) |
 
 Two more live outside this repository, and outside it on purpose — the front
 page says *no dependencies beyond a C11 compiler and `make`*, and it stays true

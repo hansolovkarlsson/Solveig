@@ -584,7 +584,7 @@ records is *for* and it is also how the day's two mistakes happened.
 
 There was no `scratch/daily-standup.md`. 2026-09-03 had been closed out three
 times and the standup was not among what survived, so the way in was `git log`
-and `docs/` — which is what [CLAUDE.md](../../parasol/CLAUDE.md) says to do, and it worked
+and `docs/` — which is what [CLAUDE.md](../../CLAUDE.md) says to do, and it worked
 for everything except one item.
 
 **The catch-up reported the substrate documentation gap as the next thing to
