@@ -60,6 +60,7 @@ marked as a sketch.
 | Phoenix — a second language whose output Solum uses | **Defer** — the machinery is proven three times over; [the unexplored half](#programs-that-would-press-on-something) is whether a hosted language can publish a *library* rather than a program |
 | A conformance suite for a second implementation | **Built, both halves, on 2026-09-03** — [conformance/](../conformance/README.md), **89 cases** scored on their bytes with both tools taken from `SOL_COMPILE` and `SOL_RUN`, and in `make test`. Three kinds and not two: a refusal is compile-time and a **trap is run-time**, which the scoping had run together — 13 of the 15 demonstrations in `examples/` turn out to be the machine's business, not the front end's. Every answer written from the documentation before it was run. **Two findings, both in the documentation**: a REFERENCE.md paragraph wrong about `onError` in both halves, and a **self-including file that PRODUCING.md filed as a refusal when it is a warning** — it compiles, leaves with 0, and runs. [The scoping](#a-conformance-suite--a-corpus-a-second-implementation-can-score-itself-against) has the shape; what is left is the five 65,535 limits, which are a generator's business |
 | Programs that would press on something — Pascal, predicate logic, a parser toolkit, `tail`, and [which Unix tool next](#which-unix-tool-next-and-what-each-would-press-on--surveyed-2026-08-31) | **Defer, and none needs permission** — each is [predicted to find one thing](#programs-that-would-press-on-something), written down before it is written. **The editor was written**, and found what this page said it would. **So was `sha256sum`, on 2026-08-31**, the first off the Unix survey and the first program here with no I/O in its inner loop: [the prediction held in both halves](#it-was-written-on-2026-08-31-and-the-prediction-held-in-both-halves) and produced the number it was written for — **208 bytecode instructions a byte, 4.3 ns each, 234M a second**. **And `diff` on 2026-09-02**, where [one prediction of four held](#it-was-written-on-2026-09-02-and-one-of-the-four-predictions-held) — the output format, which was the whole difficulty — and the three that did not are more useful than the one that did. **And `gzip -d` on 2026-09-04**, the last of the three the survey named and [the one whose prediction measured the wrong thing](#it-was-written-on-2026-09-04-and-the-prediction-measured-the-wrong-thing): it asked for the cost of a 32 KB window as boxed values, and the window is 4.8% of the program. **And `sort` the same day**, which had been filed among the also-rans and is [promoted to an entry of its own](#sort--filed-below-as-pressing-on-less-and-written-anyway): the gap it was predicted to find was not there, because a write is not the reverse of a read — a producer knows what comes next — and what its merge wanted was the ranged read, already built |
+| An SQLite file, read and then written, as the twenty-third program | **Scoped on 2026-09-15, chosen over a format of our own for the oracle; steps 0 to 2, the corpus and the reader with its indexes, were built the same day and [the reader pressed on nothing](#steps-0-and-1-were-built-the-same-day-and-the-reader-pressed-on-nothing), as predicted**: [the entry](#an-sqlite-file-read-and-then-written-scoped-2026-09-15) predicts the positioned write is wanted at step 4 and not before, that a page as a string or an array of integers is bearable, and that locking, flushing and a truncate are not found at all. Six steps, each held against `sqlite3` and `PRAGMA integrity_check` |
 | Networking, and sending code to a running machine | **The first half is built**, on 2026-08-29 — [extensions/net](../extensions/net/README.md), five messages, and the waiting question answered with a timeout rather than a block; [the second half](#networking-and-sending-code-to-a-machine-that-is-already-running) is untouched and still needs 3.4, 6.32 and a proxy |
 | SQLite, SDL2, GTK | **One project, not three** — [extensions](#extensions-a-capability-from-a-binary-rather-than-from-the-vm); GTK and SDL2 fire that trigger and SQLite does not, and wanting *both* toolkits is what settles the mechanism |
 | A game controller, and more of the sound, in [solveig-sdl](https://github.com/hansolovkarlsson/solveig-sdl) | **Held, with a trigger**, said by Hans on 2026-09-14 after the eleventh game and written where that binding's rule for growing lives: every cabinet had a stick and the arrows stand in for it, and one `beep` has carried twelve games and a tune and would not carry a console's music. Neither is a trigger yet. The famous console games come first, and they are what will ask; the binding grows only when a program wants what it cannot have |
@@ -6066,6 +6067,188 @@ left with 0. That is
 firing on the day the rule was written, in a file written after it — and the
 tell is the note, because in a program that parses something, *not written* and
 *quietly means something else* are the same syntax.
+
+#### An SQLite file, read and then written: scoped 2026-09-15
+
+**The first of the [directions intended](design.md#the-directions-intended-stated-2026-08-31)
+to be reached, and it is reached the way the method says: by a program, not by
+a page.** The design table says what stands in front of a database here: a
+ranged read exists since
+[3.22](COMPLETED.md#322-a-file-is-read-whole-or-not-at-all--done), a file
+identity since
+[6.39](COMPLETED.md#639-a-program-cannot-tell-whether-two-paths-are-the-same-file--done),
+and what is still absent is a **positioned write**, and anything about locking
+or flushing. Nothing has asked for the write. This is the program that would.
+
+**Three kinds were weighed on 2026-09-15, and the choice was made on the
+oracle.** A log-structured store (append, index in memory, compact by rewrite
+and `rename`) presses on nothing absent and answers a question already
+answered. A paged B-tree in a format of our own presses on the write in its
+first hour, but the only thing checking the *file* is a `check` command we
+would write ourselves, and
+[the method](method.md#an-author-written-corpus-tests-what-its-author-thought-of)
+says what that is worth. The same B-tree in **SQLite's file format** presses on
+exactly the same things and is held against `sqlite3`, which is on this
+machine at `/usr/bin/sqlite3` (3.51.0), reads what we write, and has
+`PRAGMA integrity_check` to say whether the tree is well-formed. That is the
+[oracle rule](method.md#hold-it-against-something-somebody-else-wrote) in its
+strongest shape, the one `gzip` had: the oracle produces the inputs, and later
+consumes the outputs, so a disagreement cannot be about what a byte meant.
+**Chosen by Hans the same day, knowing the scope is the larger of the three.**
+
+##### The format, in the amount needed to bound the work
+
+A file is pages of one size, 512 to 65536 bytes, numbered from 1. Page 1
+starts with a **100-byte header**: the magic string, the page size at offset
+16, a change counter at 24, the page count at 28, the freelist head and count
+at 32 and 36, a schema cookie at 40, the text encoding at 56, and at 92 and 96
+the *version-valid-for* number and the writing library's version, which is what
+makes the page count at 28 trustworthy. Page 1 after its header, and most
+other pages, are **B-tree pages**: an 8-byte header (12 on an interior page, the
+extra four being the right-most child), then an array of 2-byte cell pointers
+growing down from the header, then free space, then the cells growing up from
+the end. Four page kinds by the first byte: table leaf `0x0d`, table interior
+`0x05`, index leaf `0x0a`, index interior `0x02`. A table cell carries a
+**varint** rowid and a **record**; an interior table cell carries a child page
+number and a rowid; an index cell carries a record whose last column is the
+rowid. A record is a header of varint serial types followed by the values,
+integers big-endian in 1, 2, 3, 4, 6 or 8 bytes, a REAL as a big-endian
+double, text and blobs by length. Deleted cells leave **freeblocks**, a
+two-byte chain inside the page; freed pages join the **freelist**, whose trunk
+pages list leaves. Table `sqlite_schema` is the tree rooted at page 1, and its
+`sql` column is the `CREATE` text, so a schema is a string the program has to
+write in the spelling `sqlite3` would.
+
+**Payload that does not fit a page spills to overflow pages**, chained by a
+4-byte pointer, with a threshold formula that is the same in every
+implementation because `integrity_check` checks it. This is the one part of
+the format where the scope can be drawn tight or loose, and the plan draws it
+tight: read overflow chains, never write one, and refuse an `INSERT` that
+would need one. That is a limit stated by the program, not a defect.
+
+##### In scope, and out of it
+
+**In**: rowid tables (an `INTEGER PRIMARY KEY` is the rowid and its column is
+stored as NULL, which is the one non-obvious rule of the record format); the
+five storage classes; one or more indexes per table, maintained on every
+insert and delete; `CREATE TABLE`, `CREATE INDEX`, `INSERT` with literal
+values, `DELETE ... WHERE`, and `SELECT` of named columns or `*` with a
+`WHERE` of one comparison, `ORDER BY` one column, and `rowid` as a column;
+splitting a full leaf and adding a level; freeblocks on delete and the
+freelist for pages a delete empties; overflow chains **read only**; the header
+kept as `sqlite3` keeps it, so that a file the program has touched is one
+`sqlite3` will open without complaint. Output in `sqlite3`'s default `list`
+mode, `|` between columns and nothing for NULL, so the two can be compared
+byte for byte.
+
+**Out, and each is a sentence the program's header says**: WAL and the
+rollback journal, so a crash mid-write is a corrupt file and the oracle is run
+only over finished ones; locking, since there is one process; `WITHOUT ROWID`
+tables; autovacuum; collations other than `BINARY`, which is `memcmp` and is
+what `lessThan` on bytes already is; `UPDATE`, which is `DELETE` and `INSERT`
+at the SQL level and adds nothing at the page level; joins, expressions,
+aggregates, `NULL` semantics beyond storage; writing overflow; `VACUUM`;
+shrinking the file, which `sqlite3` also never does without being asked.
+
+##### The steps, and what each is held against
+
+Each step ends with the sweep green before the next begins, the way the
+programs since `sed` have gone.
+
+| step | builds | held against |
+| --- | --- | --- |
+| **0. The corpus** | `programs/<name>/sweep.sh`: a generator that writes SQL scripts from a seed, has `sqlite3` execute them into files, and keeps both. Three rungs as `gzip` has them: author-chosen shapes (an empty table, one row, a page exactly full, a three-level tree, every storage class, negative and nine-byte integers, a text longer than a page), generated schemas and data, and one real file if one is to hand | nothing yet; the corpus is what the rest is held against |
+| **1. The reader, tables** | the header, varints, records, a table B-tree walked leaf to leaf through interior pages, `sqlite_schema` parsed for names and root pages, `SELECT *` and `SELECT cols`, `WHERE rowid = n` by descent | `sqlite3 file 'SELECT ...'` on every corpus file, byte for byte |
+| **2. The reader, indexes and overflow** | index B-trees, `WHERE col = v` through an index when one covers the column and by a scan when not, `ORDER BY` through an index or by sorting, overflow chains followed | the same, over a corpus rung whose rows are longer than a page |
+| **3. The writer, from nothing** | `CREATE TABLE`, `CREATE INDEX`, `INSERT`: pages built in memory and the whole file written with `writeFile`. Leaf split, interior split, a new root | `sqlite3 file 'PRAGMA integrity_check'` says `ok`; then `sqlite3` reads the file and its answers match ours, *and* match the answers over the file `sqlite3` built from the same script |
+| **4. The writer, into a file that exists** | open a file `sqlite3` made and `INSERT` into it: the header's change counter, page count and version-valid-for; the schema cookie when the schema changes; pages appended and pages changed in place. **This is where the positioned write is predicted to be wanted**, and the step is done first with `writeFile` of the whole file so that the cost is measured rather than assumed | `integrity_check`, then `sqlite3` reading what it did not write; a timing table of inserts against file size, whole-file rewrite against the one-page write once it exists |
+| **5. Delete** | `DELETE ... WHERE`: a cell removed and its space a freeblock; coalescing; a page emptied to the freelist, trunk and leaves; an index entry removed with its row | `integrity_check`, whose freelist and freeblock checks are the strictest thing in it; then a script of interleaved inserts and deletes, both sides |
+| **6. The records** | the section of `programs.md`, this entry's outcome under its prediction, the design table's database row updated, and whatever entry the write became | `make test`, and the counts in `programs.md` re-synced |
+
+The whole of SQL that the program parses is smaller than `awk`'s language and
+much smaller than Pascal's, and the tree has written six parsers; the parser
+is not where the time goes. The B-tree writer is, and step 3 is where the plan
+is most likely to be wrong about the size of the work.
+
+##### What it would press on, predicted before writing
+
+| | |
+| --- | --- |
+| **the positioned write** | Not until step 4. Step 3 writes a fresh file whole, and a fresh file is small. The first `INSERT` into a file of a few megabytes is the moment: one changed leaf, one changed interior page, one changed header, and `writeFile` rewrites every page between them. **Predicted shape**: `system:writeFile(path, from, text)`, the mirror of the ranged read, *a range and not a handle* as the read's design sentence says. The measurement that makes it an entry rather than a shrug is the timing table in step 4. |
+| **a byte buffer** | A page under construction is either a string rebuilt at each cell, or an array of integers at sixteen bytes a byte. **Predicted bearable**: a leaf is 4 KB, a split touches three pages, and `gzip` and `sha256sum` have already built binary output from `asCharacter` and `join` at a speed that was not the finding. If it is *not* bearable, the answer is the one the design table already gives for floats: an extension owning the buffer, not a core type. **This is the prediction I am least sure of.** |
+| **a negative integer from eight bytes** | [3.12](ROADMAP.md#312-no-shift-can-produce-a-negative-integer): the top byte of a 64-bit two's-complement value cannot be shifted into place. `lib/sob.sol` already assembles a double from two 32-bit halves for this reason, so the pattern exists; nine-byte varints and eight-byte integers meet it again, in two places. A comment, not an entry. |
+| **`%!.15g`** | `sqlite3` prints a REAL with fifteen significant digits and always a decimal point, and `asString(spec)` has no significant-digits form. `awk.sol` wrote `%g` in the program and the reference says that is where a format belongs; it moves to the library if this is its second customer, which it is. |
+
+##### What it would not find
+
+**Locking and flushing.** One process, and an oracle that runs after the
+program has exited, never wants either. They stay on the design table, and
+this entry does not pretend to have tested them.
+
+**A truncate.** A delete never shrinks an SQLite file; the pages join the
+freelist. What looked like a third missing file operation is not wanted by
+this format at all.
+
+**[3.5](ROADMAP.md#35-recursion-is-limited-to-about-254-levels).** A B-tree
+of 4 KB pages over a million rows is four levels deep. The descent recurses
+four times.
+
+**Float bits.** Serial type 7 is a big-endian IEEE double, and `lib/sob.sol`
+has the encoder and `disasm.sol` the decoder, checked against the C library
+bit for bit. Reused, not rewritten.
+
+**The dispatch cost.** An interpreter for SQL of this size runs a few hundred
+instructions per row, and a page holding dozens of rows is one ranged read of
+30 µs. The reader's time is I/O, and the number to watch is calls to `readFile` per query, which a page
+cache under `--memory` is what bounds.
+
+##### Steps 0 and 1 were built the same day, and the reader pressed on nothing
+
+**As predicted for the reader, and the prediction was cheap.** The findings
+were in the corpus and the oracle rather than in the language, and are in
+[programs.md](programs.md#sqlite-reads-an-sqlite-file-and-the-writer-is-next):
+a REAL column stores whole numbers as integers; an unordered query has as many
+answers as the planner has plans, which cost 39 of 200 generated cases before
+the generator stopped asking; `sqlite3` prints a REAL from an approximate
+expansion and an exact printer disagrees with it one value in ten thousand or
+so, plus everything past 1e130; and the shell escapes control characters. The
+sweep is 852 of 852 over four seeds, the third of which found the program
+reading `-9223372036854775808` as a real, which is a defect in the program and
+a mark for the generator: two seeds and 426 cases had not asked.
+
+**One prediction above is already wrong in its detail.** `%!.15g` did not move
+awk's `%g` into the library as its second customer: awk's divides by a power of
+ten and is near, and fifteen digits is where near shows, so the printer was
+written exact instead, from the mantissa and a small big integer. Two
+implementations of `%g` in two programs, neither reusable by the other, which
+is the trigger rule's count reaching two with no library entry to show for it.
+The right shape, if a third wants one, is the exact one.
+
+**3.12 was met twice and is a comment, as predicted.** Nothing else was.
+Step 2, the index trees, followed the same evening and pressed on nothing
+either: an index cell is a record with the rowid last, an interior index cell
+is an entry in its own right, and the walk is an in-order traversal that
+prunes. Automatic indexes have no SQL in the schema and are left alone, as is
+anything with DESC, COLLATE, an expression or a WHERE.
+
+##### The calls only you can make
+
+1. **The name.** The directory under `programs/` and the section of
+   `programs.md`. `sqlite` says what the file is and overstates what the
+   program is. ~~Provisional until you say: `sqlite`.~~ **`sqlite`, confirmed
+   on 2026-09-15.**
+2. **Where the positioned write lives, if step 4 asks for it.** A third and
+   fourth argument to `writeFile`, mirroring `readFile(path, from, count)`, or
+   a name of its own. Recommended the mirror; it is a language decision and
+   waits for the measurement.
+3. **The byte buffer, if the second prediction fails.** An extension after
+   `net`, or the program lives with arrays and says what it costs. Recommended
+   the second until a number says otherwise.
+4. **Whether step 4 keeps the whole-file rewrite as a fallback** for a machine
+   whose `solvm` predates the write, or drops it the day the write lands.
+   Recommended drop: two paths through the writer is the shape that hides a
+   defect in the one not taken.
+
 
 ### Networking, and sending code to a machine that is already running
 

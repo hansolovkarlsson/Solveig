@@ -1,6 +1,6 @@
 # The programs
 
-*The twenty-two<!--count programs--> files in [programs/](../programs/): what each one does, how to run
+*The twenty-three<!--count programs--> files in [programs/](../programs/): what each one does, how to run
 it, and what it found. [examples/](../examples/) is the other directory — one
 file per concept the [guide](GUIDE.md) names, each written to show a feature.
 These were written to do a job.*
@@ -61,6 +61,7 @@ from them goes under `build/programs/`, never here.
 | [diff](../programs/diff.sol) | the shortest set of changes that turns one file into another | `solvm diff.sob [-u] [-q] old new` |
 | [sort](../programs/sort.sol) | lines in order, spilling to disk when they do not fit | `solvm sort.sob [-rnufbs] [-k F,F] [file...]` |
 | [gzip](../programs/gzip.sol) | inflates a gzip stream back into the bytes it was made from | `solvm gzip.sob [-dcktl] [file...]` |
+| [sqlite](../programs/sqlite.sol) | reads an SQLite database file and answers SELECT over it | `solvm sqlite.sob [file.db] [SQL]` |
 
 Every one runs with no arguments at all, on input it supplies itself. That is
 deliberate — a program you have to feed before it will say anything is a program
@@ -2543,9 +2544,122 @@ merely non-zero, since 124 is what the deadline leaves and it means *did not
 stop*.
 
 
+## sqlite reads an SQLite file, and the writer is next
+
+The file format `sqlite3` writes, read from its description: the header, the
+B-tree pages, varints, records, overflow chains, and `sqlite_schema` parsed for
+the tables. SELECT of named columns, `rowid` or `*`, from one table, with a
+WHERE of one comparison and an ORDER BY, answered in the shell's list mode so
+that the two can be compared to the byte.
+
+```sh
+./bin/solvm programs/sqlite.sob                              # it demonstrates itself
+./bin/solvm programs/sqlite.sob notes.db 'SELECT * FROM t'
+./bin/solvm programs/sqlite.sob notes.db < queries.sql       # a statement per `;`
+```
+
+```
+$ sqlite3 fruit.db "SELECT name, price FROM fruit ORDER BY price, rowid"
+apple|0.25
+apple|0.25
+banana|0.3
+pear|0.5
+fig|2.0
+|1.0e+20
+```
+
+**The twenty-third program here**, the first of the directions
+[design.md](design.md#the-directions-intended-stated-2026-08-31) lists to be
+reached, and the second whose oracle produces every input: `sqlite3` builds
+each database in the corpus from a SQL script, and `sqlite3` says what is in
+it. [programs/sqlite/sweep.sh](../programs/sqlite/sweep.sh) runs thirteen
+chosen shapes and two hundred generated ones a seed; on the day the reader
+landed, four seeds agreed in every case, 852 of 852, after the third seed had
+found one defect, below. The plan it is
+step 1 of is in
+[ideas.md](ideas.md#an-sqlite-file-read-and-then-written-scoped-2026-09-15),
+prediction above outcome; the writer, steps 3 to 5, is where the prediction
+bites and is not yet begun. Step 2 followed the same day: a WHERE on a column
+that is the first column of a plain index walks the index tree, pruning as it
+descends, and fetches each matching rowid from the table. `SQLITE_PAGES=1`
+in the environment reports the pages a run read, which is the number the
+three routes differ in: in `indexes.db`, 1,500 rows over 179 pages of 512
+bytes, a unique key costs 5 pages, a rowid 3, and a key with 215 matches 59
+against the scan's 51, since those rows are on nearly every leaf of the
+table. The index is not always the shorter route, and the answer is the same
+by either.
+
+### What the corpus found before the program had a line
+
+The author rung was checked with a page inspector before anything read it,
+and one of its claims was wrong by one: a 512-byte leaf holds 24 rows of 21
+bytes by arithmetic, and `sqlite3` splits at the 24th and holds 23.
+`page-exactly-full.sql` keeps both shapes and says why. The other shapes it
+claims, three levels, interior index pages, 45 overflow pages, a 37-page
+freelist, the page size spelled `1`, all measured as claimed.
+
+### Four things the oracle knew
+
+**A REAL column stores a whole number as an integer.** `1.0` in a column
+declared REAL is on disk as the integer 1, to save the bytes, and is a real
+again on the way out. So the one place a declared type changes what a record
+says is here, and the reader applies it per column. Found on the first run over
+`reals.sql`, which printed `0`, `1` and `-1` where `0.0`, `1.0` and `-1.0` were
+owed.
+
+**A query with no ORDER BY has as many right answers as the planner has
+plans.** `SELECT c1 FROM t3` with an index on `c1` is a covering-index scan and
+comes out in `c1` order, NULLs first; a table walk comes out in rowid order.
+Neither side was wrong, and 39 of the first 200 generated cases differed on
+it. The generator was asking a question with two answers, so every generated
+query is now `ORDER BY rowid` unless it is ordered by something else, and the
+author case with two indexes over one column says the same.
+
+**`sqlite3` prints a REAL from an approximate decimal expansion.** `%!.15g` is
+fifteen significant digits, and SQLite's own printf rounds half up on digits it
+computes to about twenty places rather than exactly. This program's `fifteen`
+is exact, a small base-10^9 integer multiplied out from the 53-bit mantissa,
+and over 6,000 random doubles the two agreed everywhere but at eight values
+whose exponents were past 130 or below the normal range, and at one value in
+the corpus, `542.5719435317435`, whose exact expansion lies 2e-20 relative
+below a rounding tie. The oracle is approximate there and the program is not,
+and the sweep cannot tell which is which, so the generator now writes reals of
+at most fifteen digits, where the question has one answer; the hard sixteen-
+and seventeen-digit cases are chosen one at a time in `reals.sql`, and agree.
+
+**The shell escapes control characters since 3.47.** A carriage return in a
+blob comes out as `^M` in list mode, which protects a terminal and says nothing
+about the file. The sweep passes `-escape off`, and a blob still stops at its
+first NUL on both sides, since that is `%s`.
+
+**And one defect in the program, on the third seed.** `WHERE c1 =
+-9223372036854775808` on a TEXT column matched three rows for `sqlite3` and
+none here: the parser read the sign as an operator on the digits, the digits
+alone overflow an integer, the fallback made a real, and the real rendered as
+text is `-9.22337203685478e+18`. SQLite reads the sign with the digits and
+gets the minimum integer. Seeds 1 and 2, 426 cases, never produced the value
+in a WHERE; the generator's integer list has had it since the first day.
+
+### What it wanted from the language, so far
+
+Nothing, and that was the prediction for the reader. Two notes rather than
+entries: the ninth byte of a varint and the eighth of an integer meet
+[3.12](ROADMAP.md#312-no-shift-can-produce-a-negative-integer) as disasm.sol
+did, by the same arithmetic; and `sob:f64` takes a float apart the way the
+decimal printer needs but writes into its own buffer and stops short of the
+subnormals, so the twenty lines are written again, which the trigger rule
+counts as a second copy.
+
+Five thousand rows across 187 pages of 512 bytes print in 0.11 seconds against
+`sqlite3`'s 0.006, about 20 microseconds a row; a lookup by rowid through a
+three-level tree reads three pages and takes 4 milliseconds, most of it the
+process starting. Reals are the slow case, since an exact expansion of 1e-300
+is a thousand multiplications by five: 23 of them in 60 milliseconds.
+
+
 ## Adding one
 
-There is no template and there should not be. What the twenty-two<!--count programs--> have in common is
+There is no template and there should not be. What the twenty-three<!--count programs--> have in common is
 only this:
 
 1. **It does a job somebody would want done**, rather than exercising a feature.
