@@ -53,8 +53,8 @@ are not this one:
 
 | | |
 | --- | --- |
-| [`lib/clike.psol`](lib/clike.psol) | the dialect they used, and each thing it cannot do explained where it is declared |
-| [`examples/clike.psol`](examples/clike.psol) | that dialect used: a whole program, header to result, in forty-five lines |
+| [`lib/clike.psol`](../lib/clike.psol) | the dialect they used, and each thing it cannot do explained where it is declared |
+| [`examples/clike.psol`](../examples/clike.psol) | that dialect used: a whole program, header to result, in forty-five lines |
 | [`docs/REFERENCE.md`](docs/REFERENCE.md) | every directive, hole kind and shipped dialect: the page to look things up in |
 
 **Then [Solveig's reference](https://hansolovkarlsson.github.io/Solveig/docs/REFERENCE.html)
@@ -401,7 +401,7 @@ delimited hole has no such problem, and a hole could not have said it was one
 before 0.6.0 gave holes kinds.
 
 `lib/clike.psol` is what this makes possible, and
-[`examples/clike.psol`](examples/clike.psol) is a program that looks like C.
+[`examples/clike.psol`](../examples/clike.psol) is a program that looks like C.
 
 **A word in a pattern is not reserved anywhere else.** A module that never used
 `control.psol` may call a variable `then`, and so may one that did.
@@ -648,11 +648,11 @@ the real compiler, so `make test` runs both examples all the way down to SolVM.
 
 | | |
 | --- | --- |
-| [`examples/vectors.psol`](examples/vectors.psol) | precedence, associativity, a prefix operator, and where a send binds against all of them |
-| [`examples/utf8.psol`](examples/utf8.psol) | `integer:asUtf8` out of Solveig's own `lib/text.sol`, written in operators |
-| [`examples/forms.psol`](examples/forms.psol) | `unless`, `while` and `swap` declared by the module, and hygiene demonstrated by running rather than by assertion |
-| [`examples/dialect.psol`](examples/dialect.psol) | a two-line header, and everything the body reads coming out of `lib/` — with a diamond, read once |
-| [`examples/clike.psol`](examples/clike.psol) | `while (n < #20) { … }`, `if (…) { … } else { … }`, `do { … } while (…)` — C's shape out of `lib/clike.psol`, and a note on the three things it cannot have |
+| [`examples/vectors.psol`](../examples/vectors.psol) | precedence, associativity, a prefix operator, and where a send binds against all of them |
+| [`examples/utf8.psol`](../examples/utf8.psol) | `integer:asUtf8` out of Solveig's own `lib/text.sol`, written in operators |
+| [`examples/forms.psol`](../examples/forms.psol) | `unless`, `while` and `swap` declared by the module, and hygiene demonstrated by running rather than by assertion |
+| [`examples/dialect.psol`](../examples/dialect.psol) | a two-line header, and everything the body reads coming out of `lib/` — with a diamond, read once |
+| [`examples/clike.psol`](../examples/clike.psol) | `while (n < #20) { … }`, `if (…) { … } else { … }`, `do { … } while (…)` — C's shape out of `lib/clike.psol`, and a note on the three things it cannot have |
 
 The second one is the argument, and it is Solveig's argument rather than this
 project's. The note at the top of `lib/text.sol` says the encoder was first

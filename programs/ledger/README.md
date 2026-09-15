@@ -1,7 +1,7 @@
 # A ledger in fixed-point decimal, written in Parasol
 
 **Predictions recorded before the program was written.** That is
-[conventions.md](../../docs/conventions.md)'s rule, and this file is committed
+[conventions.md](../../parasol/docs/conventions.md)'s rule, and this file is committed
 before a line of `ledger.psol` exists so that the ordering is in the history
 rather than in a claim.
 
@@ -9,7 +9,7 @@ rather than in a claim.
 
 The fourth program, and picked to answer two roadmap entries at once.
 
-**[ROADMAP.md](../../docs/ROADMAP.md) wants a second program with a
+**[ROADMAP.md](../../parasol/docs/ROADMAP.md) wants a second program with a
 domain-shaped dialect.** `programs/digest` found that a dialect is right for its
 domain and a trap for the scaffolding beside it — `+` meaning *addition modulo
 2³²* is correct on every line of SHA-256 and wrong on the loop counter under it.
@@ -81,7 +81,7 @@ So folding is worth 5.4% on a program whose dialect is in its inner loop and
 0.19% on one whose dialect is not. **That is a smaller claim than one
 measurement made it look**, and it means the case for folding rests on *a form
 is a method that costs nothing at run time* being true, rather than on the
-number. Which is where [ROADMAP.md](../../docs/ROADMAP.md) had already put it,
+number. Which is where [ROADMAP.md](../../parasol/docs/ROADMAP.md) had already put it,
 for a different reason.
 
 ### 2, restated the way the program actually found it
@@ -131,7 +131,7 @@ integer = "#" [ "-" ] digit { digit }
 
 Parasol implements the first, without the sign, and neither of the other two.
 `#-5` compiles in Solveig and is an error here; `$FF08` and `%1011` are
-integers there and nothing here. [GRAMMAR.md](../../docs/GRAMMAR.md) says
+integers there and nothing here. [GRAMMAR.md](../../parasol/docs/GRAMMAR.md) says
 everything but `operator` is Solveig's own spelling, *so that a file can be read
 by somebody who knows Solveig without a second set of habits* — and for integers
 that is not true.

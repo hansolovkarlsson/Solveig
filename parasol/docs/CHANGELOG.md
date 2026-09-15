@@ -1326,7 +1326,7 @@ nothing but shifts, xors and masks is the one file that cannot use the notation
 at all* — and Parasol has claimed the answer to that in the abstract since
 0.1.0 with nothing to point at.
 
-**What it found**, in full in [its README](../programs/digest/README.md):
+**What it found**, in full in [its README](../../programs/digest/README.md):
 
 - **A dialect can carry a rule rather than a spelling.** Solveig's version needs
   twenty-three `bitAnd`s written by hand because integers trap rather than

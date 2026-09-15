@@ -13,7 +13,7 @@ Everything generated goes under `build/`, as it does for every program here
 since 2026-09-14; `make ember` builds and runs the lot.
 
 **This is not a Parasol feature.** It is a program written in Parasol, and it
-exists for the reason [docs/targets.md](../../docs/targets.md) gives:
+exists for the reason [docs/targets.md](../../parasol/docs/targets.md) gives:
 
 > A code generator is exactly the kind of program that wants a declared
 > notation — instruction patterns, addressing modes, a peephole table. If

@@ -375,19 +375,19 @@ editors/          VS Code colours a .psol file and completes its directives: edi
 
 | example | |
 | --- | --- |
-| [`vectors.psol`](../examples/vectors.psol) | precedence, associativity, a prefix operator, and where a send binds |
-| [`utf8.psol`](../examples/utf8.psol) | Solveig's `integer:asUtf8`, written in operators |
-| [`forms.psol`](../examples/forms.psol) | `unless`, `while` and `swap` declared by the module; hygiene shown by running |
-| [`dialect.psol`](../examples/dialect.psol) | a one-line header, everything else out of `lib/`, with a diamond |
-| [`clike.psol`](../examples/clike.psol) | C's shape, out of `lib/clike.psol` |
+| [`vectors.psol`](../../examples/vectors.psol) | precedence, associativity, a prefix operator, and where a send binds |
+| [`utf8.psol`](../../examples/utf8.psol) | Solveig's `integer:asUtf8`, written in operators |
+| [`forms.psol`](../../examples/forms.psol) | `unless`, `while` and `swap` declared by the module; hygiene shown by running |
+| [`dialect.psol`](../../examples/dialect.psol) | a one-line header, everything else out of `lib/`, with a diamond |
+| [`clike.psol`](../../examples/clike.psol) | C's shape, out of `lib/clike.psol` |
 
 | program | |
 | --- | --- |
-| [`programs/ember`](../programs/ember) | a small language compiled to ARM64 assembly, to a running binary |
-| [`programs/grammar`](../programs/grammar) | a grammar toolkit, and two grammars written over it |
-| [`programs/digest`](../programs/digest) | SHA-256, agreeing with `shasum -a 256` |
-| [`programs/ledger`](../programs/ledger) | a statement in fixed-point decimal, against figures computed elsewhere |
-| [`programs/prose`](../programs/prose) | a document written in its own dialect, rendered to text |
+| [`programs/ember`](../../programs/ember) | a small language compiled to ARM64 assembly, to a running binary |
+| [`programs/grammar`](../../programs/grammar) | a grammar toolkit, and two grammars written over it |
+| [`programs/digest`](../../programs/digest) | SHA-256, agreeing with `shasum -a 256` |
+| [`programs/ledger`](../../programs/ledger) | a statement in fixed-point decimal, against figures computed elsewhere |
+| [`programs/prose`](../../programs/prose) | a document written in its own dialect, rendered to text |
 
 Each program carries predictions recorded **before** it was written and a *What
 it found* section written after. Predictions that were wrong stay in, marked

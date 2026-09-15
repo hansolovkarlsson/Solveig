@@ -1439,7 +1439,7 @@ declarations** — the finding survives and the figures did not.
 ### And a fifth program, for the one thing four had not tested
 
 `does-it-pay.md` ended by asking for a domain that was neither arithmetic nor
-instructions. [`programs/prose`](../programs/prose) is that: a document
+instructions. [`programs/prose`](../../programs/prose) is that: a document
 language, with the document itself written in the dialect. It is also the
 answerable half of a question asked the wrong way round earlier — *can Parasol
 take prose?* Not as its body; but a dialect can be shaped so the document **is**

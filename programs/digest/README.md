@@ -69,7 +69,7 @@ byte-identical to it including the two-space separator. `make test` runs them.
 | | |
 | --- | --- |
 | **1. The formulas transcribe** | **Right, and as dull as predicted.** `t2 := (va >>> #2 ^ va >>> #13 ^ va >>> #22) + (va & vb ^ va & vc ^ vb & vc).` is Σ0(a) + Maj(a,b,c), in the precedences C uses, in a file whose header said so in nine lines. This is the whole of what `@expr` could not do, and it took nine lines to do. |
-| **2. The dialect carries a rule** | **Right, and it is the finding of the program.** Solveig's version writes the mod-2³² discipline by hand; this one does not, because `+` *is* addition modulo 2³². A dialect here is not shorter code, it is code that cannot express the mistake. *Counted properly on 2026-09-02 for [does-it-pay.md](../../docs/does-it-pay.md): Solveig's file has 24 `bitAnd`s in code, of which **18 are `bitAnd(mask)`** and six are real algorithm ANDs; this file has **0** masks and **one** `bitAnd`, which is a byte extract rather than a mask. The figures said "twenty-three" and "none" — near enough to be repeated three times and wrong in both directions.* |
+| **2. The dialect carries a rule** | **Right, and it is the finding of the program.** Solveig's version writes the mod-2³² discipline by hand; this one does not, because `+` *is* addition modulo 2³². A dialect here is not shorter code, it is code that cannot express the mistake. *Counted properly on 2026-09-02 for [does-it-pay.md](../../parasol/docs/does-it-pay.md): Solveig's file has 24 `bitAnd`s in code, of which **18 are `bitAnd(mask)`** and six are real algorithm ANDs; this file has **0** masks and **one** `bitAnd`, which is a byte extract rather than a mask. The figures said "twenty-three" and "none" — near enough to be repeated three times and wrong in both directions.* |
 | **3. A template naming a hole twice evaluates it twice** | **Right, and it cost less than predicted.** `>>>` expands `left` four times, so `w:at(i - #1) >>> #17` fetches from the array four times. The mitigation predicted held — rotations apply to variables, so it is a re-read — but only because it was known while writing. Nothing in the language says so. |
 | **4. Nothing folds a template's constants** | **Right, and it is measurable.** `x >>> #17` expands with `#32:sub(#17)` inside it, evaluated per rotation, 36,864 times in a 4 KB hash. Measured in isolation: **73,728 instructions, exactly 2.00 per rotation.** |
 | **5. A template costs nothing at run time** | **Wrong as stated, and 4 is why.** It costs *less*, not nothing. |
@@ -100,7 +100,7 @@ win, and would make the claim true.
 Folding `#32:sub(#17)` to `#15` means evaluating a send at expand time, and
 `integer:sub` is a slot a Solveig program may assign. An expander that folds is
 an expander that has decided some sends are safe to run — which is a smaller
-version of the question [rules-and-logic.md](../../docs/rules-and-logic.md) asks
+version of the question [rules-and-logic.md](../../parasol/docs/rules-and-logic.md) asks
 about guards, and it deserves the same treatment rather than a quick answer.
 
 ### What nobody predicted
@@ -134,7 +134,7 @@ was nine — the four, plus `*` and `%` declared identically in both, plus `<`, 
 and `==` declared with the same message on a different rung. Since 0.10.0 it is
 seven: `~` and `\/` are no longer collisions at all, arith spelling them `!` and
 `||`. Running the case to check the number is what found
-[POSTMORTEM.md](../../docs/POSTMORTEM.md) 15 — the compiler segfaulted partway
+[POSTMORTEM.md](../../parasol/docs/POSTMORTEM.md) 15 — the compiler segfaulted partway
 through reporting them, and had done since 0.1.0. `sha2.psol` is standalone
 for that reason, which is `lib/clike.psol`'s reason with correctness behind it
 rather than taste.
