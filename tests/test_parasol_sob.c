@@ -7,9 +7,9 @@
  * back. None of that is reachable from inside the library, and a test that
  * faked the fork would be testing the fake.
  *
- * `PARASOL_BIN` names the directory holding parasol, solas and solvm; the
- * Makefile sets it to $(BIN). Absent, `../bin` is assumed, which is where
- * `make` puts them when this directory is Solveig's parasol/. */
+ * The binaries are looked for in `bin/`, which is where `make` puts them when
+ * this runs from the root as the suite does; `PARASOL_BIN` names another
+ * directory. */
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -104,7 +104,7 @@ int main(void)
     snprintf(directory, sizeof directory, "%s", template);
 
     bin = getenv("PARASOL_BIN");
-    if (bin == NULL || bin[0] == '\0') bin = "../bin";
+    if (bin == NULL || bin[0] == '\0') bin = "bin";
     char absolute[512];
     if (bin[0] != '/') {
         char cwd[256];

@@ -105,7 +105,7 @@ was rejected, and what it cost. The diff is in the diff.
 printed `#54` where `#40` was right, compiled clean and failed nothing.
 
 **A new check is run against the unfixed compiler, and `make clean` goes between
-the two builds.** `tests/test_expand.c` opens by saying a check must fail if the
+the two builds.** `tests/test_parasol_expand.c` opens by saying a check must fail if the
 thing it tests is removed; [POSTMORTEM.md](POSTMORTEM.md) 23 is that control
 passing when it should not have. `git stash`, `git checkout` and `git show >`
 all restore a file with its **original timestamp**, which is older than the

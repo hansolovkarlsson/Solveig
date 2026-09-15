@@ -3,6 +3,7 @@
  * On disk rather than in memory, because `@use` is about files: where one is
  * looked for, what happens when two are the same, and what a cycle does. A
  * fixture that faked the filesystem would be testing the fake. */
+#include <dirent.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -303,13 +304,19 @@ int main(void)
 
     printf("%d checks, %d failed\n", checks, failures);
 
-    const char *files[] = { "arith.psol", "control.psol", "more.psol", "other.psol",
-                            "code.psol", "hold.psol", "x.psol", "y.psol",
-                            "top.psol", "base.psol", "p11.psol",
-                            "p1.psol", "p2.psol", "p3.psol", "p4.psol", "p5.psol",
-                            "p6.psol", "p7.psol", "p8.psol", "p9.psol", "p10.psol" };
-    for (size_t i = 0; i < sizeof files / sizeof *files; i++)
-        remove_file(files[i]);
+    /* Everything in the directory, read from the directory rather than from a
+       list here. The list this used to be missed seven files -- the cycle and
+       collision cases were added and it was not -- so `rmdir` failed quietly
+       and fifty-five of these directories were found in /tmp on 2026-09-14.
+       A hand-kept list of what a test wrote is the same stale list as any
+       other. */
+    DIR *listing = opendir(directory);
+    if (listing != NULL) {
+        struct dirent *entry;
+        while ((entry = readdir(listing)) != NULL)
+            if (entry->d_name[0] != '.') remove_file(entry->d_name);
+        closedir(listing);
+    }
     rmdir(directory);
 
     return failures == 0 ? 0 : 1;

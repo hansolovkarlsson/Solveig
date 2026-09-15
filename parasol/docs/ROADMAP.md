@@ -130,7 +130,19 @@ and be written once.
    these link `libparasol.a`, so either every test links both, which is
    harmless and simplest, or the five keep a prefix or a subdirectory. A
    pure move with no checker involvement, which is why it is third and not
-   fifth.
+   fifth. **Done, 2026-09-14, the same evening.** Both halves of the
+   decision, as it turned out: every test links both libraries under the
+   one rule, *and* the five carry the prefix, `tests/test_parasol_reader.c`
+   and so on, because a `test_map` or a `test_use` among forty Solveig
+   tests would say nothing about whose map or whose `@use`. The rule
+   linking both is not a hole in the boundary, which is about what
+   `parasol/` is built from; a test is a check on it. The Parasol
+   documents had already been naming `parasol/src/emit.c` relative to
+   their own directory, and from the root those paths are simply true
+   now. One defect found on the way and fixed: `test_use` removed the
+   files it wrote from a hand-kept list that was seven short, so `rmdir`
+   failed quietly and fifty-five of its directories were in `/tmp`; it
+   reads the directory now.
 4. **Examples, library and programs.** `parasol/examples/*.psol` to
    `examples/` and `parasol/lib/*.psol` to `lib/`, no names colliding; the
    root `.gitignore` learns `*.sol.map` and ember's `*.s` and `*.out` (a

@@ -350,14 +350,19 @@ the module is made of, not just the one on the command line.
 Descriptions of what each thing *found* live with the thing. This is only the
 map.
 
+Paths from Solveig's root. Since 2026-09-14 the compiler's C is laid out as
+`solas/`, `solid/` and the others are, and its tests are beside theirs.
+
 ```
-parasol/          the compiler          lex, reader, dialect, tree, expand, emit
-lib/            dialect files         arith.psol, control.psol, clike.psol
-examples/       five, run by `make test`
-programs/       five real programs, each with its own README
-tests/          test_reader, test_expand, test_map, test_use, test_sob
-docs/           the documents below
-../editors/     VS Code colours a .psol file and completes its directives: editors/vscode/README.md
+parasol/cmd/      main.c, the command line
+parasol/include/  the public headers, under parasol/
+parasol/src/      the compiler          lex, reader, dialect, tree, expand, emit
+parasol/lib/      dialect files         arith.psol, control.psol, clike.psol
+parasol/examples/ five, run by `make test`
+parasol/programs/ seven real programs, each with its own README
+tests/            test_parasol_reader, _expand, _map, _use, _sob, among Solveig's
+parasol/docs/     the documents below
+editors/          VS Code colours a .psol file and completes its directives: editors/vscode/README.md
 ```
 
 | example | |

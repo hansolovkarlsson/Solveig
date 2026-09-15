@@ -197,13 +197,10 @@ FORCE:
 # first pattern rule that matches, and 4.x the one with the shortest stem, and
 # this order satisfies both. So the generic rule, with its solum include path,
 # never sees a Parasol source.
-PARASOL_INCLUDES = -Iparasol/parasol/include
-PARASOL_SRCS     = $(wildcard parasol/parasol/src/*.c)
+PARASOL_INCLUDES = -Iparasol/include
+PARASOL_SRCS     = $(wildcard parasol/src/*.c)
 PARASOL_OBJS     = $(PARASOL_SRCS:parasol/%.c=$(BUILD)/parasol/%.o)
 PARASOL_LIB      = $(BUILD)/libparasol.a
-
-PARASOL_TEST_SRCS = $(wildcard parasol/tests/*.c)
-PARASOL_TEST_BINS = $(PARASOL_TEST_SRCS:parasol/tests/%.c=$(BUILD)/parasol/tests/%)
 
 # What `test` runs against the linked binary. On macOS the symbols carry a
 # leading underscore and on ELF they do not; `parasol_` contains `sol_` and is
@@ -212,7 +209,7 @@ PARASOL_TEST_BINS = $(PARASOL_TEST_SRCS:parasol/tests/%.c=$(BUILD)/parasol/tests
 PARASOL_BOUNDARY = if nm -g $(BIN)/parasol | grep -Eq ' _?sol_'; then \
                        echo "bin/parasol exports a sol_ symbol -- it has linked Solveig"; exit 1; fi
 
-$(BIN)/parasol: parasol/parasol/cmd/main.c $(PARASOL_LIB)
+$(BIN)/parasol: parasol/cmd/main.c $(PARASOL_LIB)
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) $(SANITIZE) $(STANDARD) $(PARASOL_INCLUDES) $< $(PARASOL_LIB) -o $@
 
@@ -224,10 +221,10 @@ $(BUILD)/parasol/%.o: parasol/%.c
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) $(SANITIZE) $(STANDARD) $(PARASOL_INCLUDES) -MMD -MP -c $< -o $@
 
-$(BUILD)/parasol/tests/%: parasol/tests/%.c $(PARASOL_LIB)
-	@mkdir -p $(@D)
-	$(CC) $(CFLAGS) $(SANITIZE) $(STANDARD) $(PARASOL_INCLUDES) $< $(PARASOL_LIB) -o $@
-
+# Parasol's tests are tests/test_parasol_*.c, beside the others since
+# 2026-09-14 and built by the same rule, which links both libraries into every
+# test. That is not a hole in the claim above: the claim is about what
+# parasol/ is built from, and a test is a check on it, not a part of it.
 # The dialect files the examples reach with @use. Listed so that changing one
 # rebuilds every example, which a per-example dependency could not do without
 # reading the headers to find out which uses what.
@@ -241,7 +238,7 @@ PARASOL_EXAMPLE_SOBS = $(PARASOL_EXAMPLE_SRCS:.psol=.sob)
 # is the thing that is never there when it is wanted. And the two steps are
 # done here rather than by `parasol --sob`, so that the suite goes on checking
 # the pipeline a Makefile writes and not only the one the driver drives;
-# parasol/tests/test_sob.c checks the driver.
+# tests/test_parasol_sob.c checks the driver.
 parasol/examples/%.sol: parasol/examples/%.psol $(DIALECTS) $(BIN)/parasol
 	@$(BIN)/parasol --map $< -o $@
 
@@ -417,10 +414,10 @@ $(BUILD)/%.o: %.c $(CONFIG)
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) $(SANITIZE) $(STANDARD) $(VISIBILITY) $(INCLUDES) -MMD -MP -c $< -o $@
 
-$(BUILD)/tests/%: tests/%.c $(LIB) | $(CONFIG)
+$(BUILD)/tests/%: tests/%.c $(LIB) $(PARASOL_LIB) | $(CONFIG)
 	@mkdir -p $(@D)
-	$(CC) $(CFLAGS) $(SANITIZE) $(STANDARD) $(VISIBILITY) $(INCLUDES) $(EXPORT) \
-	    $< $(WHOLE_LIB) -o $@ $(LDLIBS)
+	$(CC) $(CFLAGS) $(SANITIZE) $(STANDARD) $(VISIBILITY) $(INCLUDES) $(PARASOL_INCLUDES) $(EXPORT) \
+	    $< $(WHOLE_LIB) $(PARASOL_LIB) -o $@ $(LDLIBS)
 
 # The one test that needs threads. Nothing else links anything, and the point of
 # keeping it to one target is that a build without pthreads still gets the rest.
@@ -523,10 +520,9 @@ comparisons/%.sob: comparisons/%.sol $(BIN)/solas
 # all the way down to a .sob that SolVM executes: a front end that emits text
 # can be wrong in a way no unit test sees -- valid-looking Solveig that Solveig
 # rejects, or accepts and reads differently -- and the only witness is the real
-# compiler. PARASOL_BIN is for parasol/tests/test_sob.c, which runs the
-# binaries rather than linking the library and has to be told where they are.
+# compiler. The unit tests are among the others, as tests/test_parasol_*.
 test: $(BINARIES) $(TEST_BINS) $(EXAMPLE_SOBS) $(COMPARISON_SOBS) $(EXT_PROBE) $(EXTENSIONS) \
-      $(PARASOL_TEST_BINS) $(PARASOL_EXAMPLE_SOBS) $(EMBER_BINS) $(GRAMMAR_SOBS) \
+      $(PARASOL_EXAMPLE_SOBS) $(EMBER_BINS) $(GRAMMAR_SOBS) \
       $(DIGEST)/sha256.sob $(LEDGER)/ledger.sob $(PROSE)/note.sob \
       $(BASIC)/basic.sob $(BIGNUM)/calc.sob
 	@echo "-- conformance"
@@ -534,7 +530,6 @@ test: $(BINARIES) $(TEST_BINS) $(EXAMPLE_SOBS) $(COMPARISON_SOBS) $(EXT_PROBE) $
 	@for t in $(TEST_BINS); do echo "-- $$t"; $$t || exit 1; done
 	@echo "-- parasol"
 	@$(PARASOL_BOUNDARY)
-	@for t in $(PARASOL_TEST_BINS); do echo "-- $$t"; PARASOL_BIN=$(BIN) $$t || exit 1; done
 	@for e in $(PARASOL_EXAMPLE_SOBS); do echo "-- $$e"; \
 	    $(BIN)/solvm $$e > /dev/null || exit 1; done
 	@for b in $(EMBER_BINS); do echo "-- $$b"; \

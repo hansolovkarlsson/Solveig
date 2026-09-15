@@ -157,7 +157,7 @@ harder than anything else here.** A language whose syntax is declared per module
 has one characteristic way of failing: somebody writes one thing, is shown an
 error about another, and cannot get from the second back to the first. Every
 macro system that became unusable became unusable that way. The map and the
-diagnostics are the two things standing in front of it, so `tests/test_map.c`
+diagnostics are the two things standing in front of it, so `tests/test_parasol_map.c`
 checks that a column in the generated file names the token in the `.psol` that
 put it there — including a column *inside* a token, which is what a number off a
 stack trace actually is.
