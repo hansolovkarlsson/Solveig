@@ -15,7 +15,9 @@ documents named below are the way in.
 
 A compiler whose syntax arrives with the file it is compiling: a module
 declares its own grammar in its header, and that grammar holds for that file
-and no other. The output is Solveig source, which `solas` turns into bytecode.
+and no other. The output is Solveig source, which `solas` turns into bytecode;
+`parasol --sob` runs that `solas` for you and does not link it. Nothing under
+`parasol/` includes a Solveig header, and that is the arrangement being tested.
 
 ## Commands
 

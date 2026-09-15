@@ -51,6 +51,31 @@ What would have to be true: one version for the tree. Then `dist` and
 merge in the same move, keeping the claim as a comment on the Parasol rules
 and a check that no Parasol object is built with a solum include path.
 
+**A member of the toolkit, not a guest.** Hans's direction on 2026-09-14,
+said while asking for `--sob` and held apart from it: that Parasol should in
+time be a permanent member of Solveig's tools rather than an experiment
+lodged in its tree. Concretely, its C source laid out as `solas/`, `solid/`
+and the others are, `parasol/{cmd,include,src}` at the root instead of
+`parasol/parasol/`; its documents, Makefile, examples, library and tests
+folded into the tree's own, or as near to it as their jobs allow; one way to
+build and to test and to install, so that working on Parasol feels like
+working on the other four and using it feels like using them. The point is
+as much the feeling as the layout: *not some outside experiment any more*,
+in his words. **Not now**, and `--sob` was built so as not to depend on it,
+which is why it runs `solas` and does not link it. The entry above is this
+one's first step and its gate: the version question decides `dist` and
+`install`, and those decide the Makefile, and the Makefile decides where the
+sources can sit. What would have to be decided on the way, in the order they
+bite: one version for the tree or two; whether `docs/programs.md`'s counts
+take Parasol's documents in or keep them out, since a `docs/` file is
+counted and `parasol/docs/` is not; what the `no dependencies` sentence on
+Solveig's front page says once the compiler that emits its source is in the
+same `make`; and whether the Makefile's first sentence, *the build needs no
+Solveig*, survives as a check on a merged build, since it is the sentence
+the experiment stands on and the move would be the moment it is easiest to
+lose. What would fire it: the version decided, or a third contributor
+finding the directory before finding the tools.
+
 **A logical xor still has no spelling, and now needs one less.** For booleans,
 xor *is* not-equals, and the argument for `^^` was that a module using
 `lib/arith.psol` had no way to write one at all. It has `!=` since 2026-09-02, so
@@ -384,7 +409,12 @@ and Solum's instruction set, and reimplement what Solas already does. The one
 thing it would buy — errors from Solas landing on Parasol source — the map buys
 instead. [targets.md](targets.md) works the question through, including what a
 native back end would actually cost and why a program *written in* Parasol can
-already emit anything it likes.
+already emit anything it likes. **`--sob`, since 2026-09-14, is not this**: it
+runs `solas` on the `.sol` it wrote and owns nothing of the format. The
+smaller cousin, linking `libsol.a` and calling `sol_compile_options` on the
+emitted text, was scoped the same day and put aside, not because it is large
+(forty lines) but because it would make the Makefile's first sentence false;
+[COMPLETED.md](COMPLETED.md) 19 has the two side by side.
 
 **`@expr`.** Solveig's fixed infix region is the special case of what `@infix`
 generalises. Supporting both would be supporting two. Solveig drew its side of

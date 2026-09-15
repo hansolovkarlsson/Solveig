@@ -17,21 +17,40 @@ parasol [options] <file.psol>
 
 | | |
 | --- | --- |
-| `-o <file>` | where to write it; the default is the source name with `.sol` for `.psol` |
-| `-I <dir>` | where a `@use` falls back to; repeatable, first wins |
+| `-o <file>` | where to write it; the default is the source name with `.sol` for `.psol`, or `.sob` with `--sob` |
+| `-I <dir>` | where a `@use` falls back to; repeatable, first wins. With `--sob`, handed to `solas` as well, for `@include` |
+| `--sob` | run `solas` on the generated source, the one beside this binary or else the one on PATH; the `.sol` is kept beside the `.sob`, and `@expr` is never turned on |
+| `--dump` | with `--sob`, have `solas` disassemble the chunk as well; alone, a usage error |
 | `--map` | write the source map beside the output, as `<output>.map` |
-| `--tree` | print the expanded tree and stop, writing nothing |
+| `--tree` | print the expanded tree and stop, writing nothing, whatever else was asked |
 | `--version` | show the version and stop |
 | `--help`, `-h` | show usage and stop |
 
 One file at a time. Exit 0 on success, 64 on a usage error, 65 on a source
-error.
+error. With `--sob`, a Parasol error is still 65 and writes nothing; once the
+`.sol` is written the status is `solas`'s own, 127 when no `solas` could be
+run, and the `.sol` stays where the map can be read against it.
 
 ```sh
 parasol --map examples/vectors.psol     # -> examples/vectors.sol + .sol.map
 solas examples/vectors.sol -o examples/vectors.sob
 solvm examples/vectors.sob
 ```
+
+or, the first two lines as one:
+
+```sh
+parasol --sob --map examples/vectors.psol   # -> .sol, .sol.map and .sob
+```
+
+**With `--sob`, `-o` names the `.sob`**, and the `.sol` goes beside it with the
+extension swapped rather than beside the source: `-o build/v.sob` writes
+`build/v.sol`, `build/v.sob` and, with `--map`, `build/v.sol.map`. The pair is
+the output and the map points into the `.sol`, so the three stay together.
+Which `solas`: the one in the directory `argv[0]` names, when it names one and
+a `solas` is there, which is every `bin/` this repository makes; otherwise
+`execvp`'s, off PATH. `PARASOL_PATH` is not handed on, being about `@use`;
+`SOLUM_PATH` is `solas`'s to read, and it does.
 
 ### make
 
@@ -331,7 +350,7 @@ parasol/          the compiler          lex, reader, dialect, tree, expand, emit
 lib/            dialect files         arith.psol, control.psol, clike.psol
 examples/       five, run by `make test`
 programs/       five real programs, each with its own README
-tests/          test_reader, test_expand, test_map, test_use
+tests/          test_reader, test_expand, test_map, test_use, test_sob
 docs/           the documents below
 ../editors/     VS Code colours a .psol file and completes its directives: editors/vscode/README.md
 ```

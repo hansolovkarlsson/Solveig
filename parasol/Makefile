@@ -25,6 +25,12 @@
 # through the binaries under $(SOLVEIG)/bin, reading four and writing one,
 # and only from `run`, `examples` and `test`, which hand them a file. The
 # journal has the reasons for both the original placement and the move.
+#
+# Since 2026-09-14 `parasol --sob` reaches Solveig the same way from inside
+# the binary: it writes the .sol and runs the solas beside it. The rules below
+# still do the two steps themselves, so that the suite goes on checking the
+# pipeline a Makefile writes and not only the one parasol drives;
+# tests/test_sob.c checks the driver.
 
 SOLVEIG ?= ..
 
@@ -200,10 +206,13 @@ run: examples/vectors.sob
 # that SolVM executes. A front end that emits text can be wrong in a way no unit
 # test sees -- valid-looking Solveig that Solveig rejects, or accepts and reads
 # differently -- and the only witness to that is the real compiler.
+#
+# PARASOL_BIN is for tests/test_sob.c, which runs the binaries rather than
+# linking the library and has to be told where they are.
 test: $(BIN)/parasol $(TEST_BINS) $(EXAMPLE_SOBS) $(EMBER_BINS) $(GRAMMAR_SOBS) \
       $(DIGEST)/sha256.sob $(LEDGER)/ledger.sob $(PROSE)/note.sob \
-      $(BASIC)/basic.sob $(BIGNUM)/calc.sob
-	@for t in $(TEST_BINS); do echo "-- $$t"; $$t || exit 1; done
+      $(BASIC)/basic.sob $(BIGNUM)/calc.sob | check
+	@for t in $(TEST_BINS); do echo "-- $$t"; PARASOL_BIN=$(BIN) $$t || exit 1; done
 	@for e in $(EXAMPLE_SOBS); do echo "-- $$e"; \
 	    $(SOLVEIG)/bin/solvm $$e > /dev/null || exit 1; done
 	@for b in $(EMBER_BINS); do echo "-- $$b"; \

@@ -604,6 +604,70 @@ the same shape 13 reported; the suite here and Solveig's green before and
 after; the editor's own test green over 24 `.psol` files. The records of
 2026-09-01 keep the old name, on purpose, and the changelog entry says why.
 
+## 19. `--sob`: solas run, not linked — done, no version, 2026-09-14
+
+*Not a roadmap item. Hans asked whether Parasol could write a `.sob`
+directly, with `solas`'s options, so that it can stand as a compiler on its
+own rather than the front half of one; the case was put and the shape chosen
+the same morning, and this is the case.*
+
+**The problem.** From a `.psol` to something `solvm` runs is two commands
+and two tools, and the second command is the same every time: `solas` on the
+file the first one wrote, with the same `-I` list. A compiler whose output
+needs another compiler run by hand is a compiler with a manual step in it.
+Hans's framing was that Parasol should be able to act as an advanced `solas`,
+taking `-o`, `-I` and `--dump`, with `--expr` off by construction since a
+`.psol` has no use for it, and outputting `.sol` or `.sob` as asked. Not a
+replacement for `solas`; a different tool that ends where `solas` ends.
+
+**The options.** Two, and both are small.
+
+| | | |
+| --- | --- | --- |
+| **Link `libsol.a`** and call `sol_compile_options(text, path, &search, NULL, &chunk)` on the emitted string, then `sol_chunk_save` | forty lines in `main.c`, no fork, the chunk in hand for `--dump` | the Makefile gains `../build/libsol.a` and two solum include paths; the Makefile's first sentence, `main.c`'s header, `CLAUDE.md` and the root Makefile's note on how `parasol/` reaches the tree all become false; the `.sob` format is frozen at build time; `solas`'s diagnostics go to stderr from inside the process, so re-saying them in `.psol` lines would mean changing Solas |
+| **Run `solas`**, the one beside this binary or else PATH's, with `-o`, each `-I` and `--dump` handed through | the coupling stays a file format and a command line, which is the sentence the experiment stands on; the `.sol` still lands, which `@include` from a second module and the map both need; the version handshake can be a run-time question; `solas` speaks on a pipe Parasol holds, so its lines can one day be mapped back without Solas hearing of it | a fork; a second binary to find; a `.sob` the driver did not make and cannot inspect |
+
+**Why this shape.** The second, on Hans's decision after the two were put
+side by side, and for the reason the third column of the first row gives: it
+is not that linking is hard, it is that it would have to rewrite four
+statements of what this project is in order to save a `fork`. He also said
+where this is going, that Parasol should in time be a member of the toolkit
+with its sources laid out as the others' are (ROADMAP.md, *A member of the
+toolkit*), and that the driver should work either way. It does: a `--sob`
+that runs `solas` is the same `--sob` whether `parasol/` is beside `solas/`
+or inside its own directory, and whether the two share a Makefile or not.
+
+**What was decided on the way.** One `-I` list for both compilers, because
+in every program so far the dialect and the generated library sit in one
+directory (`programs/bignum` is the case, `calc` reaching `bignum.sol` by
+`@include` from where `bignum.psol` is); a second flag is a customer away.
+With `--sob`, `-o` names the `.sob` and the `.sol` goes beside *it*, not
+beside the source: the pair is the output, and the map points into the
+`.sol`, so the three stay together. `--dump` alone is a usage error rather
+than a silent nothing, since it is `solas`'s flag and there is no `solas`
+without `--sob`. `--tree` wins over everything, as before. Which `solas`:
+the one in `argv[0]`'s directory when there is one there, which every `bin/`
+this repository makes; otherwise `execvp`'s. `PARASOL_PATH` is not handed
+on, being about `@use`; `SOLUM_PATH` is `solas`'s to read.
+
+**What checks it.** `tests/test_sob.c`, the first file here that runs the
+binary rather than linking the library, because everything `--sob` does is
+at a process boundary: 27 checks, of which the one that matters is that the
+`.sob` the driver writes is byte for byte the one `solas` writes on the same
+`.sol`. Run against the driver-less compiler from a clean build, as
+[conventions.md](conventions.md) asks, 21 of the 27 failed and the six that
+passed were the ones that say a file is *absent*. The Makefile's own rules
+still do the two steps themselves, so the suite goes on checking the pipeline
+a Makefile writes and not only the one the driver drives.
+
+**What it did not do.** Bump the version. The roadmap's first open entry
+says the next Parasol release is what forces the one-version-or-two
+question, and a `0.18.0` from here would have answered it by the back door;
+the entry is dated instead. And the diagnostics are not mapped back yet: the
+pipe is held, and nothing reads it. That is a customer away too, the
+customer being somebody who hits a Solas error in generated code and reaches
+for the map by hand more than once.
+
 ## Settled by a customer rather than by argument
 
 | | |

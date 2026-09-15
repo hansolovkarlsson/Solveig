@@ -80,7 +80,10 @@ solvm cbasic.sob myprogram.bas > myprogram.s
 cc myprogram.s -o a.out
 ```
 
-Every step of that works now.
+Every step of that works now, and since 2026-09-14 the first line is also
+`parasol --sob cbasic.psol`, which runs the same `solas` rather than replacing
+it. That is the whole of what Parasol does about bytecode, and the reason it
+is no more is the paragraph above.
 
 ## Where this grows, if it grows
 

@@ -21,6 +21,11 @@ make                                      # from Solveig's root builds this too
 ../bin/solvm examples/vectors.sob
 ```
 
+Or the middle two as one, `../bin/parasol --sob --map examples/vectors.psol`,
+which writes the `.sol` and then runs the `solas` beside it. Same three files;
+see *What Parasol is allowed to know about Solveig* for why that is a
+convenience and not a merger.
+
 The three lines of header are the whole of that module's grammar. `*` binds
 tighter than `+` because this file said 70 against 60, and nothing anywhere else
 knows or cares. A second module in the same program may declare `+` to mean
@@ -101,6 +106,19 @@ It is source text instead:
 
 The cost of the first is that the file `solas` reports an error in is not the
 file anybody wrote. That is paid for once, by the map.
+
+**`--sob` is the first row, driven.** Since 2026-09-14 `parasol --sob` writes the
+`.sol` and then *runs* `solas` on it, the one beside its own binary or else the
+one on PATH, handing through `-o`, every `-I` and `--dump`, and never `--expr`.
+One command from `.psol` to `.sob`, and the coupling is what it was: a file
+format and a command line, with Parasol now the one typing the command. The
+other way to get the same command, linking `libsol.a` and calling
+`sol_compile_options` on the emitted text, is forty lines and was put aside on
+2026-09-14 because it would have made the sentence above the table false, and
+that sentence is the experiment. What the driver gets that a link could not is
+also worth having: `solas` speaks on a pipe Parasol holds, so its diagnostics
+could one day be read against the map and re-said in `.psol` lines, without
+Solas hearing of it.
 
 **What a program written in Parasol emits is a different question**, and not one
 Parasol has an opinion about — a compiler written here can write machine code,
@@ -598,10 +616,10 @@ make test       # the unit tests, and every example run through solas and solvm
 make run        # examples/vectors.psol, compiled and executed
 ```
 
-**The build needs no Solveig.** `make test`, `make run` and `make examples` do,
-because they hand it a file. Parasol lives in Solveig's tree as `parasol/`, so
-`SOLVEIG` defaults to `..` and the parent's `make` and `make test` cover this
-directory; run here on its own, the Makefile says what is missing rather than
+**The build needs no Solveig.** `make test`, `make run`, `make examples` and
+`parasol --sob` do, because each hands it a file. Parasol lives in Solveig's
+tree as `parasol/`, so `SOLVEIG` defaults to `..` and the parent's `make` and
+`make test` cover this directory; run here on its own, the Makefile says what is missing rather than
 letting `solas` fail with a shell error:
 
 ```
