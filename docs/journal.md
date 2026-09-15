@@ -55,6 +55,20 @@ behind on every run since its cleanup list fell seven files behind what
 the test writes, fifty-five of them in `/tmp` by the evening. It reads the
 directory now.
 
+**Step 4 moved the files that are read by this side's checker, and that is
+where its one decision came from.** The plan had said a naming rule would
+keep a generated `.sol` apart from a hand-written one in `examples/`. It
+would not have kept it apart from `expect.sol`, which reads every
+`examples/*.sol` as a file of claims and would have run a generated
+`vectors.sol` and counted its `; #14` comments as documentation. So what
+`parasol` generates goes under `build/`, all of it, and the trap is gone
+rather than labelled. `basic` is `minibasic`, Hans's name, beside
+`basic.sol` and the NBS corpus that were here first. `programs.md` says
+the seven directories are there and are not counted, two links the
+checker now verifies. `parasol` looks in `bin/../lib` for a dialect as
+`solas` does for the library, with `PARASOL_LIB_DIR` written into the same
+`config.h` from the same `PREFIX`.
+
 ## 2026-09-14, five to six: the camera moves in
 
 **Hans said build**, and the engine took the reading of twelve's three

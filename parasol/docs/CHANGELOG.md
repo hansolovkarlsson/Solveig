@@ -10,6 +10,34 @@ piece of work as it was argued *before* the work is in
 
 ---
 
+### The examples, the dialects and the programs beside Solveig's — `ed3876f`, 2026-09-14
+
+**No version, and step 4 of the roadmap's plan.** `examples/*.psol` beside
+Solveig's `.sol` examples, `lib/*.psol` beside its library, and the seven
+programs as directories under `programs/`: `ember`, `grammar`, `digest`,
+`ledger`, `prose`, `bignum`, and **`minibasic`, which was `basic`** and
+collided with SolaBasic's `basic.sol` and its corpus `basic/`; Hans chose
+the name, and the files inside are renamed with the directory. Every
+`@use "../../lib/..."` kept its shape and its meaning.
+
+**Everything `parasol` generates goes under `build/`**: `build/examples/`,
+`build/programs/<name>/`, the `.sol`, its map and the `.sob` together, and
+`make clean` is `rm -rf build`. Not beside the source, for a reason found on
+the way that decided it alone: `programs/expect.sol` reads every
+`examples/*.sol` as a file of claims, and a generated one, whose `; #14`
+comments are that syntax exactly, would have been counted and checked as
+documentation. `parasol/.gitignore` is gone. The Makefile has one generic
+pair of rules for the programs, with each program's `@use`d siblings added
+as prerequisites without a recipe.
+
+**`parasol` looks beside its own binary.** `parasol_unit_add_defaults`: after
+`-I`, `PARASOL_PATH`, then `bin/../lib`, then `PARASOL_LIB_DIR`, which the
+Makefile writes into the generated `config.h` beside `SOL_LIB_DIR` from the
+one `PREFIX`, so `@use "arith.psol"` works from anywhere in a checkout or an
+install, and `make install` no longer asks for an export. The order and the
+reason are `solas`'s: a checkout beats an install so that testing a change
+cannot read the old library. The *cannot find* note names the fourth place.
+
 ### The C laid out as the other tools' — `a9f299c`, 2026-09-14
 
 **No version, and step 3 of the roadmap's plan.** `parasol/parasol/{cmd,

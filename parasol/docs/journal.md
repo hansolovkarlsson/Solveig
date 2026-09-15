@@ -161,6 +161,40 @@ directory now. A hand-kept list of what a test wrote is the same stale
 list as every other hand-kept list in this project, and the conventions
 already say so about text replacements.
 
+### Step 4: beside Solveig's, and what is generated goes under build/
+
+The examples to `examples/`, the dialects to `lib/`, the programs to
+`programs/`; every `@use "../../lib/control.psol"` kept its shape because
+the directories kept theirs relative to each other. The one name that
+collided was `basic`, against SolaBasic's `basic.sol` and its NBS corpus
+`basic/`, which were there first and are linked from everywhere; three
+names were put and Hans took `minibasic`, which says what the program is:
+line numbers and ten statements, and not the historic Tiny BASIC either.
+
+**The trap the plan named was removed rather than labelled.** The scoping
+had reached for a naming rule so that a generated `.sol` beside a
+hand-written one could be told apart by an ignore pattern. Looking at what
+`examples/` would then hold settled it another way: `programs/expect.sol`
+reads every `examples/*.sol` as a file of claims and runs it, and a
+generated `vectors.sol`, whose `; #14` comments are that syntax exactly,
+would have been counted, checked, and reported as documentation. So
+nothing `parasol` generates lands beside a source. `build/examples/` and
+`build/programs/<name>/` hold the `.sol`, the map and the `.sob` together,
+which is also where bignum's `@include "bignum.sol"` looks first, and
+`clean` is `rm -rf build` again. `parasol/.gitignore` went: there was
+nothing left for it to ignore.
+
+**And `parasol` finds its dialects the way `solas` finds its library.**
+`bin/../lib` after `PARASOL_PATH`, then `PARASOL_LIB_DIR` from the
+generated `config.h`, which is the Makefile's file and not Solveig's, so
+the section's claim holds and the `nm` check still passes. A `@use
+"arith.psol"` from a scratch directory compiled and ran through `--sob`;
+a *copy* of the binary in that directory, with no `lib/` beside it and
+nothing installed, failed with the *cannot find* note, which now names the
+fourth place it looked. The editor's `test.py`, which is not in `make
+test`, had the old example path in two lines and was run by hand: 81
+cases, 24 headers, 0 problems.
+
 ## 2026-09-13: a program written to find a boundary, and the boundary was not there
 
 **Hans asked what was outstanding, then for a program to write, then for the

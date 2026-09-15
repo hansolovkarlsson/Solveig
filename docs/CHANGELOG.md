@@ -5,6 +5,20 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### Parasol's examples, dialects and programs are beside Solveig's — `ed3876f`, 2026-09-14
+
+**Step 4 of the plan.** Five `.psol` files in `examples/`, three dialects in
+`lib/`, and seven directories under `programs/`: `ember`, `grammar`,
+`digest`, `ledger`, `prose`, `bignum` and `minibasic`, the last renamed from
+`basic` to stay clear of `basic.sol` and its corpus. None is counted by
+[programs.md](programs.md), which says so in a paragraph. **Everything
+`parasol` generates goes under `build/`**, never beside a source: a
+generated `.sol` in `examples/` would have been read by `expect.sol` as a
+file of claims. `parasol` finds its dialects as `solas` finds its library,
+`bin/../lib` and then `PARASOL_LIB_DIR` from the generated `config.h`, so
+`make install` no longer asks for `PARASOL_PATH`. Nothing in any compiler's
+output changed.
+
 ### Parasol's C is laid out as the other tools' — `a9f299c`, 2026-09-14
 
 **Step 3 of the plan.** `parasol/cmd/`, `parasol/include/parasol/` and
