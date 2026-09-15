@@ -307,8 +307,14 @@ spelling is settled if something ever does.
 1. beside the file using it
 2. each `-I` directory, in order
 3. each entry of `PARASOL_PATH`, colon-separated
+4. the library beside the binary, `bin/../lib`, which in a checkout is `lib/`
+   where the dialects have lived since 2026-09-14
+5. the directory `make install` copied them to, which the Makefile writes into
+   the binary as `PARASOL_LIB_DIR` from the same `PREFIX`
 
-The order `@include` uses over in Solveig. **Read once**, so a diamond costs
+The order `@include` uses over in Solveig, and 4 and 5 are its 4 and 5: a
+checkout beats an install so that testing a change cannot silently read the
+old library, and `PARASOL_PATH` beats both. **Read once**, so a diamond costs
 nothing and a dialect's declarations cannot collide with themselves. A file
 still being read is a cycle, and is an error naming the whole chain.
 
@@ -357,9 +363,11 @@ Paths from Solveig's root. Since 2026-09-14 the compiler's C is laid out as
 parasol/cmd/      main.c, the command line
 parasol/include/  the public headers, under parasol/
 parasol/src/      the compiler          lex, reader, dialect, tree, expand, emit
-parasol/lib/      dialect files         arith.psol, control.psol, clike.psol
-parasol/examples/ five, run by `make test`
-parasol/programs/ seven real programs, each with its own README
+lib/              dialect files beside Solveig's library: arith.psol, control.psol, clike.psol
+examples/         five .psol beside Solveig's .sol, run by `make test`
+programs/         seven directories beside Solveig's programs, each with its own README:
+                  ember, grammar, digest, ledger, prose, minibasic, bignum
+build/            everything parasol generates: build/examples/, build/programs/<name>/
 tests/            test_parasol_reader, _expand, _map, _use, _sob, among Solveig's
 parasol/docs/     the documents below
 editors/          VS Code colours a .psol file and completes its directives: editors/vscode/README.md

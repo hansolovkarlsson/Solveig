@@ -157,7 +157,21 @@ and be written once.
    counts `.sol` files in `programs/` and says nothing under `parasol/` is
    counted; seven directories of `.psol` arriving there is a decision for
    that page, a section of their own or a second count, and it is taken in
-   step 5 with the page.
+   step 5 with the page. **Done, 2026-09-14, the same evening.** The naming
+   rule the scoping reached for was not needed: **everything `parasol`
+   generates goes under `build/`**, `build/examples/` and
+   `build/programs/<name>/`, which removes the trap rather than labelling
+   it, and for a second reason found on the way that decided it alone:
+   `programs/expect.sol` reads every `examples/*.sol` as a file of claims,
+   and a generated one, whose `; #14` comments are that syntax exactly,
+   would have been counted and checked as documentation. `parasol/.gitignore`
+   went with it. `basic` became `minibasic`, Hans's choice of the two names
+   put, the files inside renamed with the directory. `parasol` looks beside
+   its own binary now, `bin/../lib` and then `PARASOL_LIB_DIR` from the
+   generated `config.h`, so `@use "arith.psol"` works from anywhere in a
+   checkout or an install and `PARASOL_PATH` is the override it is for
+   `solas`. `docs/programs.md` says in a paragraph that the seven are there
+   and not counted, ahead of step 5.
 5. **Documents.** Fifteen files, six of which collide by name with the
    root's: `CHANGELOG`, `COMPLETED`, `GRAMMAR`, `journal`, `REFERENCE`,
    `ROADMAP`. Two shapes: fold each into its root counterpart (the journal

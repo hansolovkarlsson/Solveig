@@ -726,7 +726,8 @@ static void directive_use(Reader *reader)
         error_at(reader, at, "cannot find '%s'", name);
         parasol_note(reader->diag, at,
                  "looked beside %s, then in each -I directory, then in "
-                 "PARASOL_PATH", reader->source->path);
+                 "PARASOL_PATH, then in the library beside the binary",
+                 reader->source->path);
         note_trail(reader);
         free(name);
         return;

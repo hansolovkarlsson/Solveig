@@ -59,7 +59,8 @@ static void usage(FILE *out)
         "  --help, -h   show this and stop\n"
         "\n"
         "A @use is looked for beside the file using it first, then in each -I\n"
-        "directory in order, then in PARASOL_PATH (colon-separated).\n"
+        "directory in order, then in PARASOL_PATH (colon-separated), then in\n"
+        "the library beside this binary.\n"
         "\n"
         "The generated file is an artefact. Compile it with solas, or with\n"
         "--sob, and keep the map: it is what turns a position in the .sol back\n"
@@ -230,8 +231,9 @@ int main(int argc, char *argv[])
         return 64;
     }
 
-    /* After the flags, so that -I beats the environment. */
-    parasol_unit_add_environment(&unit);
+    /* After the flags, so that -I beats the environment, and the environment
+       beats the library beside the binary. */
+    parasol_unit_add_defaults(&unit, argv[0]);
 
     const ParasolSource *source = parasol_unit_read(&unit, path);
     if (source == NULL) {

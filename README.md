@@ -111,11 +111,11 @@ lights, and **Solveig** carries the same star into Norse: *sól* joined to
 | `solid/`  | **Solid** -- the debugger: breakpoints, stepping, and locals      |
 | `docs/`   | [GUIDE.md](docs/GUIDE.md), [TUTORIAL.md](docs/TUTORIAL.md), [REFERENCE.md](docs/REFERENCE.md), [CHEATSHEET.md](docs/CHEATSHEET.md), [GRAMMAR.md](docs/GRAMMAR.md), [SOLABASIC-CHEATSHEET.md](docs/SOLABASIC-CHEATSHEET.md), [PASCAL.md](docs/PASCAL.md), [design.md](docs/design.md), [BYTECODE.md](docs/BYTECODE.md), [ROADMAP.md](docs/ROADMAP.md), [COMPLETED.md](docs/COMPLETED.md), [CHANGELOG.md](docs/CHANGELOG.md), [journal.md](docs/journal.md), [programs.md](docs/programs.md), [embedding.md](docs/embedding.md), [extensions.md](docs/extensions.md), [NET.md](docs/NET.md), [lineage.md](docs/lineage.md), [method.md](docs/method.md) |
 | `tests/`  | Test suite                                                        |
-| `examples/` | One `.sol` demonstration per concept the guide names            |
-| `programs/` | Whole `.sol` programs, each written to do a job -- [what each does](docs/programs.md) |
+| `examples/` | One `.sol` demonstration per concept the guide names, and five `.psol` ones for Parasol |
+| `programs/` | Whole `.sol` programs, each written to do a job -- [what each does](docs/programs.md); and seven directories of programs written in Parasol, since 2026-09-14 |
 | `experiment/` | Solum's compiler written in Solum: proved, then parked -- [what it was](experiment/README.md) |
 | `embed/`  | A C program that holds a `SolVM` -- see [embedding.md](docs/embedding.md) |
-| `lib/`    | The library that ships with the language, found on the search path |
+| `lib/`    | The library that ships with the language, found on the search path; Parasol's three dialects are here too, since 2026-09-14 |
 | `extensions/` | Bundles built by `make` and loaded only when a host names one -- [net](extensions/net/README.md), UDP sockets, documented in [NET.md](docs/NET.md) |
 | `editors/` | Editor support: [vscode](editors/vscode/README.md), syntax colouring, bracket matching and completion for VS Code, `.sol` and `.psol` alike, installed from the folder |
 | `parasol/`  | **Parasol** -- a second compiler, whose syntax arrives with the file it is compiling and whose output is Solveig source. Built by the one Makefile since 2026-09-14, with its own records and, until the next release, its own version; [what it is](parasol/README.md) |

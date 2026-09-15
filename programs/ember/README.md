@@ -3,11 +3,14 @@
 A small language, compiled to ARM64 assembly by a compiler written in Parasol.
 
 ```
-programs/ember/emberc.psol   --parasol-->  emberc.sol
-                            --solas---->  emberc.sob
-examples/fizzbuzz.em        --solvm---->  fizzbuzz.s
-                            --cc------->  a.out
+programs/ember/emberc.psol   --parasol-->  build/programs/ember/emberc.sol
+                            --solas---->  build/programs/ember/emberc.sob
+examples/fizzbuzz.em        --solvm---->  build/programs/ember/examples/fizzbuzz.s
+                            --cc------->  build/programs/ember/examples/fizzbuzz.out
 ```
+
+Everything generated goes under `build/`, as it does for every program here
+since 2026-09-14; `make ember` builds and runs the lot.
 
 **This is not a Parasol feature.** It is a program written in Parasol, and it
 exists for the reason [docs/targets.md](../../docs/targets.md) gives:

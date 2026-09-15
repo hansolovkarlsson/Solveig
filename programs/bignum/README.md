@@ -7,11 +7,14 @@ rather than in a claim. `bignum.expected` goes in with it: every answer in it
 was produced by `bc`, and none by this program.
 
 ```
-programs/bignum/bignum.psol  --parasol-->  bignum.sol       the library, in limbs.psol
-programs/bignum/calc.psol    --parasol-->  calc.sol         the driver, in lib/arith.psol
+programs/bignum/bignum.psol  --parasol-->  build/programs/bignum/bignum.sol   the library, in limbs.psol
+programs/bignum/calc.psol    --parasol-->  build/programs/bignum/calc.sol     the driver, in lib/arith.psol
                                         @include "bignum.sol"
-                            --solas-->  calc.sob
+                            --solas-->  build/programs/bignum/calc.sob
 ```
+
+Both generated files land in the one directory under `build/`, which is where
+an `@include` looks first; `make bignum` builds and runs it.
 
 ## Why this one
 

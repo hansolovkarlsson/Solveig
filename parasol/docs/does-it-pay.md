@@ -41,13 +41,13 @@ the design.
 
 | | operators | forms | dialect | program |
 | --- | ---: | ---: | ---: | ---: |
-| [`ember`](../programs/ember) — an assembler | 0 | 16 | 18 | 220 |
-| [`grammar`](../programs/grammar) — a PEG toolkit | 0 | 8 | 9 | 29 |
-| [`digest`](../programs/digest) — SHA-256 | 17 | 3 | 20 | 96 |
-| [`ledger`](../programs/ledger) — fixed-point decimal | 10 | 6 | 17 | 44 |
-| [`prose`](../programs/prose) — a document | 0 | 7 | 9 | 64 |
-| [`basic`](../programs/basic) — a BASIC interpreter | 0 | 15 | 16 | 251 |
-| [`bignum`](../programs/bignum) — arbitrary precision, in two modules | 1 | 5 | 5 | 153 |
+| [`ember`](../../programs/ember) — an assembler | 0 | 16 | 18 | 220 |
+| [`grammar`](../../programs/grammar) — a PEG toolkit | 0 | 8 | 9 | 29 |
+| [`digest`](../../programs/digest) — SHA-256 | 17 | 3 | 20 | 96 |
+| [`ledger`](../../programs/ledger) — fixed-point decimal | 10 | 6 | 17 | 44 |
+| [`prose`](../../programs/prose) — a document | 0 | 7 | 9 | 64 |
+| [`minibasic`](../../programs/minibasic) — a BASIC interpreter, `basic` until 2026-09-14 | 0 | 15 | 16 | 251 |
+| [`bignum`](../../programs/bignum) — arbitrary precision, in two modules | 1 | 5 | 5 | 153 |
 
 *Lines are non-blank, non-comment. `program` is the module, `dialect` the file
 it uses.*
@@ -161,7 +161,7 @@ case for folding rests on the claim being made true, not on the number.
 ## The fifth program, and what it settled
 
 The four above were all arithmetic or instructions, and this page used to end by
-asking for a domain that was neither. [`prose`](../programs/prose) is that: a
+asking for a domain that was neither. [`prose`](../../programs/prose) is that: a
 document language, with the document itself written in the dialect.
 
 **It found no third category.** No operators, seven forms, and every content
@@ -200,7 +200,7 @@ page.
 ## The sixth program, and the ceiling stated properly
 
 The five above are all a **pass over an input**: they walk it from one end to
-the other, in the order it is written. [`basic`](../programs/basic) is a BASIC
+the other, in the order it is written. [`minibasic`](../../programs/minibasic) is a BASIC
 interpreter, and it is the first with a program counter that can go backwards,
 an environment outliving every statement, and statements running a number of
 times the source does not say.
@@ -255,7 +255,7 @@ evidence that argument could ever have.
 ## The seventh program, and why the invented kind traps
 
 Every value domain here had been Solveig's own integer wearing a rule: a
-32-bit word, an amount in hundredths. [`bignum`](../programs/bignum) is a value
+32-bit word, an amount in hundredths. [`bignum`](../../programs/bignum) is a value
 domain whose values are **objects**, and it is in two modules that were meant
 to disagree about `+`, to find where a dialect ends. They did not disagree.
 `limbs.psol` is five lines, declares no operator, and takes `lib/control.psol`

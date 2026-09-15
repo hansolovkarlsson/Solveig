@@ -27,6 +27,14 @@ the once that was forgotten.
 Each is a single `.sol` file with its reasoning in its own comments. This page
 is the map; the file is the argument.
 
+**Seven more are directories here and are not counted above**, because they
+are written in [Parasol](../parasol/README.md) rather than in Solveig:
+`ember`, `grammar`, `digest`, `ledger`, `prose`, `minibasic` and `bignum`,
+each with its own README, moved in beside these on 2026-09-14. What each
+found is on Parasol's side, in
+[does-it-pay.md](../parasol/docs/does-it-pay.md); what `parasol` generates
+from them goes under `build/programs/`, never here.
+
 ## At a glance
 
 | | does | run it |

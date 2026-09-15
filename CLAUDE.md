@@ -25,8 +25,10 @@ the toolkit*). It has its own `CLAUDE.md`, records under `parasol/docs/`
 (including a `POSTMORTEM.md`, which is Parasol's convention and not this
 repository's) and, until the next release, its own version. The root Makefile
 builds it since 2026-09-14, in a section that must include no Solveig header
-and link no Solveig library, and `make test` runs its suite. Nothing under
-`parasol/` is counted by `docs/programs.md`.
+and link no Solveig library, and `make test` runs its suite. Its examples are
+in `examples/`, its dialects in `lib/` and its seven programs are directories
+under `programs/`, none of them counted by `docs/programs.md`, and everything
+`parasol` generates goes under `build/`.
 
 ## Commands
 

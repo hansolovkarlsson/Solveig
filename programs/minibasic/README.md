@@ -1,16 +1,21 @@
 # A BASIC interpreter, written in Parasol
 
 ```
-programs/basic/basic.psol  --parasol-->  basic.sol
-                          --solas-->  basic.sob
-examples/fizzbuzz.bas     --solvm-->  the output
+programs/minibasic/minibasic.psol  --parasol-->  build/programs/minibasic/minibasic.sol
+                                  --solas---->  build/programs/minibasic/minibasic.sob
+examples/fizzbuzz.bas             --solvm---->  the output
 ```
 
 ```sh
-make basic
-solvm programs/basic/basic.sob programs/basic/examples/primes.bas
-solvm programs/basic/basic.sob                    # no file: a prompt
+make minibasic
+bin/solvm build/programs/minibasic/minibasic.sob programs/minibasic/examples/primes.bas
+bin/solvm build/programs/minibasic/minibasic.sob      # no file: a prompt
 ```
+
+*Called `basic` until 2026-09-14, and `minibasic` since the day the programs
+written in Parasol moved into `programs/` beside Solveig's own, where
+`basic.sol` and its corpus `basic/` were already SolaBasic's. The name says
+what this is: line numbers and ten statements.*
 
 Line numbers, `LET`, `PRINT`, `INPUT`, `IF`/`THEN`, `GOTO`, `GOSUB`/`RETURN`,
 `FOR`/`NEXT`/`STEP`, `END` and `REM`. At the prompt, `RUN`, `LIST`, `BYE`, and
@@ -23,7 +28,7 @@ questions and this is the one it left without a program.
 
 **Predictions recorded before the program was written.** That is
 [conventions.md](../../docs/conventions.md)'s rule, and this file is committed
-before a line of `basic.psol` exists so that the ordering is in the history
+before a line of `minibasic.psol` exists so that the ordering is in the history
 rather than in a claim.
 
 ## Why this one
@@ -76,7 +81,7 @@ confusion with something that runs.
 
 `make test` runs `fizzbuzz.bas`, `primes.bas` and `greet.bas` — the last fed a
 fixed `Ada` and `36` on standard input, so `INPUT` is checked and the run is
-still deterministic — and diffs the three against `basic.expected`.
+still deterministic — and diffs the three against `minibasic.expected`.
 
 The expected output is worked out by hand from the BASIC source and not
 captured from a run, which is the discipline `programs/digest` and
@@ -86,7 +91,7 @@ nothing.**
 ## What it found
 
 Written after. The predictions above were committed in `92be288`, before a line
-of `basic.psol` existed.
+of `minibasic.psol` existed.
 
 ### The predictions
 
@@ -132,7 +137,7 @@ down, where no header can see it.
 Not predicted, and the clearest thing the forms bought. `fallThrough`, `step`
 and `jump to` are the only places a counter moves, and each is one word:
 
-| | in basic.psol |
+| | in minibasic.psol |
 | --- | ---: |
 | `+` on the interpreter's own integers | **2** |
 | both of them | `pc + #1`, saving a return address |
@@ -155,7 +160,7 @@ programs.
 
 ### A form's word and a message selector do not collide
 
-`interp.psol` declares `@syntax step => tp := tp + #1.` and `basic.psol` sends
+`interp.psol` declares `@syntax step => tp := tp + #1.` and `minibasic.psol` sends
 `s:step` to a `scan` cursor six times in the lexer. Both are right, and the
 generated source shows it — `tp := tp:add(#1)` where the word stands alone,
 `s:step` where it follows a colon.

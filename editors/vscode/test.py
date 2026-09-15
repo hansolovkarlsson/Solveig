@@ -448,10 +448,10 @@ function reader(from, use) {
   var text = readFile(candidate);
   return text === null ? null : { path: candidate, text: text };
 }
-var clike = ROOT + '/parasol/examples/clike.psol';
+var clike = ROOT + '/examples/clike.psol';
 var D = DIALECT.parse(readFile(clike), clike, reader);
 eq('dialect: no errors', D.errors, []);
-eq('dialect: one @use, resolved beside the file', D.uses, [ROOT + '/parasol/examples/../lib/clike.psol']);
+eq('dialect: one @use, resolved beside the file', D.uses, [ROOT + '/examples/../lib/clike.psol']);
 eq('dialect: clike declares fifteen operators', D.operators.length, 15);
 eq('dialect: and four forms', D.forms.map(function (f) { return f.form; }), ['if', 'while', 'do', 'if']);
 eq('dialect: an infix by message', DIALECT.lookup(D, '+')[0].message, 'add');
@@ -459,7 +459,7 @@ eq('dialect: its precedence', DIALECT.lookup(D, '+')[0].precedence, 60);
 eq('dialect: an infix by template', DIALECT.lookup(D, '&&')[0].template, 'left:and({ right })');
 eq('dialect: a prefix', DIALECT.lookup(D, '!')[0].kind, 'prefix');
 eq('dialect: a declaration keeps its text', DIALECT.lookup(D, '&&')[0].text, '@infix  &&  30 => left:and({ right }).');
-eq('dialect: and says where it came from', DIALECT.lookup(D, '&&')[0].from, ROOT + '/parasol/examples/../lib/clike.psol');
+eq('dialect: and says where it came from', DIALECT.lookup(D, '&&')[0].from, ROOT + '/examples/../lib/clike.psol');
 eq('dialect: a pattern form has parts', D.forms[2].parts, [{ hole: 'b', kind: 'block' }, { word: 'while' }, { hole: 'c', kind: 'expression' }]);
 eq('dialect: its head', DIALECT.formHead(D.forms[2]), 'do <b: block> while <c>');
 eq('dialect: its snippet gives a block hole braces', DIALECT.formSnippet(D.forms[2]), 'do { $1 } while ${2:c}');

@@ -15,16 +15,20 @@ a:print.                          ; #14
 ```
 
 ```sh
-make                                      # from Solveig's root builds this too
-../bin/parasol --map examples/vectors.psol   # -> examples/vectors.sol + .sol.map
-../bin/solas examples/vectors.sol
-../bin/solvm examples/vectors.sob
+make                                      # from Solveig's root, five binaries
+bin/parasol --map examples/vectors.psol -o build/vectors.sol   # + build/vectors.sol.map
+bin/solas build/vectors.sol
+bin/solvm build/vectors.sob
 ```
 
-Or the middle two as one, `../bin/parasol --sob --map examples/vectors.psol`,
-which writes the `.sol` and then runs the `solas` beside it. Same three files;
-see *What Parasol is allowed to know about Solveig* for why that is a
-convenience and not a merger.
+Or the middle two as one, `bin/parasol --sob --map examples/vectors.psol -o
+build/vectors.sob`, which writes the `.sol` beside the `.sob` and then runs
+the `solas` beside itself. Same three files; see *What Parasol is allowed to
+know about Solveig* for why that is a convenience and not a merger. Without
+`-o` the files land beside the source, which is what a program of your own
+wants and what this tree does not: `examples/` holds Solveig's `.sol` files
+too, and a generated one beside them would be read as one of them by the
+document checker. So `make` writes everything it generates under `build/`.
 
 The three lines of header are the whole of that module's grammar. `*` binds
 tighter than `+` because this file said 70 against 60, and nothing anywhere else
@@ -773,13 +777,13 @@ predicate logic, which turns out to be three questions wearing one name.
 
 | | |
 | --- | --- |
-| [`programs/ember`](programs/ember) | a small language compiled to ARM64 assembly, all the way to a running binary. Found the gap that became 0.7.0. |
-| [`programs/grammar`](programs/grammar) | a grammar toolkit. Declined the roadmap's repetition item with a reason. |
-| [`programs/digest`](programs/digest) | SHA-256, agreeing with `shasum -a 256`. The first customer for the *operator* half, and the one that measured what a form costs at run time. |
-| [`programs/ledger`](programs/ledger) | a statement in fixed-point decimal, against exact-decimal figures produced elsewhere. Found that Parasol has one of Solveig's three integer literals, and that folding is worth 0.19% when the dialect is not in the loop. |
-| [`programs/prose`](programs/prose) | a document written in its own dialect and rendered to text. Found that a form can contain content but not half a line, and that a document is a domain of steps like the other two. |
-| [`programs/basic`](programs/basic) | a BASIC interpreter, with a prompt. The first program that is not a pass over its input, and the one that stated the ceiling: notation is fixed when a file is read, and an interpreter decides everything after that. |
-| [`programs/bignum`](programs/bignum) | arbitrary-precision integers, checked against `bc`, in two modules that were meant to disagree about `+` and did not. Found that a dialect traps its scaffolding exactly when its values are the substrate's own, and that a large-number library is a library. |
+| [`programs/ember`](../programs/ember) | a small language compiled to ARM64 assembly, all the way to a running binary. Found the gap that became 0.7.0. |
+| [`programs/grammar`](../programs/grammar) | a grammar toolkit. Declined the roadmap's repetition item with a reason. |
+| [`programs/digest`](../programs/digest) | SHA-256, agreeing with `shasum -a 256`. The first customer for the *operator* half, and the one that measured what a form costs at run time. |
+| [`programs/ledger`](../programs/ledger) | a statement in fixed-point decimal, against exact-decimal figures produced elsewhere. Found that Parasol has one of Solveig's three integer literals, and that folding is worth 0.19% when the dialect is not in the loop. |
+| [`programs/prose`](../programs/prose) | a document written in its own dialect and rendered to text. Found that a form can contain content but not half a line, and that a document is a domain of steps like the other two. |
+| [`programs/minibasic`](../programs/minibasic) | a BASIC interpreter, with a prompt. The first program that is not a pass over its input, and the one that stated the ceiling: notation is fixed when a file is read, and an interpreter decides everything after that. |
+| [`programs/bignum`](../programs/bignum) | arbitrary-precision integers, checked against `bc`, in two modules that were meant to disagree about `+` and did not. Found that a dialect traps its scaffolding exactly when its values are the substrate's own, and that a large-number library is a library. |
 
 Each carries a table of predictions recorded **before** it was written and a
 *What it found* section written after. Predictions that were wrong stay in,

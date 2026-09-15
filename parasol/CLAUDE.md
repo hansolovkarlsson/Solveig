@@ -23,8 +23,10 @@ and no other. The output is Solveig source, which `solas` turns into bytecode;
 
 From the root, since 2026-09-14; there is no Makefile here. `make`, `make
 test`, `make examples`, `make sanitize`, `make clean`, and one program at a
-time as `make ember`, `grammar`, `digest`, `ledger`, `prose`, `basic` or
-`bignum`. The Parasol section of the root Makefile says how the build keeps
+time as `make ember`, `grammar`, `digest`, `ledger`, `prose`, `minibasic` or
+`bignum`. Since 2026-09-14 the examples are in `examples/`, the dialects in
+`lib/` and the programs under `programs/`, beside Solveig's own, and what
+`parasol` generates from them goes under `build/`. The Parasol section of the root Makefile says how the build keeps
 the no-Solveig claim.
 
 ## The records

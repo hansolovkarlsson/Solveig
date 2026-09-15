@@ -34,6 +34,15 @@ void parasol_unit_add_directory(ParasolUnit *unit, const char *directory);
    the command line beats the environment rather than the other way round. */
 void parasol_unit_add_environment(ParasolUnit *unit);
 
+/* The three a front end adds after its own `-I` arguments, in this order:
+   PARASOL_PATH; the library beside the binary, `bin/../lib`, when `argv0` says
+   where the binary is; and the directory an install was told about, which the
+   Makefile writes as PARASOL_LIB_DIR from the same PREFIX it copies the
+   dialects to. Solveig's `sol_search_path_add_defaults` has the same three in
+   the same order, and for the same reason the checkout comes before the
+   install: otherwise testing a change would silently read the old library. */
+void parasol_unit_add_defaults(ParasolUnit *unit, const char *argv0);
+
 /* Reads and keeps the file, or answers NULL. The result outlives every call
    after it and is freed with the unit. */
 const ParasolSource *parasol_unit_read(ParasolUnit *unit, const char *path);
