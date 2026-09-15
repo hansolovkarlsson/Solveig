@@ -11,7 +11,7 @@ produced no code because they were decisions.
 
 ---
 
-## 2026-09-14: the project changed its name a second time, and a hole was asked to be a selector
+## 2026-09-14: the project changed its name a second time, a hole was asked to be a selector, and the compiler learnt to run solas
 
 **Two things reached this directory from Solveig's morning, and both came
 from a reading of `engine.sol` in the SDL extension.** Hans proposed a region
@@ -61,6 +61,43 @@ of a choice keeps the words of the choice.
 `default_output_path` counts five now; 13's luck about `.phx` and `.pro`
 being the same length was recorded as luck, and this is where it ran out.
 Both suites and the editor's test were green before a record was written.
+
+### `--sob`, and the forty lines not written
+
+Hans asked in the evening whether Parasol could output a `.sob` directly,
+*essentially, add solas into parasol*, with `-I` and the rest of `solas`'s
+options and `--expr` off, so that it can act as an advanced `solas` without
+replacing it. Two shapes were put: link `libsol.a` and call
+`sol_compile_options` on the emitted text, forty lines; or write the `.sol`
+and run the `solas` beside the binary. The first is not hard. It is that the
+Makefile's first sentence, `main.c`'s header, `CLAUDE.md` and the root
+Makefile's note all say the build needs no Solveig and that this is the
+arrangement being tested, and a link would make all four false to save a
+`fork`. Hans took the second, and said where it is going: Parasol as a
+member of the toolkit, laid out as `solas/` and `solid/` are, its records
+and build folded in, *not some outside experiment any more*. Not now; on the
+roadmap beside the version entry, which is its gate. The driver was built so
+as not to care which way that goes.
+
+What had to be decided was smaller than expected and all at the edges. One
+`-I` for both compilers, since every program so far keeps its dialect and
+its generated library in one directory. Under `--sob`, `-o` names the
+`.sob` and the `.sol` goes beside it rather than beside the source, so the
+pair and the map stay together. `--dump` alone is a usage error. Which
+`solas`: `argv[0]`'s directory first, PATH second, which a copy of the
+binary in a temporary directory with PATH taken away proves by failing with
+127. `test_sob.c` runs the binary, the first test here that does, because a
+fork cannot be checked from inside the library; its load-bearing check is
+that the driver's `.sob` is `cmp`-identical to `solas`'s on the same `.sol`.
+Run against the old compiler from a clean build, 21 of 27 failed, and the
+six that passed were the ones asserting a file is absent, which is the
+control the conventions ask for and the reason to have read its output
+rather than its count.
+
+The version stayed at `0.17.0`. A bump was typed and taken back: the
+roadmap's first entry says the next release is what decides one version or
+two, and a number from here would have decided it sideways. The changelog
+entry is dated instead, and says so.
 
 ## 2026-09-13: a program written to find a boundary, and the boundary was not there
 

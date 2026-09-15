@@ -10,6 +10,28 @@ piece of work as it was argued *before* the work is in
 
 ---
 
+### `parasol --sob` — `HASH`, 2026-09-14
+
+**No version.** `--sob` writes the `.sol` as before and then runs `solas` on
+it, the one beside the `parasol` binary or else the one on PATH, with `-o`,
+every `-I` and `--dump` handed through and `--expr` never. One command from
+`.psol` to `.sob`. With it, `-o` names the `.sob` and the `.sol` goes beside
+it, the map beside the `.sol`; a Parasol error is 65 and writes nothing, and
+after the `.sol` is written the status is `solas`'s own, 127 when none could
+be run. `--dump` without `--sob` is a usage error.
+
+**It runs `solas` rather than linking it**, and that is the whole of the
+decision: linking `libsol.a` was forty lines and would have made the
+Makefile's first sentence false. [COMPLETED.md](COMPLETED.md) 19 has the two
+side by side; the Makefile's rules still do the two steps themselves.
+`tests/test_sob.c` is the first test here that runs the binary, 27 checks,
+the load-bearing one being that the driver's `.sob` is byte for byte
+`solas`'s. The version stays `0.17.0` on purpose: the roadmap says the next
+release is what decides one version or two, and this is not that release.
+The same conversation put *a member of the toolkit* on the roadmap, Hans's
+direction for where `parasol/` goes next, held apart from this so that
+neither waits on the other.
+
 ### Proto is Parasol — `ebdc8bc`, 2026-09-14
 
 **No version, and nothing in the language changed.** The compiler, the
