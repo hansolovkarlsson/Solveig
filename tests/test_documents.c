@@ -80,11 +80,33 @@ static void test_everything_written_down_is_true(void)
     assert(run("bin/solas programs/expect.sol -o " DIR "/expect.sob 2>&1",
                out, sizeof out) == 0);
 
+    /* The whole set, as the checker defines it: a directory is walked to the
+       bottom since 2026-09-15, so `extensions` reaches `extensions/net/` --
+       which it had not, for a week, the one thing at its top level being a
+       directory -- and every README.md under `programs/` is a subject, since
+       those are the pages of the programs written in Parasol and were outside
+       every set the checker read while 44 of their links broke. The shell
+       finds them; the checker walks for them itself and says below whether
+       the two agreed. */
     int status = run("bin/solvm " DIR "/expect.sob"
-                     " examples docs README.md index.md extensions 2>/dev/null",
+                     " examples docs README.md index.md extensions"
+                     " $(find programs -name README.md | sort) 2>/dev/null",
                      out, sizeof out);
     if (status != 0 || strstr(out, "every claim holds") == NULL) {
         printf("\n%s\n", out);
+        assert(false);
+    }
+
+    /* And that it was the whole set. A run over less than the checker's own
+       list of subjects defers the counts that are facts about a run -- how
+       many claims held, across how many documents -- and reports them as
+       waiting rather than comparing them against a total that means something
+       narrower. That is the right thing for a run over one file and the wrong
+       thing here, where it would pass the build with those counts unchecked
+       and nothing but a clause in the report to say so. */
+    if (strstr(out, "want the whole set") != NULL) {
+        printf("\n%s\nthe subjects above are less than the checker's whole "
+               "set\n", out);
         assert(false);
     }
 
@@ -135,6 +157,21 @@ static void test_everything_written_down_is_true(void)
     assert(basic >= 60);
     assert(basicChecked >= 20);
 
+    /* The third language. A ```parasol block goes through `parasol --sob` and
+       then `solvm`, and its claims are read the way a bare block's are, since
+       what Parasol emits is Solveig. One page had been writing the tag for a
+       year with nothing reading it. The floor is the one block that exists on
+       the day this went in; the pages that will carry the rest are the next
+       step, and the floor rises with them. */
+    int parasol = 0, parasolChecked = 0;
+    at = strstr(out, "Parasol block");
+    assert(at != NULL);
+    while (at > out && at[-1] != '\n') at--;
+    assert(sscanf(at, "%d Parasol block%*[s,] %d checked", &parasol,
+                  &parasolChecked) == 2);
+    assert(parasol >= 1);
+    assert(parasolChecked >= 1);
+
     /* docs/GRAMMAR.md opens by saying it is the same grammar as solum.bnf, and
        that is the largest claim on the page: everything else there is one
        production and that sentence is all of them at once. Compared character
@@ -166,10 +203,13 @@ static void test_everything_written_down_is_true(void)
        are there -- the one cross-reference nothing read, in a repository whose
        filing system is moving a heading between files when an entry closes. The
        fences are tracked because a heading inside one is not an anchor on the
-       page, and the count of those is asserted too: it is 1 today, it was 12
-       while a paragraph in CHANGELOG.md was wrapped so that ``` began a line,
-       and a ceiling is what makes that visible here rather than only in the
-       report. A floor on the links for the same reason as every other one. */
+       page, and the count of those is asserted too: it is 3 today -- one
+       changelog heading COMPLETED.md quotes inside a block, and two lines of
+       a ```sh transcript in experiment/extension-probe/README.md that begin
+       with a shell comment's `#` -- it was 12 while a paragraph in
+       CHANGELOG.md was wrapped so that ``` began a line, and a ceiling is
+       what makes that visible here rather than only in the report. A floor on
+       the links for the same reason as every other one. */
     int links = 0, named = 0, fenced = 0;
     at = strstr(out, "links in");
     assert(at != NULL);
@@ -189,10 +229,10 @@ static void test_everything_written_down_is_true(void)
     assert(fenced <= 4);
 
     printf("  everything written down is true (%d claims, %d counts, %d "
-           "positions, %d of %d SolaBasic blocks, %d productions, %d commit "
-           "hashes, %d of %d links)\n",
-           claims, counts, placed, basicChecked, basic, agree, hashes,
-           named, links);
+           "positions, %d of %d SolaBasic blocks, %d of %d Parasol blocks, "
+           "%d productions, %d commit hashes, %d of %d links)\n",
+           claims, counts, placed, basicChecked, basic, parasolChecked,
+           parasol, agree, hashes, named, links);
 }
 
 /* The grammar against the compiler, one construct at a time.

@@ -405,8 +405,8 @@ line prints.
 ./bin/solvm programs/expect.sob programs             # another directory
 ```
 
-Over `examples/` alone that is 30<!--count examples-files--> files and
-588<!--count examples-claims--> claims:
+Over `examples/` alone that is 35<!--count examples-files--> files and
+611<!--count examples-claims--> claims:
 
 ```text
 30 files with expectations, 588 claims checked
@@ -441,7 +441,7 @@ because somebody looked, once, at the time — the same standing the `.sob` form
 table had when [disasm](#disasm--a-sob-file-read-and-disassembled) found it
 three sections out of date. They are also the first thing a newcomer reads.
 
-**It is in `make test` now**, in `tests/test_documents.c` — **1070<!--count claims-->
+**It is in `make test` now**, in `tests/test_documents.c` — **1096<!--count claims-->
 claims on every build**, and it fails the build if one stops holding. It was in
 `test_cli.c` until 2026-09-03, with the other tests that run the binaries as a
 shell would, and it moved when the cost was broken down: **55 seconds**, which
@@ -498,9 +498,36 @@ said the same thing. None was *wrong* — each is now assigned a value that land
 on the arm it is there to show. **An example nobody runs cannot report that it
 is demonstrating the wrong branch.**
 
+**And a third language, since 2026-09-15: a ```parasol block, and every
+`examples/*.psol`.** Parasol emits Solveig, so a claim in Parasol source is
+written exactly as one in Solveig source is, `; #14` on a printing line, and
+is read the same way: the block goes through `parasol --sob` and then `solvm`,
+and from the `.sob` on it is the same run as a bare block's. The five `.psol`
+examples had been compiled and run by `make test` since the day they arrived
+beside the thirty, with none of their comments read; two of those comments
+were in the convention this checker dropped on 2026-09-01. One page had been
+writing the `parasol` tag for a year, and every run had counted it as *names a
+language and is not Solum*, its three claims with it. A `parasol` block stands
+alone: the page above it is Solveig source and a `.psol` cannot take it. What
+this checker cannot do for Parasol is show a compile error, since those come
+out as `file:line:col: error:` and not as a line a program prints; a page
+that shows one tags the fence `text`.
+
+**A directory is walked to the bottom**, since the same day, and every
+`README.md` under `programs/` is a subject. The walk had been one level deep,
+and on 2026-09-14 that was the shape of four defects a green suite did not
+see: a check that reads a fixed set of files is blind to a file outside the
+set, and a move is what puts a file outside it. Forty-four links broke that
+day in pages this program had never opened, beside `.sol` headers it had
+read for their links all along; and `extensions` had been named in `make
+test` for a week and checked nothing, the one thing at its top level being a
+directory. The test also asks, now, whether the run was over the checker's
+whole set, since a run over less defers the counts that are facts about a run
+and had nothing but a clause in the report to say so.
+
 **And it checks the documentation too.** The guide and the reference carry the
 same notation inside ``` fences, and nothing checked those either — they are the
-two documents a newcomer actually reads. 480<!--count docs-claims--> claims
+two documents a newcomer actually reads. 483<!--count docs-claims--> claims
 across twenty-nine<!--count docs-documents--> documents,
 and two more on `README.md` and `index.md` — the front pages, which were the
 last two things nothing checked.
@@ -542,7 +569,7 @@ no notation saying what it counts — so it is given one, which renders as nothi
 and leaves the sentence as it was:
 
 ```text
-[expect.sol](../programs/expect.sol) checks 1070<!--count claims--> claims
+[expect.sol](../programs/expect.sol) checks 1096<!--count claims--> claims
 ```
 
 Each name is recounted from the repository as it stands. A name the table does

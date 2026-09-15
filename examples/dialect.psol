@@ -21,11 +21,11 @@ unless n % #2 == #0 then "and it is odd":print.
 i := #1.
 total := #0.
 while i < n do (total := total + i. i := i + #1).
-total:print.                     ; #21, being 1+2+3+4+5+6
+total:print.                     ; #21 -- being 1+2+3+4+5+6
 
 ; `repeat` hands the block straight to Solveig's own `repeat`, so the braces
 ; here are the caller's job -- and the form says so, with <b: block>.
-repeat #3 times { "tick":display }.    ; tick, three times, a line each
+repeat #3 times { "tick":display }.    ; tick tick tick -- three times, a line each
 
 a := "left".
 b := "right".

@@ -6473,7 +6473,7 @@ program can read it. No `make` target, no `bin/solvm`, no wording of ours.
 | | what it holds | why it is not a conformance suite |
 | --- | --- | --- |
 | `tests/*.c` — 40 files | the C API, the compiler and the VM | internal by construction; a second implementation has none of these symbols |
-| [expect.sol](../programs/expect.sol) — 1070<!--count claims--> claims | the examples and the documents against their own comments | **the author's corpus, matched as a subsequence** — its own header says why, and why that is right for a document |
+| [expect.sol](../programs/expect.sol) — 1096<!--count claims--> claims | the examples and the documents against their own comments | **the author's corpus, matched as a subsequence** — its own header says why, and why that is right for a document |
 | [oracle.sh](../programs/oracle.sh) — six corpora | `sed`, `diff`, `sort` against BSD's | a second implementation of a **program**, not of the language |
 
 **The subsequence rule is the sharp one.** `expect.sol` requires each claim to
@@ -6646,7 +6646,7 @@ answers closes it whether or not a second front end ever exists.
 **Build `accepted/` first, with the harness and the two-file case.** It closes
 the Phoenix gap, it is the half that scores every stranger including the ones
 that cannot read `.sol`, and it can be seeded from the examples rather than
-invented — 30<!--count examples-files--> files of claims already exist and want
+invented — 35<!--count examples-files--> files of claims already exist and want
 only exact output beside them instead of a subsequence.
 
 **Then `refused/`, and it is mostly transcription.** The eleven scope rules and

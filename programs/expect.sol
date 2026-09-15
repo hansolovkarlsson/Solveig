@@ -9,7 +9,10 @@
 ; and the SolaBasic documents carry programs in a *second language*, which are
 ; compiled and run against the output printed under them. Nothing checked any of
 ; the three until this existed, and all three are read far more than anything
-; else here.
+; else here. Since 2026-09-15 there is a third language, Parasol, whose
+; claims are written exactly as Solveig's are because what it emits is
+; Solveig: a ```parasol block, or an `examples/*.psol`, goes through
+; `parasol --sob` and is read from there like any other.
 ;
 ; The numbers move every time an example gains a line, so they are not written
 ; down here -- `docs/programs.md` states them beside a marker this program
@@ -451,6 +454,60 @@ checkBasic := { path, name, n, lines, expected | | source, output, subject |
     nil }.
 
 ; ---------------------------------------------------------------------------
+; The third language: a ```parasol block
+;
+; **Parasol emits Solveig, so its claims are Solveig's claims** -- `; #14` on a
+; printing line, an error written where the run would print it -- and a
+; ```parasol block is checked the way a bare one is, through `parasol --sob`
+; and then `solvm`. The tag is what it needs, and the tag was already there:
+; ideas.md had been writing one for a year, and it was counted as *names a
+; language and is not Solum* on every run, its three claims with it.
+;
+; **A block stands alone.** A bare block that will not run by itself is given
+; the page above it, and that page is Solveig source; a ```parasol block cannot
+; take it, since a `.psol` opens with its `@use` lines and `parasol` reads the
+; whole file as one module, and a bare block cannot take a `.psol` context
+; either. Whether Parasol's own pages need a context of their own is a question
+; for the day they are tagged, which is the step after this one; the rule is
+; written down here so that the day can say whether it held.
+
+parasolBlocks := #0.
+parasolChecked := #0.
+
+checkParasol := { path, name, n, block | | parts, code, outputs, expected,
+                                           spare, label, output |
+    parts := splitBlock:value(block:at(#2)).
+    code := parts:at(#1).
+    outputs := parts:at(#2).
+    spare := errorsIn:value(code):at(#1).
+    spare:size:greaterThan(#0):ifTrue({
+        outputs:size:equals(#0):ifElse(
+            { outputs:add(spare:at(#1)).
+              notReached := notReached:add(spare:size:sub(#1)) },
+            { notReached := notReached:add(spare:size) }) }).
+    expected := expectationsIn:value(code).
+    unchecked := unchecked:add(silentPrintsIn:value(code)).
+    notReached := notReached:add(parts:at(#3)).
+
+    code:trim:equals(""):ifFalse({
+        label := "{}:{}":fill([path, block:at(#1)]).
+        output := runSource:value(code, "{}-{}-psol":fill([name, n]), true,
+                                  ".psol").
+        output:notNil:and({ failed:value(output, outputs):not }):ifElse(
+            { expected:size:add(outputs:size):greaterThan(#0):ifTrue({
+                  parasolChecked := parasolChecked:add(#1).
+                  checked := checked:add(matchAll:value(expected, output, label)).
+                  checked := checked:add(
+                      matchAnywhere:value(outputs, output, label)) }) },
+            { expected:size:add(outputs:size):greaterThan(#0):ifTrue({
+                  failures:add([label, #0,
+                      output:isNil:ifElse(
+                          { "would not compile as Parasol" },
+                          { "ran and failed with an error the block does not show" }),
+                      ""]) }) }) }).
+    nil }.
+
+; ---------------------------------------------------------------------------
 ; Running one
 
 failures := array:new.
@@ -501,10 +558,26 @@ system:run(["rm", "-rf", sandbox]).
 ; takes none away, so a line that holds with it holds without it unless it
 ; opens a region -- and the one that shows the refusal without the flag is
 ; written as a session, which this program does not run.
+; **Two compilers, told apart by the name.** A `.psol` goes through
+; `parasol --sob`, which writes the Solveig source beside the `.sob` and runs
+; the `solas` beside its own binary -- so the `.sob` is the one `solas` would
+; have made, and everything from here on is the same run. `--expr` is not on
+; for those, because `parasol` never turns it on: the source it emits is
+; written without regions, and a claim in a `.psol` is a claim about that.
+;
+; **Parasol's compile errors cannot be documented here.** They come out as
+; `file:line:col: error: ...` and a `parasol: file -- 1 error` summary, and a
+; block that does not compile is a block that does not compile, the same as one
+; `solas` refuses: a page that shows one tags the fence `text`.
+compiled := { path, sob |
+    path:endsWith(".psol"):ifElse(
+        { system:run(["./bin/parasol", "--sob", path, "-o", sob]) },
+        { system:run(["./bin/solas", "--expr", path, "-o", sob]) }):equals(#0) }.
+
 runFile := { sol, tag, mergeErrors, sandboxed | | sob, result, where |
     sob := "build/expect-":concat(tag):concat(".sob").
 
-    system:run(["./bin/solas", "--expr", sol, "-o", sob]):equals(#0):ifElse(
+    compiled:value(sol, sob):ifElse(
         { ; **Run somewhere it cannot do any harm.** This executes
           ; documentation, and documentation shows how to delete things:
           ; `system:run(["rm", name])`, `system:remove("build")`,
@@ -545,8 +618,13 @@ runFile := { sol, tag, mergeErrors, sandboxed | | sob, result, where |
 ; The same for source that has no file of its own -- a fenced block. It goes to
 ; build/, which is right for it: a block in the documentation includes by name
 ; from the search path, never from beside a file it does not have.
-runSource := { source, tag, mergeErrors | | sol |
-    sol := "build/expect-":concat(tag):concat(".sol").
+;
+; `suffix` is `.sol` or `.psol`, and is what chooses the compiler. A `@use` in
+; a block written to `build/` finds nothing beside the file, which is right:
+; `parasol` then looks in the library beside its binary, and `lib/*.psol` is
+; where the dialects a document names are.
+runSource := { source, tag, mergeErrors, suffix | | sol |
+    sol := "build/expect-":concat(tag):concat(suffix).
     system:writeFile(sol, source).
     runFile:value(sol, tag, mergeErrors, true) }.
 
@@ -607,6 +685,15 @@ matchAll := { expected, output, subject | | at, i, found, ok |
 
 ; ---------------------------------------------------------------------------
 ; A .sol file, checked against its own comments
+;
+; **Or a .psol file, since 2026-09-15.** `examples/*.psol` carry the same
+; `; #40` comments the `.sol` examples do, in the same notation, and `make test`
+; had been compiling and running every one of them and reading none of the
+; comments -- the gap this program was written to close, open again in the five
+; files that arrived beside the thirty. The run is the same but for the
+; compiler, which `compiled` chooses by the name; the file is compiled where it
+; lies, because a `@use "../lib/clike.psol"` looks beside the file first,
+; exactly as `@include` does.
 
 checkSol := { path | | source, expected, name, output, before |
     source := system:readFile(path).
@@ -618,7 +705,7 @@ checkSol := { path | | source, expected, name, output, before |
     expected:size:equals(#0):ifFalse({
         files := files:add(#1).
         name := path:split("/"):last(#1):at(#1).
-        name := name:copyFrom(#1, name:size:sub(#4)).
+        name := name:split("."):at(#1).
 
         output := runFile:value(path, name, false, false).
         output:isNil:ifElse(
@@ -928,7 +1015,7 @@ checkMarkdown := { path | | source, name, n, expected, parts, output, label,
             ; nothing.** A block that only binds a name checks nothing itself
             ; and is the whole reason the next one works, so whether it runs has
             ; to be known before the next one is offered it.
-            alone := runSource:value(code, tag, true).
+            alone := runSource:value(code, tag, true, ".sol").
             clean := alone:notNil:and({ failed:value(alone, outputs):not }).
             output := clean:ifElse({ alone }, { nil }).
 
@@ -955,7 +1042,7 @@ checkMarkdown := { path | | source, name, n, expected, parts, output, label,
                   both := runSource:value(
                       context:concat(code)
                              :concat(ask:ifElse({ sentinel }, { "" })),
-                      tag:concat("-x"), true).
+                      tag:concat("-x"), true, ".sol").
                   reached := both:notNil:and({ ask })
                       :and({ realSize:value(both):greaterThan(#0) })
                       :and({ both:at(realSize:value(both)):trim
@@ -1032,14 +1119,19 @@ checkMarkdown := { path | | source, name, n, expected, parts, output, label,
                 context := context:concat(code).
                 contextLines := joined }) }) },
 
-        ; A fenced block naming a language. `basic` is one this repository
-        ; defines and ships a compiler for, so it is checked rather than
-        ; counted -- when the block says what it prints.
+        ; A fenced block naming a language. `basic` and `parasol` are two this
+        ; repository defines and ships a compiler for, so they are checked
+        ; rather than counted -- the first when the block says what it prints,
+        ; the second always, since its claims are written the way a bare
+        ; block's are.
         { block:at(#3):equals("basic"):ifElse({
               basicBlocks := basicBlocks:add(#1).
               shown:includes(n):ifTrue({
                   checkBasic:value(path, name, n, block:at(#2), shown:at(n)) }) },
-            { tagged := tagged:add(#1) }) }) }).
+            { block:at(#3):equals("parasol"):ifElse({
+                  parasolBlocks := parasolBlocks:add(#1).
+                  checkParasol:value(path, name, n, block) },
+                { tagged := tagged:add(#1) }) }) }) }).
 
     ; What the documents alone account for, since `programs.md` states that
     ; separately from the total and both numbers have to stay true.
@@ -1066,20 +1158,46 @@ check := { path |
 ; ---------------------------------------------------------------------------
 ; Running all of them
 
+; **A directory is walked to the bottom, since 2026-09-15.** It was one level
+; deep, and the reading the standup of the day before gave it is the reason it
+; is not any more: *a check that reads a fixed set of files is blind to a file
+; outside the set, and a move is what puts a file outside the set.* Four
+; defects on 2026-09-14, none seen by a green suite, and 44 links broken in
+; pages under `programs/` that this program had never opened. `extensions` had
+; been a subject of `make test` for a week and checked nothing, because the
+; one thing in it is a directory. The changelog's *blocks* are skipped, and it
+; is the only exception: it is a record of what was true at each release, so
+; its snippets describe past states on purpose -- an entry from 0.4.0 showing
+; what an error said then is right to keep saying it. Every other document
+; describes the language as it is now, and is checked. Its headings are read
+; further down, for the commit hash each one names, which is a claim about now.
+;
+; With a stack rather than by recursion, following mirror.sol, as the link
+; walk further down already did. Every `.sol`, `.psol` and `.md` under `dir`,
+; changelogs included: the link check wants those, and `claimsUnder` takes
+; them out.
+filesUnder := { dir | | out, pending |
+    out := array:new. pending := [dir].
+    { pending:size:greaterThan(#0) }:whileTrue({ | here |
+        here := pending:removeLast.
+        system:filesIn(here):sorted:do({ name | | path |
+            path := here:concat("/"):concat(name).
+            system:isDirectory(path):ifElse(
+                { pending:add(path) },
+                { name:endsWith(".sol"):or({ name:endsWith(".psol") })
+                      :or({ name:endsWith(".md") })
+                      :ifTrue({ out:add(path) }) }) }) }).
+    out:sorted }.
+
+claimsUnder := { dir | | out |
+    out := array:new.
+    filesUnder:value(dir):do({ path |
+        path:endsWith("/CHANGELOG.md"):ifFalse({ out:add(path) }) }).
+    out }.
+
 subjects:do({ subject |
     system:isDirectory(subject):ifElse(
-        { system:filesIn(subject):sorted:do({ name |
-              ; The changelog's *blocks* are skipped, and it is the only
-              ; exception. It is a record of what was true at each release, so
-              ; its snippets describe past states on purpose -- an entry from
-              ; 0.4.0 showing what an error said then is right to keep saying
-              ; it. Every other document describes the language as it is now,
-              ; and is checked. Its headings are read further down, for the
-              ; commit hash each one names, which is a claim about now.
-              name:equals("CHANGELOG.md"):not:and({
-                  name:endsWith(".sol"):or({ name:endsWith(".md") })
-              }):ifTrue({
-                  check:value(subject:concat("/"):concat(name)) }) }) },
+        { claimsUnder:value(subject):do({ path | check:value(path) }) },
         { system:fileExists(subject):ifFalse({
               "no such file or directory: {}":fill([subject]):display.
               system:exit(#1) }).
@@ -1103,15 +1221,20 @@ solFilesIn := { dir | | n |
         name:endsWith(".sol"):ifTrue({ n := n:add(#1) }) }).
     n }.
 
+; The whole set: the examples, the documents, the two pages at the root, the
+; extensions, and **every README.md under `programs/`** -- the pages of the
+; programs written in Parasol, which describe themselves beside their source
+; and were outside every set this program read until 2026-09-15. Named here by
+; the walk and not by a list, so that the eighth program's page is in the set
+; the day its directory is.
 wanted := array:new.
-system:filesIn("examples"):sorted:do({ name |
-    name:endsWith(".sol"):ifTrue({
-        wanted:add("examples/":concat(name)) }) }).
-system:filesIn("docs"):sorted:do({ name |
-    name:equals("CHANGELOG.md"):not:and({ name:endsWith(".md") }):ifTrue({
-        wanted:add("docs/":concat(name)) }) }).
+claimsUnder:value("examples"):do({ path | wanted:add(path) }).
+claimsUnder:value("docs"):do({ path | wanted:add(path) }).
 wanted:add("README.md").
 wanted:add("index.md").
+claimsUnder:value("extensions"):do({ path | wanted:add(path) }).
+claimsUnder:value("programs"):do({ path |
+    path:endsWith("/README.md"):ifTrue({ wanted:add(path) }) }).
 
 complete := true.
 wanted:do({ path | seen:indexOf(path):isNil:ifTrue({ complete := false }) }).
@@ -1653,24 +1776,21 @@ targetsIn := { line | | out, from, at, close, target |
 ; header. The changelog is here, unlike for blocks -- its *blocks* record what
 ; was true at each release and are skipped for that reason, but a link in it is
 ; a claim about where a reader lands now.
+;
+; **And every `.md` under those directories too, since 2026-09-15.** The walk
+; below had been reading the `.sol` headers under `programs/` and stepping
+; over the `README.md` beside them, which is how 44 links broke there on
+; 2026-09-14 under a green suite: the pages were in the tree and outside the
+; set. The changelog is read for its links whatever directory it is in.
 linkSubjects := array:new.
-system:filesIn("docs"):sorted:do({ name |
-    name:endsWith(".md"):ifTrue({ linkSubjects:add("docs/":concat(name)) }) }).
+filesUnder:value("docs"):do({ path |
+    path:endsWith(".md"):ifTrue({ linkSubjects:add(path) }) }).
 linkSubjects:add("README.md").
 linkSubjects:add("index.md").
-
-; With a stack rather than by recursion, following mirror.sol: the frame limit
-; is a property of how a tree is walked, not of the tree.
-pendingDirs := array:new.
 ["examples", "lib", "programs", "experiment", "extensions",
- "comparisons"]:do({ d | system:isDirectory(d):ifTrue({ pendingDirs:add(d) }) }).
-{ pendingDirs:size:greaterThan(#0) }:whileTrue({ | here |
-    here := pendingDirs:removeLast.
-    system:filesIn(here):sorted:do({ name | | path |
-        path := here:concat("/"):concat(name).
-        system:isDirectory(path):ifElse(
-            { pendingDirs:add(path) },
-            { name:endsWith(".sol"):ifTrue({ linkSubjects:add(path) }) }) }) }).
+ "comparisons"]:do({ d |
+    system:isDirectory(d):ifTrue({
+        filesUnder:value(d):do({ path | linkSubjects:add(path) }) }) }).
 
 ; Read every one of them for headings first, so the number in the report means
 ; every heading these files offer rather than the ones a link happened to ask
@@ -1869,12 +1989,12 @@ linksSeen:greaterThan(#0):ifTrue({
         "none has its text wrapped across a line, which publishes as a 404"
             :display }).
     headingsInFences:greaterThan(#0):ifTrue({
-        "{} heading{} sit{} inside a fenced block, and {} not {} anchor"
+        "{} heading{} sit{} inside a fenced block, and {} not {}"
             :fill([headingsInFences,
                    headingsInFences:equals(#1):ifElse({""},{"s"}),
                    headingsInFences:equals(#1):ifElse({"s"},{""}),
                    headingsInFences:equals(#1):ifElse({"is"},{"are"}),
-                   headingsInFences:equals(#1):ifElse({"an"},{"anchors"})])
+                   headingsInFences:equals(#1):ifElse({"an anchor"},{"anchors"})])
             :display }) }).
 
 basicBlocks:greaterThan(#0):ifTrue({
@@ -1885,6 +2005,10 @@ basicBlocks:greaterThan(#0):ifTrue({
     basicTyping:greaterThan(#0):ifTrue({
         "{} of them read from the terminal, so what is shown is a session"
             :fill([basicTyping]):display }) }).
+parasolBlocks:greaterThan(#0):ifTrue({
+    "{} Parasol block{}, {} checked through parasol --sob"
+        :fill([parasolBlocks, parasolBlocks:equals(#1):ifElse({""},{"s"}),
+               parasolChecked]):display }).
 
 placed:greaterThan(#0):ifTrue({
     "{} program{} say where {} come{} in the order, and are there"
