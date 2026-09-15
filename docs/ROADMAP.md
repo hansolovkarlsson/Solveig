@@ -1137,6 +1137,44 @@ and either alone would do.
 4. Found on 2026-09-13 by `programs/bignum`, which put a deliberate error in
 a copy of its library to test the map across two modules.
 
+### 3.27 A file is written whole, or appended to, and nothing in between
+
+**`writeFile` replaces a file and `appendFile` adds to its end; no message
+changes bytes in the middle of one.** The ranged read
+([3.22](COMPLETED.md#322-a-file-is-read-whole-or-not-at-all--done)) has no
+counterpart on the writing side, and [design.md](design.md#the-directions-intended-stated-2026-08-31)
+has said since 2026-08-31 that a database would be the program to want one.
+It is, and it is the measured kind of want. `programs/sqlite.sol` inserts a
+row into a file `sqlite3` made by changing the leaf that holds it, the
+interior page above and the file header, and then has no way to put those
+three pages back but to rewrite the file, having first read every page it
+did not need:
+
+| file | pages | an INSERT needs | the whole-file route | time | `sqlite3` |
+| --- | ---: | --- | --- | ---: | ---: |
+| 1 MB | 235 | 3 read, 2 written | 232 more read, 235 written | 0.07 s | 0.038 s |
+| 10 MB | 2,384 | 4 read, 3 written | 2,380 more read, 2,384 written | 0.16 s | 0.033 s |
+| 100 MB | 24,390 | 4 read, 3 written | 24,386 more read, 24,390 written | 1.16 s | 0.039 s |
+
+Measured on 2026-09-15 with `SQLITE_PAGES=1`, which the program prints for
+exactly this. The cost grows with the file and the work does not, 12 KB owed
+against 100 MB paid, and the reference tool's time is flat. A thousand
+inserts in one run pay once, 1.7 s, so a program that keeps the file open is
+not blocked; a program invoked once per statement, which is how a shell
+script uses `sqlite3`, pays the file each time. The plan in
+[ideas.md](ideas.md#an-sqlite-file-read-and-then-written-scoped-2026-09-15)
+predicted this at step 4 and not before, and it arrived at step 4.
+
+**The shape recommended is the mirror of the read**: `writeFile(path, from,
+text)`, one-based like `readFile(path, from, count)`, *a range and not a
+handle* as the read's design sentence says, writing `text` over the bytes
+from `from` and extending the file if it runs past the end. A truncate is
+not wanted with it: an SQLite file never shrinks on a delete, and nothing
+else here has asked. Flushing and locking are not part of this entry either;
+one process, and the checker runs after it exits. **Held for Hans's call on
+the shape**, which the plan lists among the calls that are his; the program
+keeps the whole-file route meanwhile and says what it costs.
+
 ### 1.1d Collection is stop-the-world and non-incremental
 
 Fine at this size and not worth touching yet. Noted so it is a choice rather than

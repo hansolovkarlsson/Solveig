@@ -16,11 +16,15 @@
 ; the files, with `PRAGMA integrity_check` and by reading them.
 ;
 ; The plan is in ideas.md under *An SQLite file, read and then written*, with
-; what it predicted written above what it found. This file is steps 1 to 3 of
+; what it predicted written above what it found. This file is steps 1 to 4 of
 ; it: the reader over tables, then the index trees, which a WHERE on an
 ; indexed column walks instead of scanning; then the writer from nothing,
 ; CREATE TABLE, CREATE INDEX and INSERT into a fresh file, pages built in
-; memory and the file written whole at the end. The SQL it parses is the SQL
+; memory and the file written whole at the end; then the same into a file
+; sqlite3 made, its pages decoded, changed and written back the only way the
+; language has, which is whole. That is ROADMAP 3.27, raised from here with
+; the measurement `SQLITE_PAGES=1` prints: one INSERT into 100 MB needs four
+; pages read and three written, and pays 24,390 of each. The SQL it parses is the SQL
 ; the plan bounds: SELECT of named columns, `rowid` or `*`, from one table,
 ; with a WHERE of one comparison and an ORDER BY; CREATE TABLE with plain
 ; columns; CREATE INDEX on plain columns; INSERT of literals; PRAGMA
@@ -365,15 +369,19 @@ db:cookie := #0.                ; the schema cookie, offset 40
 db:freelistHead := #0.
 db:freelistCount := #0.
 db:written := #0.               ; bytes written by flush, for the measurement
+db:changed := #0.               ; pages that were changed when flush ran
+db:readBefore := #0.            ; pages read before flush had to read the rest
 
-; A file that is there is opened; one that is not is a new database in
-; memory, one empty schema page, written when something has changed.
+; A file that is there is opened; one that is not, or one of no bytes, which
+; is what sqlite3 leaves after a script that only set a pragma, is a new
+; database in memory, one empty schema page, written when something has
+; changed.
 db:open := { path | | d, header |
     d := self:new.
     d:path := path.
     d:cache := dictionary:new.
     d:dirty := dictionary:new.
-    system:fileExists(path):ifElse(
+    (system:fileExists(path):and({ system:fileSize(path):greaterThan(#0) })):ifElse(
         { header := system:readFile(path, #1, #100).
           header:size:lessThan(#100):or({ header:copyFrom(#1, #15):notEquals("SQLite format 3") })
               :ifTrue({ error:raise("file is not a database: ":concat(path)) }).
@@ -448,13 +456,21 @@ db:fileHeader := {
 db:flush := { | pieces, n |
     self:dirty:size:greaterThan(#0):ifTrue({
         self:changes := self:changes:inc.
+        self:changed := self:dirty:size.
+        self:readBefore := self:reads.
         pieces := []. n := #1.
         { n:lessOrEqual(self:pageCount) }:whileTrue({
             pieces:add(self:page(n)). n := n:inc }).
+        ; The file header is rewritten whether or not page 1's tree changed:
+        ; the page count and the change counter live there, and a file that
+        ; grew under an unchanged schema page kept the old count until
+        ; integrity_check named page 191 of 187.
+        pieces:atPut(#1, self:fileHeader:concat(pieces:at(#1):copyFrom(#101, pieces:at(#1):size))).
         system:writeFile(self:path, pieces:join("")).
         self:written := self:written:add(self:pageCount:mul(self:pageSize)).
         ; What was written is now what the file holds.
         self:dirty:keysAndValuesDo({ k, o | self:cache:atPut(k, o:bytes(k, self)) }).
+        self:cache:atPut(#1, pieces:at(#1)).
         self:dirty := dictionary:new }) }.
 
 ; ---------------------------------------------------------------------------
@@ -722,7 +738,9 @@ insertCell := { d, n, raw, key, isIndex | | o, i, below |
     o := d:object(n).
     o:isLeaf:ifElse(
         { i := positionFor:value(o, key, isIndex).
-          (isIndex:not:and({ i:lessOrEqual(o:keys:size) }):and({ o:keys:at(i):equals(key) })):ifTrue({
+          ; The position is past any equal rowid, so the one before it is
+          ; the duplicate to refuse.
+          (isIndex:not:and({ i:greaterThan(#1) }):and({ o:keys:at(i:dec):equals(key) })):ifTrue({
               error:raise("UNIQUE constraint failed: rowid ":concat(key:asString)) }).
           o:cells := insertAt:value(o:cells, i, raw).
           o:keys := insertAt:value(o:keys, i, key) },
@@ -1611,10 +1629,16 @@ main := { | args, d, tables, text, tokens, status |
     { d:flush }:onError({ e |
         system:writeError("Error: ":concat(e:message):concat("\n")).
         status := #1 }).
-    ; The numbers to watch, on request: pages read, and bytes written.
+    ; The numbers to watch, on request: pages read, and for a run that wrote,
+    ; how many pages the statements needed against how many the whole-file
+    ; write cost, which is the measurement step 4 of the plan exists for.
     system:environment("SQLITE_PAGES"):notNil:ifTrue({
-        system:writeError(d:reads:asString:concat(" pages read of "):concat(d:pageCount:asString)
-            :concat(", "):concat(d:written:asString):concat(" bytes written\n")) }).
+        d:written:equals(#0):ifElse(
+            { system:writeError(d:reads:asString:concat(" pages read of "):concat(d:pageCount:asString):concat("\n")) },
+            { system:writeError(d:readBefore:asString:concat(" pages read and "):concat(d:changed:asString)
+                  :concat(" changed by the statements; writing the file whole read "):concat(d:reads:sub(d:readBefore):asString)
+                  :concat(" more and wrote "):concat(d:pageCount:asString):concat(" pages, ")
+                  :concat(d:written:asString):concat(" bytes\n")) }) }).
     system:exit(status) }.
 
 main:value.

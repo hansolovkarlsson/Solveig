@@ -31,9 +31,10 @@
 #              since a database on this machine is somebody's data. Every
 #              table in each is read whole.
 #
-# And then the writer, step 3 of the plan, over the same shapes the other
-# way round: the program builds the database from the script and sqlite3
-# judges the file. Three checks a case, each stricter than the reader's:
+# And then the writer, steps 3 and 4 of the plan, over the same shapes the
+# other way round: the program builds the database from the script, or takes
+# over a database sqlite3 built from the first half of it, and sqlite3 judges
+# the file. Three checks a case, each stricter than the reader's:
 #
 #   integrity  `PRAGMA integrity_check` over the file this program wrote
 #              answers `ok`, which is SQLite's own account of whether the
@@ -198,8 +199,37 @@ fi
 ourPages=0
 theirPages=0
 
-# $1 is the case name; $work/$1.build.sql and $work/$1.q.sql exist and
-# $work/$1.db is sqlite3's file. This program writes $work/$1.w.db.
+# Judge a file this program wrote or changed: $1 the case name, $2 the file,
+# $3 a word for the report. sqlite3's own file from the whole script is
+# $work/$1.db and is the reference.
+judge() {
+    check=$("$SQLITE" -batch "$2" 'PRAGMA integrity_check' 2>&1)
+    cases=$((cases + 1))
+    if [ "$check" != "ok" ]; then
+        bad=$((bad + 1))
+        [ "$bad" -le 5 ] && { printf '  MALFORMED  %s (%s)\n' "$1" "$3"; printf '%s\n' "$check" | sed 's/^/           /' | head -6; }
+        return
+    fi
+    "$SQLITE" -batch -escape off "$work/$1.db" < "$work/$1.q.sql" > "$work/o.out" 2> "$work/o.err"
+    "$SQLITE" -batch -escape off "$2" < "$work/$1.q.sql" > "$work/t.out" 2> "$work/t.err"
+    $ours "$2" < "$work/$1.q.sql" > "$work/m.out" 2> "$work/m.err"
+    if ! cmp -s "$work/o.out" "$work/t.out" || ! cmp -s "$work/o.err" "$work/t.err"; then
+        bad=$((bad + 1))
+        [ "$bad" -le 5 ] && { printf '  DIFFERS  %s (%s, sqlite3 over the file)\n' "$1" "$3"
+            diff -u "$work/o.out" "$work/t.out" | sed -e '1,2d' -e 's/^/           /' | head -10; }
+        return
+    fi
+    if ! cmp -s "$work/o.out" "$work/m.out" || ! cmp -s "$work/o.err" "$work/m.err"; then
+        bad=$((bad + 1))
+        [ "$bad" -le 5 ] && { printf '  DIFFERS  %s (%s, this program over the file)\n' "$1" "$3"
+            diff -u "$work/o.out" "$work/m.out" | sed -e '1,2d' -e 's/^/           /' | head -10; }
+        return
+    fi
+    ourPages=$((ourPages + $("$SQLITE" "$2" 'PRAGMA page_count')))
+    theirPages=$((theirPages + $("$SQLITE" "$work/$1.db" 'PRAGMA page_count')))
+}
+
+# From nothing: this program builds $work/$1.w.db from the whole script.
 write_case() {
     rm -f "$work/$1.w.db"
     if ! $ours "$work/$1.w.db" < "$work/$1.build.sql" > "$work/w.out" 2> "$work/w.err"; then
@@ -207,30 +237,29 @@ write_case() {
         [ "$bad" -le 5 ] && { printf '  REFUSED  %s (writing)\n' "$1"; sed 's/^/           /' "$work/w.err" | head -3; }
         return
     fi
-    check=$("$SQLITE" -batch "$work/$1.w.db" 'PRAGMA integrity_check' 2>&1)
-    cases=$((cases + 1))
-    if [ "$check" != "ok" ]; then
-        bad=$((bad + 1))
-        [ "$bad" -le 5 ] && { printf '  MALFORMED  %s (writing)\n' "$1"; printf '%s\n' "$check" | sed 's/^/           /' | head -6; }
+    judge "$1" "$work/$1.w.db" "written"
+}
+
+# Into a file that exists, which is step 4 of the plan: sqlite3 runs the
+# first half of the statements into $work/$1.h.db and this program runs the
+# second half into the same file, so its pages, header and schema were
+# sqlite3's before they were changed here. The split is after the middle
+# statement; a statement is a line ending in `;` in every writable case.
+# The second half may hold a CREATE, so the schema page changes too.
+existing_case() {
+    total=$(grep -c ';$' "$work/$1.build.sql")
+    [ "$total" -ge 2 ] || return
+    k=$((total / 2))
+    awk -v k="$k" '{ print; if (/;$/) { n++; if (n == k) exit } }' "$work/$1.build.sql" > "$work/$1.h1.sql"
+    awk -v k="$k" 'done { print; next } /;$/ { n++; if (n == k) done = 1 }' "$work/$1.build.sql" > "$work/$1.h2.sql"
+    rm -f "$work/$1.h.db"
+    "$SQLITE" -batch "$work/$1.h.db" < "$work/$1.h1.sql" 2> /dev/null || return
+    if ! $ours "$work/$1.h.db" < "$work/$1.h2.sql" > "$work/w.out" 2> "$work/w.err"; then
+        cases=$((cases + 1)); bad=$((bad + 1))
+        [ "$bad" -le 5 ] && { printf '  REFUSED  %s (into an existing file)\n' "$1"; sed 's/^/           /' "$work/w.err" | head -3; }
         return
     fi
-    "$SQLITE" -batch -escape off "$work/$1.db" < "$work/$1.q.sql" > "$work/o.out" 2> "$work/o.err"
-    "$SQLITE" -batch -escape off "$work/$1.w.db" < "$work/$1.q.sql" > "$work/t.out" 2> "$work/t.err"
-    $ours "$work/$1.w.db" < "$work/$1.q.sql" > "$work/m.out" 2> "$work/m.err"
-    if ! cmp -s "$work/o.out" "$work/t.out" || ! cmp -s "$work/o.err" "$work/t.err"; then
-        bad=$((bad + 1))
-        [ "$bad" -le 5 ] && { printf '  DIFFERS  %s (sqlite3 over the written file)\n' "$1"
-            diff -u "$work/o.out" "$work/t.out" | sed -e '1,2d' -e 's/^/           /' | head -10; }
-        return
-    fi
-    if ! cmp -s "$work/o.out" "$work/m.out" || ! cmp -s "$work/o.err" "$work/m.err"; then
-        bad=$((bad + 1))
-        [ "$bad" -le 5 ] && { printf '  DIFFERS  %s (this program over the written file)\n' "$1"
-            diff -u "$work/o.out" "$work/m.out" | sed -e '1,2d' -e 's/^/           /' | head -10; }
-        return
-    fi
-    ourPages=$((ourPages + $("$SQLITE" "$work/$1.w.db" 'PRAGMA page_count')))
-    theirPages=$((theirPages + $("$SQLITE" "$work/$1.db" 'PRAGMA page_count')))
+    judge "$1" "$work/$1.h.db" "into an existing file"
 }
 
 if [ -z "$keep" ]; then
@@ -242,17 +271,19 @@ if [ -z "$keep" ]; then
         grep -q '^-- writer: skip' "$f" && continue
         n=$((n + 1))
         write_case "$(basename "$f" .sql)"
+        existing_case "$(basename "$f" .sql)"
     done
-    echo "  author:    $n cases"
+    echo "  author:    $n cases, from nothing and into a file sqlite3 began"
     python3 programs/sqlite/generate.py "$work" "$seed" "$count" writable || exit 2
     while IFS= read -r f; do
         name=$(basename "$f" .sql)
         prepare "$f" "$name" || { bad=$((bad + 1)); continue; }
         write_case "$name"
+        existing_case "$name"
     done <<GEN
 $(ls "$work"/gen-w-"$seed"-*.sql)
 GEN
-    echo "  generated: $count cases, seed $seed"
+    echo "  generated: $count cases, seed $seed, both ways"
     if [ "$theirPages" -gt 0 ]; then
         echo "  pages:     $ourPages written here against $theirPages by sqlite3, over the cases that agreed"
     fi

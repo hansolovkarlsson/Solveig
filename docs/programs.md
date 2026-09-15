@@ -2580,9 +2580,8 @@ chosen shapes and two hundred generated ones a seed; on the day the reader
 landed, four seeds agreed in every case, 852 of 852, after the third seed had
 found one defect, below. The plan is in
 [ideas.md](ideas.md#an-sqlite-file-read-and-then-written-scoped-2026-09-15),
-prediction above outcome; steps 1 to 3 are built, and step 4, the writer into
-a file that exists, is where the prediction bites. Step 2 followed step 1 the
-same day: a WHERE on a column
+prediction above outcome; steps 1 to 4 are built, and step 5, delete, is
+next. Step 2 followed step 1 the same day: a WHERE on a column
 that is the first column of a plain index walks the index tree, pruning as it
 descends, and fetches each matching rowid from the table. `SQLITE_PAGES=1`
 in the environment reports the pages a run read, which is the number the
@@ -2690,10 +2689,45 @@ trees, 566 pages against 335. Over the 207 written cases of the sweep, 8,949
 pages against 6,398, which is the split policy and nothing else, and the
 program says so rather than tuning it before something asks.
 
+### Into a file that exists, and the prediction fires
+
+Step 4, the same night. `decodePage` turns a page `sqlite3` wrote into the
+object the writer changes, every cell copied raw with its key decoded beside
+it, an overflow pointer carried along with the cell that owns it, so a row
+this program did not write moves intact when its page splits. The header's
+change counter, page count and version-valid-for are rewritten on every
+flush whether or not the schema page changed, which `integrity_check` taught
+by naming page 191 of 187; the schema cookie moves when a CREATE lands in an
+old file. The sweep's third rung runs every writable case as `sqlite3`
+building the first half of the script and this program the second, judged the
+same three ways. The whole sweep, three rungs, is **626 of 626 on seed 1 and
+623 of 623 on seed 2**; seed 1's first run had refused two cases whose first
+half was a pragma alone, which leaves `sqlite3` with a file of no bytes, and a
+file of no bytes is a new database now, as it is to SQLite.
+
+**And the positioned write is wanted, at the moment the plan named.** One
+INSERT into a file `sqlite3` made changes the leaf, the interior page above
+and the header, and the only way to put three pages back is `writeFile` of
+the whole file, having read every page first:
+
+| file | pages | an INSERT needs | the whole-file route | time | `sqlite3` |
+| --- | ---: | --- | --- | ---: | ---: |
+| 1 MB | 235 | 3 read, 2 written | 232 more read, 235 written | 0.07 s | 0.038 s |
+| 10 MB | 2,384 | 4 read, 3 written | 2,380 more read, 2,384 written | 0.16 s | 0.033 s |
+| 100 MB | 24,390 | 4 read, 3 written | 24,386 more read, 24,390 written | 1.16 s | 0.039 s |
+
+`SQLITE_PAGES=1` prints the two halves of that for any run that wrote. It is
+[3.27](ROADMAP.md#327-a-file-is-written-whole-or-appended-to-and-nothing-in-between)
+now, with the shape the plan recommended, `writeFile(path, from, text)`, and
+the decision held for Hans. A thousand inserts in one run pay the file once,
+1.7 seconds, so a program that keeps the file open is slowed and not
+blocked; one invoked per statement pays it every time.
+
 ### What it wanted from the language, so far
 
-Nothing, and that was the prediction for the reader; the writer from nothing
-has not asked either, and the second prediction, that a page as an array of
+The positioned write, above, at step 4 and not before, which is what the
+plan said; the reader and the writer from nothing asked for nothing, which
+is also what it said. The second prediction, that a page as an array of
 strings joined on demand is bearable, has its first number above: 0.36
 milliseconds a row, 0.6 with two indexes. Two notes rather than
 entries: the ninth byte of a varint and the eighth of an integer meet
