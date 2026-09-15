@@ -10,7 +10,7 @@ piece of work as it was argued *before* the work is in
 
 ---
 
-### `parasol --sob` — `HASH`, 2026-09-14
+### `parasol --sob` — `0b9ed0e`, 2026-09-14
 
 **No version.** `--sob` writes the `.sol` as before and then runs `solas` on
 it, the one beside the `parasol` binary or else the one on PATH, with `-o`,
