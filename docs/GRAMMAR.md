@@ -240,7 +240,7 @@ which is the larger one: a bare `solas` refuses `@expr` at the directive and
 admits everything else here. A second front end need not have the region at
 all, and the [conformance corpus](../conformance/README.md) says so with a
 case. The general form of the region, where a module declares its own
-operators, is [Parasol](../parasol/README.md).
+operators, is [Parasol](PARASOL.md).
 
 **What did not change is the semantics.** Every operator lowers to the send it
 reads as — `+` to `add`, `^` to `pow` — and the region emits the bytes the chain

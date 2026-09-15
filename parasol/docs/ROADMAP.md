@@ -200,7 +200,9 @@ and be written once.
    house convention for a sub-language's pages is already set by
    `SOLABASIC.md`, `SOLABASIC-REFERENCE.md` and `SOLABASIC-CHEATSHEET.md`,
    flat in `docs/` under a prefix, where a `docs/parasol/` subdirectory
-   would be read by the checker for links and for nothing else; every one
+   would be read by the checker for links and for nothing else (true when
+   written; since sub-step 1 the checker walks `docs/` to the bottom, and
+   a subdirectory is read for everything); every one
    of Parasol's changelog hashes resolves in this history; the two
    LICENSE files are identical; and `solas/`, `solum/` hold C and nothing
    else, which is what `parasol/` becomes. And a reason to do it at all
@@ -216,6 +218,16 @@ and be written once.
       checker read every `README.md` under `programs/`, so the forty-four
       cannot happen again. Its own step because it can be built and proved
       against the pages where they are now, before any of them moves.
+      **Done, 2026-09-15, `ad4e33e`.** Three things the scoping did not
+      know: the five `.psol` examples carried 23 claims that `make test`
+      ran and never read, and they went in with the fence, four of their
+      comments in the convention the checker dropped on 2026-09-01; a
+      directory subject is now walked to the bottom, which is what put the
+      READMEs in the set and is what makes `extensions` check anything;
+      and the pages as they stood produced 3 findings under the checker,
+      not 150, because a bare fence with no claim in it is quiet. The tag
+      for a Solveig block is no tag, as everywhere else in `docs/`; the
+      `sol` below was never one the checker read.
    2. **The reference pages.** `REFERENCE.md`, `GRAMMAR.md` and the front
       page (`parasol/README.md`, 794 lines, with `what-is-parasol.md` read
       against it, since the two overlap and one should become the other's
@@ -224,7 +236,17 @@ and be written once.
       or `text` as it is read; the `<!--count-->` markers re-synced; the
       editor's `messages.py` repointed; the site's nav given a Parasol
       entry. The pages a user reads, first, because they are the ones that
-      make the tool feel like a member.
+      make the tool feel like a member. **Done, 2026-09-15.** The front
+      page and `what-is-parasol.md` became one: the four questions that
+      explain the tool are a section of `PARASOL.md`, *How it works, as it
+      was asked*, and the first, a status answer at 0.9.0, is not, its
+      items being here. `pipeline.html` went with them as
+      `PARASOL-PIPELINE.html`. Thirty-three fences on the front page:
+      eight `parasol`, of which one carries a claim and is checked, and
+      the rest `text`, since a fragment that declares `&&` and uses `>`
+      is a picture. *Why it is not a folder inside Solveig* is *Why it
+      takes nothing from Solveig* now, the argument unchanged and the
+      first paragraph saying where the distance went.
    3. **The essays.** `does-it-pay.md`, `second-reader.md`,
       `rules-and-logic.md`, `targets.md` under the same prefix.
       `conventions.md` is Parasol's `method.md`: the agreements that
@@ -254,7 +276,22 @@ and be written once.
    The calls that are the author's, before sub-step 2: whether the records
    fold (sub-step 4 as written) or stay whole under the prefix; and
    whether `POSTMORTEM.md` is kept at all, since the root's position is
-   that predictions scored in `ideas.md` do its job.
+   that predictions scored in `ideas.md` do its job. **Both made on
+   2026-09-15, before sub-step 1, and neither is what sub-step 4 says
+   above.** The five records (`journal`, `COMPLETED`, `ROADMAP`,
+   `CHANGELOG`, `POSTMORTEM`) go whole to `docs/parasol/` and freeze
+   there, each opening with a note giving the date and saying that from
+   it Parasol's record is Solveig's; nothing is appended below the note
+   afterwards. `CHANGELOG.md` ends at 0.17.0, which is also the version
+   line, and the root's next release entry says Parasol joined there.
+   `POSTMORTEM.md` freezes with the rest, its 33 entries readable and
+   closed, and a Parasol defect after the freeze is scored in the root's
+   `ideas.md` like any other; the root `CLAUDE.md` gets a clause saying
+   the archived one was moved in and not created. Open items leave
+   before the freeze, this page's to the root roadmap, and each archived
+   record ends with a line saying where its open matter went. The
+   checker reads `docs/parasol/` for links and fences both. Sub-step 3
+   is unchanged; sub-step 5 loses `POSTMORTEM` and the interleave.
 
 What is not in the plan: any change to what Parasol does. The driver, the
 reader, the expander and the emitter are the same before and after, and the
@@ -287,7 +324,7 @@ xor *is* not-equals, and the argument for `^^` was that a module using
 `lib/arith.psol` had no way to write one at all. It has `!=` since 2026-09-02, so
 `a != b` on two booleans is an xor in both shipped dialects and the gap that
 argument pointed at is closed. Nothing here has ever needed one.
-[REFERENCE.md](REFERENCE.md) records that the spelling would be `^^` if it were
+[REFERENCE.md](../../docs/PARASOL-REFERENCE.md) records that the spelling would be `^^` if it were
 ever declared, so the question stays settled before it is asked.
 
 **No postfix operators.** Parasol has prefix and infix; `x++`, `a[i]` and
@@ -583,7 +620,7 @@ this page any more.
 silent.** A pattern where a call was meant parses, quietly takes what came
 after, and fails at run time in generated code if it fails at all. Nothing at
 the declaration can say otherwise, both readings being legal. The rule is now in
-[GRAMMAR.md](GRAMMAR.md) under *Which shape a form should have*, which is where
+[GRAMMAR.md](../../docs/PARASOL-GRAMMAR.md) under *Which shape a form should have*, which is where
 somebody choosing one would look; it had been in a program's README, which is
 not.
 

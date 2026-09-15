@@ -131,7 +131,7 @@ integer = "#" [ "-" ] digit { digit }
 
 Parasol implements the first, without the sign, and neither of the other two.
 `#-5` compiles in Solveig and is an error here; `$FF08` and `%1011` are
-integers there and nothing here. [GRAMMAR.md](../../parasol/docs/GRAMMAR.md) says
+integers there and nothing here. [GRAMMAR.md](../../docs/PARASOL-GRAMMAR.md) says
 everything but `operator` is Solveig's own spelling, *so that a file can be read
 by somebody who knows Solveig without a second set of habits* — and for integers
 that is not true.

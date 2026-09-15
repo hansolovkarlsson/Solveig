@@ -366,7 +366,7 @@ dialect is a file*, where somebody would look for it.
 
 ## 15. Solveig's spellings, closed as far as they close — done, 0.11.0 to 0.13.0
 
-**The problem.** [GRAMMAR.md](GRAMMAR.md) said everything but `operator` was
+**The problem.** [GRAMMAR.md](../../docs/PARASOL-GRAMMAR.md) said everything but `operator` was
 Solveig's own spelling, *so that a file can be read by somebody who knows
 Solveig without a second set of habits*, and [README.md](../README.md) went
 further: a module declaring nothing *reads exactly as Solveig does today*.

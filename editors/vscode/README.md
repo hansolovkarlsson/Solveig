@@ -80,7 +80,7 @@ coloured wrong.
 ## What the Parasol grammar knows
 
 `syntaxes/parasol.tmLanguage.json` is Parasol's token table from
-[its reference](../../parasol/docs/REFERENCE.md#tokens), which no dialect can
+[its reference](../../docs/PARASOL-REFERENCE.md#tokens), which no dialect can
 change, and that is the whole reason a grammar can colour a language whose
 syntax arrives with the file. Solveig's tokens with three differences:
 
@@ -152,7 +152,7 @@ from none:
   comment above it says.
 
 In a Parasol module two more places offer: after `@`, the eight directive
-forms from [the header table](../../parasol/docs/REFERENCE.md#the-header), each
+forms from [the header table](../../docs/PARASOL-REFERENCE.md#the-header), each
 inserting as a snippet with a tab stop per part; and after the colon inside
 a hole, `<t: `, the five kinds. Both lists come from Parasol's reference by the
 same generator.

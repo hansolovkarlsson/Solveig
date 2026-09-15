@@ -1219,9 +1219,9 @@ and that is Parasol's own syntax.
 **Neither misreading is one a document written from the inside would think to
 correct.** GRAMMAR.md says what the syntax is; the README argues why. Nothing
 said *matching is not a scan*, because nobody on the inside would imagine it
-was. Both are now in [what-is-parasol.md](what-is-parasol.md), kept as the questions
+was. Both are now in [what-is-parasol.md](../../docs/PARASOL.md), kept as the questions
 they were rather than rewritten into statements, and the pipeline is drawn four
-times in [pipeline.html](pipeline.html) — `3156d26`.
+times in [pipeline.html](../../docs/PARASOL-PIPELINE.html) — `3156d26`.
 
 ### `@language` went, and a question is what unstuck it
 
@@ -1576,7 +1576,7 @@ this morning: *being asked whether a survey had been complete*, at two, and
 *somebody building the thing that could not be built*, at one.
 
 **Three documents arrived that had no home before**:
-[REFERENCE.md](REFERENCE.md), the page you look a spelling up in;
+[REFERENCE.md](../../docs/PARASOL-REFERENCE.md), the page you look a spelling up in;
 [does-it-pay.md](does-it-pay.md), the answer to the only question the project
 exists to ask; and `programs/prose/README.md`, a document about a document.
 

@@ -2421,7 +2421,7 @@ a bare `solas` is refused at the directive:
 It is a flag rather than part of the language because the language has no
 operators, and the region is one fixed ladder of them compiled in. The general
 form of that, where a module declares its own operators and their precedence,
-is [Parasol](../parasol/README.md), which emits the sends and needs no flag.
+is [Parasol](PARASOL.md), which emits the sends and needs no flag.
 The region stays for the programs written to it, and a host embedding the
 compiler turns it on through `SolCompileOptions`.
 

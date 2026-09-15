@@ -1,4 +1,4 @@
-# The core grammar
+# Parasol's core grammar
 
 What Parasol reads before a dialect has said anything. **A dialect cannot change
 this**; it can only fill in the one hole marked below.
@@ -74,7 +74,7 @@ precedence and `lib/clike.psol` puts it at 10.
 The shadowing is confined to the **top level of a key**. One bracket down the
 declaration is back:
 
-```
+```text
 @infix = 40 equals.
 #[(b = c) = d]        is  #[(b:equals(c)) = d]
 ```
@@ -97,7 +97,7 @@ not have a second one.
 | comment | `;` to the end of the line |
 
 Everything but `operator` is Solveig's own spelling **in shape, and not quite
-in full**. [POSTMORTEM.md](POSTMORTEM.md) 16 found nine differences and 0.11.0
+in full**. [POSTMORTEM.md](../parasol/docs/POSTMORTEM.md) 16 found nine differences and 0.11.0
 closed five of them — the sign on an integer, hexadecimal, float exponents, and
 the escape set, which Parasol had been *more* permissive about and was therefore
 emitting Solveig that `solas` rejected.
@@ -152,8 +152,8 @@ no help at all.
 
 **Nesting is limited to 64**, the depth Solveig allows an `@include`.
 
-What happens when two of them declare one spelling is in the README, under *When
-two dialects collide*.
+What happens when two of them declare one spelling is in
+[PARASOL.md](PARASOL.md), under *When two dialects collide*.
 
 ## Patterns
 
@@ -168,7 +168,7 @@ the first hole takes the sum and the second finds nothing.
 
 **Several forms may share a leading word**, and are matched together:
 
-```
+```text
 @syntax if <c> then <a>          => c:ifTrue({ a }).
 @syntax if <c> then <a> else <b> => c:ifElse({ a }, { b }).
 ```
@@ -195,7 +195,7 @@ choosing wrongly is silent.
 through sends and infix operators.** So nothing written after such a form can
 apply to the form's *result*:
 
-```
+```text
 @syntax at <s> => src:looksLike(s).
 at "*" || at "/"        is  at ("*" || (at "/"))
 ```
@@ -203,7 +203,7 @@ at "*" || at "/"        is  at ("*" || (at "/"))
 **A call ends at its closing parenthesis**, so anything after it applies to what
 it answered:
 
-```
+```text
 @syntax at(s) => src:looksLike(s).
 at("*") || at("/")      is  src:looksLike("*"):or({ src:looksLike("/") })
 ```
@@ -269,7 +269,7 @@ is no recursion to limit and no counter deciding when to give up.
 
 **A template may not bind a name that is already one of its parameters.**
 
-```
+```text
 @syntax f(t) => { | t | t:add(#1) }.
 ```
 
@@ -278,14 +278,14 @@ block's own temporary — and no rule about which wins is a rule anybody should
 have to know. Refused at the declaration, where the author is.
 
 **Everything else a template binds is renamed at every expansion**, to a name
-nothing in the module uses. See *Hygiene* in the README for what that does and
-does not buy.
+nothing in the module uses. See *Hygiene* in [PARASOL.md](PARASOL.md) for what that
+does and does not buy.
 
 ## What settles a block
 
 The leading `|` of a temporary list, exactly as in Solveig:
 
-```
+```text
 { a | a }.              ; -- one parameter
 { | a | a }.            ; -- no parameters, one temporary
 { a | | t | t }.        ; -- one parameter and one temporary
@@ -301,7 +301,7 @@ A send binds tighter than any operator, and an assignment looser than all of
 them. Neither is negotiable, because neither is an operator: `:` and `:=` are
 core syntax and a dialect never sees them.
 
-```
+```text
 a := #1 + #2:negated       is    a := #1:add(#2:negated)
 a := ~b + c                is    a := b:not:add(c)
 ```

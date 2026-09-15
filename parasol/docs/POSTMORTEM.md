@@ -139,7 +139,7 @@ comparing every form in Solveig's grammar against Parasol, one file each, gives
 | `-3` | a literal | needs `@prefix -` | **cannot be had** while `-` is declarable |
 
 **Why it is a defect and not a list of missing features.**
-[GRAMMAR.md](GRAMMAR.md) says everything but `operator` is Solveig's own
+[GRAMMAR.md](../../docs/PARASOL-GRAMMAR.md) says everything but `operator` is Solveig's own
 spelling, *so that a file can be read by somebody who knows Solveig without a
 second set of habits*. [README.md](../README.md) goes further in its first
 section: a module may *declare no operators at all and read exactly as Solveig

@@ -1,9 +1,9 @@
-# Reference
+# Parasol reference
 
 *Everything you look up rather than read. One page, mostly tables.*
 
-[README.md](../README.md) argues the design and [GRAMMAR.md](GRAMMAR.md) states
-the formal grammar. This is neither: it is the surface you check a spelling
+[PARASOL.md](PARASOL.md) argues the design and [PARASOL-GRAMMAR.md](PARASOL-GRAMMAR.md)
+states the formal grammar. This is neither: it is the surface you check a spelling
 against. Where the two disagree with this page, they are right and this page is
 a defect.
 
@@ -55,17 +55,17 @@ a `solas` is there, which is every `bin/` this repository makes; otherwise
 ### make
 
 From Solveig's root, whose Makefile has held the Parasol rules since
-2026-09-14 in a section of its own; there is no Makefile in this directory.
+2026-09-14 in a section of its own; there is no Makefile under `parasol/`.
 
 | | |
 | --- | --- |
 | `make` | `bin/parasol`, beside Solveig's four binaries. A C11 compiler and `make`, and nothing else. |
 | `make test` | Solveig's suite, then this one: the unit tests, plus every example and program through `solas` and `solvm` |
-| `make sanitize` | the whole suite under AddressSanitizer and UBSan, from a clean build. **Worth doing before a release** — see [POSTMORTEM.md](POSTMORTEM.md) 15. It leaves an instrumented `bin/`; `make clean` restores a normal one. |
+| `make sanitize` | the whole suite under AddressSanitizer and UBSan, from a clean build. **Worth doing before a release** — see [POSTMORTEM.md](../parasol/docs/POSTMORTEM.md) 15. It leaves an instrumented `bin/`; `make clean` restores a normal one. |
 | `make examples` | every example, Solveig's and Parasol's, to a `.sob` |
 | `make ember` / `grammar` / `digest` / `ledger` / `prose` / `basic` / `bignum` | one program at a time, built and run |
 | `make install` | `bin/parasol` to `$PREFIX/bin` with the four, `lib/*.psol` to `$PREFIX/lib/solum` with Solveig's library; it prints the `PARASOL_PATH` to export |
-| `make clean` | remove `build/`, `bin/` and everything generated here |
+| `make clean` | remove `build/`, `bin/` and everything generated |
 
 The build needs no Solveig. `make test`, `make examples` and the program
 targets do, and hand it the `solas` and `solvm` the same run built. What the
@@ -113,7 +113,7 @@ A **call** if its answer is used; a **pattern** if it is a step. A pattern's
 trailing hole takes an expression and an expression continues through sends and
 infix operators, so nothing written after a pattern applies to its result. A
 call ends at its closing parenthesis. Both parse, and choosing wrongly is
-silent — [GRAMMAR.md](GRAMMAR.md) argues it at length.
+silent — [PARASOL-GRAMMAR.md](PARASOL-GRAMMAR.md) argues it at length.
 
 ### What a hole accepts
 
@@ -177,15 +177,15 @@ dialect rather than to any declaration.
 
 **Parasol documents how a module's notation becomes sends. It does not document
 what sends exist**, and it should not — that is
-[Solveig's reference](https://hansolovkarlsson.github.io/Solveig/docs/REFERENCE.html),
-which lists every message on every type.
+[Solveig's reference](REFERENCE.md), beside this page, which lists every
+message on every type.
 
 Saying so is new, and it is here because a reader who had never seen this
 language got the whole notation right on their first attempt and then spent
 every one of their remaining cycles on the other side of the line: `concat`,
-`asString` and `display` are messages **this repository names nowhere**, and
+`asString` and `display` are messages **Parasol's pages name nowhere**, and
 `string does not understand 'show'` tells you a name is wrong without telling
-you what is right. See [second-reader.md](second-reader.md).
+you what is right. See [second-reader.md](../parasol/docs/second-reader.md).
 
 **A dialect gives you syntax; Solveig gives you the library.** `@use` reaches
 the first and `@include` the second, and neither reaches the other.
@@ -291,7 +291,7 @@ form, beside `&&` and `||`, for the same reason those are doubled: the single
 character is the bitwise one and the pair is the logical one. It is a
 declaration and nothing more:
 
-```
+```text
 @infix  ^^  35 notEquals.        ; between && at 30 and || at 25
 ```
 
@@ -331,7 +331,7 @@ pass.
 A `.sol` of Solveig source, beginning with a banner naming the version, and —
 with `--map` — a `.sol.map` beside it.
 
-```
+```text
 # parasol source map 1
 # from examples/vectors.psol
 # to   examples/vectors.sol
@@ -359,7 +359,7 @@ map.
 Paths from Solveig's root. Since 2026-09-14 the compiler's C is laid out as
 `solas/`, `solid/` and the others are, and its tests are beside theirs.
 
-```
+```text
 parasol/cmd/      main.c, the command line
 parasol/include/  the public headers, under parasol/
 parasol/src/      the compiler          lex, reader, dialect, tree, expand, emit
@@ -369,25 +369,26 @@ programs/         seven directories beside Solveig's programs, each with its own
                   ember, grammar, digest, ledger, prose, minibasic, bignum
 build/            everything parasol generates: build/examples/, build/programs/<name>/
 tests/            test_parasol_reader, _expand, _map, _use, _sob, among Solveig's
-parasol/docs/     the documents below
+docs/             this page, PARASOL.md, PARASOL-GRAMMAR.md and PARASOL-PIPELINE.html beside Solveig's
+parasol/docs/     the rest of the documents below, until the steps that move them
 editors/          VS Code colours a .psol file and completes its directives: editors/vscode/README.md
 ```
 
 | example | |
 | --- | --- |
-| [`vectors.psol`](../../examples/vectors.psol) | precedence, associativity, a prefix operator, and where a send binds |
-| [`utf8.psol`](../../examples/utf8.psol) | Solveig's `integer:asUtf8`, written in operators |
-| [`forms.psol`](../../examples/forms.psol) | `unless`, `while` and `swap` declared by the module; hygiene shown by running |
-| [`dialect.psol`](../../examples/dialect.psol) | a one-line header, everything else out of `lib/`, with a diamond |
-| [`clike.psol`](../../examples/clike.psol) | C's shape, out of `lib/clike.psol` |
+| [`vectors.psol`](../examples/vectors.psol) | precedence, associativity, a prefix operator, and where a send binds |
+| [`utf8.psol`](../examples/utf8.psol) | Solveig's `integer:asUtf8`, written in operators |
+| [`forms.psol`](../examples/forms.psol) | `unless`, `while` and `swap` declared by the module; hygiene shown by running |
+| [`dialect.psol`](../examples/dialect.psol) | a one-line header, everything else out of `lib/`, with a diamond |
+| [`clike.psol`](../examples/clike.psol) | C's shape, out of `lib/clike.psol` |
 
 | program | |
 | --- | --- |
-| [`programs/ember`](../../programs/ember) | a small language compiled to ARM64 assembly, to a running binary |
-| [`programs/grammar`](../../programs/grammar) | a grammar toolkit, and two grammars written over it |
-| [`programs/digest`](../../programs/digest) | SHA-256, agreeing with `shasum -a 256` |
-| [`programs/ledger`](../../programs/ledger) | a statement in fixed-point decimal, against figures computed elsewhere |
-| [`programs/prose`](../../programs/prose) | a document written in its own dialect, rendered to text |
+| [`programs/ember`](../programs/ember) | a small language compiled to ARM64 assembly, to a running binary |
+| [`programs/grammar`](../programs/grammar) | a grammar toolkit, and two grammars written over it |
+| [`programs/digest`](../programs/digest) | SHA-256, agreeing with `shasum -a 256` |
+| [`programs/ledger`](../programs/ledger) | a statement in fixed-point decimal, against figures computed elsewhere |
+| [`programs/prose`](../programs/prose) | a document written in its own dialect, rendered to text |
 
 Each program carries predictions recorded **before** it was written and a *What
 it found* section written after. Predictions that were wrong stay in, marked
@@ -395,16 +396,16 @@ wrong.
 
 | document | |
 | --- | --- |
-| [does-it-pay.md](does-it-pay.md) | what seven programs and four strangers say about whether a declared grammar is worth it |
-| [what-is-parasol.md](what-is-parasol.md) | how the parts fit together, as five questions |
-| [pipeline.html](pipeline.html) | the same path drawn |
-| [GRAMMAR.md](GRAMMAR.md) | the core grammar, and which shape a form should have |
-| [ROADMAP.md](ROADMAP.md) | what is outstanding, and what is refused |
-| [COMPLETED.md](COMPLETED.md) | the case for each finished piece, as argued before it |
-| [CHANGELOG.md](CHANGELOG.md) | what landed, per version, with the commit |
-| [POSTMORTEM.md](POSTMORTEM.md) | every defect found here, and **what found it** |
-| [journal.md](journal.md) | what a day consisted of |
-| [conventions.md](conventions.md) | the standing agreements and the method |
-| [targets.md](targets.md) | what Parasol targets, and what a program in Parasol targets |
-| [rules-and-logic.md](rules-and-logic.md) | how far the rules could go, and where they stop |
-| [solveig-notes.md](solveig-notes.md) | what Parasol has found in Solveig |
+| [PARASOL.md](PARASOL.md) | the case for the design, at length, and how the parts fit together, as four questions |
+| [PARASOL-PIPELINE.html](PARASOL-PIPELINE.html) | the same path drawn |
+| [PARASOL-GRAMMAR.md](PARASOL-GRAMMAR.md) | the core grammar, and which shape a form should have |
+| [does-it-pay.md](../parasol/docs/does-it-pay.md) | what seven programs and four strangers say about whether a declared grammar is worth it |
+| [ROADMAP.md](../parasol/docs/ROADMAP.md) | what is outstanding, and what is refused |
+| [COMPLETED.md](../parasol/docs/COMPLETED.md) | the case for each finished piece, as argued before it |
+| [CHANGELOG.md](../parasol/docs/CHANGELOG.md) | what landed, per version, with the commit |
+| [POSTMORTEM.md](../parasol/docs/POSTMORTEM.md) | every defect found here, and **what found it** |
+| [journal.md](../parasol/docs/journal.md) | what a day consisted of |
+| [conventions.md](../parasol/docs/conventions.md) | the standing agreements and the method |
+| [targets.md](../parasol/docs/targets.md) | what Parasol targets, and what a program in Parasol targets |
+| [rules-and-logic.md](../parasol/docs/rules-and-logic.md) | how far the rules could go, and where they stop |
+| [solveig-notes.md](../parasol/docs/solveig-notes.md) | what Parasol has found in Solveig |

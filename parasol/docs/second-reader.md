@@ -22,7 +22,7 @@ there is a measurement of what they pay.
 
 | | |
 | --- | --- |
-| **The dialect** | `lib/clike.psol`. It is shipped, standalone, documented in [REFERENCE.md](REFERENCE.md), and the only one written for readers rather than for one program — `interp.psol` and `sha2.psol` name their program's globals and are explicitly not reusable. |
+| **The dialect** | `lib/clike.psol`. It is shipped, standalone, documented in [REFERENCE.md](../../docs/PARASOL-REFERENCE.md), and the only one written for readers rather than for one program — `interp.psol` and `sha2.psol` name their program's globals and are explicitly not reusable. |
 | **The reader** | Somebody who did not write it and has not read this repository. The available proxy is a session with no context, given the published surface and nothing else. **A proxy is not a person**; what that costs is under *How it is checked*. |
 | **What they get** | Everything published: `README.md`, `REFERENCE.md`, `lib/clike.psol` and `examples/clike.psol`. **Nothing is withheld**, because a stranger arriving from Solveig's front page gets all of it, and testing a smaller surface would test a strawman. |
 | **The task** | Print every pair `(a, b)` with `1 ≤ a < b ≤ 6` whose product is even, then how many there were. A nested loop, `%`, `&&`, a comparison, a counter and two kinds of printing — and **nothing in `examples/clike.psol` to copy**, which has no nested loop and no counter. |
@@ -144,7 +144,7 @@ boundary is not merely where the *mistakes* are; it is where the *documentation
 stops*, and a reader reaches it in their first statement, because a program that
 computes anything must eventually print it.
 
-**The fix is one line and it is made**: [REFERENCE.md](REFERENCE.md) now sends
+**The fix is one line and it is made**: [REFERENCE.md](../../docs/PARASOL-REFERENCE.md) now sends
 the reader to Solveig's own reference for the message set, which is the half
 this repository has no business restating and had never named.
 

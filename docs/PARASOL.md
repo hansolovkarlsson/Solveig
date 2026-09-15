@@ -1,11 +1,15 @@
 # Parasol
 
+*The second compiler in this toolkit, and the case for it. Since 2026-09-15
+this is a page of Solveig's documents rather than the front page of a
+repository of its own; what it argues has not moved.*
+
 A compiler whose syntax arrives with the file it is compiling. A module declares
 its own grammar in its header, and that grammar holds for that file and no
-other. What comes out is [Solveig](https://github.com/hansolovkarlsson/Solveig)
-source, which `solas` turns into bytecode like any other.
+other. What comes out is Solveig source, which `solas` turns into bytecode like
+any other.
 
-```
+```parasol
 @infix  +   60 add.
 @infix  *   70 mul.
 @prefix ~      not.
@@ -35,7 +39,7 @@ tighter than `+` because this file said 70 against 60, and nothing anywhere else
 knows or cares. A second module in the same program may declare `+` to mean
 something else entirely, or declare no operators at all — and then it reads as
 Solveig does, in shape and nearly in full. Two differences are left of the nine
-[POSTMORTEM.md](docs/POSTMORTEM.md) 16 found, and neither is an oversight: no
+[POSTMORTEM.md](../parasol/docs/POSTMORTEM.md) 16 found, and neither is an oversight: no
 `@expr`, which is refused, and `-3`, which needs a declared prefix where
 Solveig's scanner folds the sign into the number. **The second is forced rather
 than missing** — a lexer cannot both read `-3` as a literal and let a dialect
@@ -55,34 +59,35 @@ are not this one:
 | --- | --- |
 | [`lib/clike.psol`](../lib/clike.psol) | the dialect they used, and each thing it cannot do explained where it is declared |
 | [`examples/clike.psol`](../examples/clike.psol) | that dialect used: a whole program, header to result, in forty-five lines |
-| [`docs/REFERENCE.md`](docs/REFERENCE.md) | every directive, hole kind and shipped dialect: the page to look things up in |
+| [`PARASOL-REFERENCE.md`](PARASOL-REFERENCE.md) | every directive, hole kind and shipped dialect: the page to look things up in |
 
-**Then [Solveig's reference](https://hansolovkarlsson.github.io/Solveig/docs/REFERENCE.html)
-for the library**, which this repository documents nowhere and does not intend
-to. A dialect gives you syntax and Solveig gives you the messages; `@use`
+**Then [Solveig's reference](REFERENCE.md) for the library**, which Parasol's
+pages document nowhere and do not intend to. A dialect gives you syntax and Solveig gives you the messages; `@use`
 reaches the first and `@include` the second, and neither reaches the other.
-That line is in REFERENCE.md because the second reader got the whole notation
+That line is in the reference because the second reader got the whole notation
 right and then spent every remaining cycle on the wrong side of it.
 
 > **A front page is where somebody decides whether to try a language. It is not
 > where they learn it.** What follows is the case for the idea, at length. The
 > three files above are the language.
 
-[docs/second-reader.md](docs/second-reader.md) is the measurement.
+[second-reader.md](../parasol/docs/second-reader.md) is the measurement.
 
-## Why it is not a folder inside Solveig
+## Why it takes nothing from Solveig
 
-Solveig's `solveig-sdl` states the rule this repository follows, and states it
-about itself:
+Parasol was a repository of its own until 2026-09-12, on the rule Solveig's
+`solveig-sdl` states about itself:
 
 > This is an *extension*, so it is not part of Solveig and does not build with
 > it. That separation is the point rather than an inconvenience.
 
-It applies here for one reason more than it applies there. **Parasol's whole
+It applied here for one reason more than it applies there. **Parasol's whole
 claim is that a language is something a programmer writes on top of a substrate
 they do not get to change.** A front end living two directories from the
-compiler it targets would reach into that compiler, because it could — and would
+compiler it targets would reach into that compiler, because it could, and would
 then have proved only that Solveig's author can write a front end for Solveig.
+It lives two directories from that compiler now, under `parasol/`, and the
+separation the second repository kept by distance is kept by the build instead.
 
 So the build takes nothing from Solveig at all. No header, no archive, no symbol.
 Parasol emits text; `solas` reads text. **The coupling is a file format and a
@@ -133,7 +138,7 @@ Solas hearing of it.
 
 **What a program written in Parasol emits is a different question**, and not one
 Parasol has an opinion about — a compiler written here can write machine code,
-or a disk image, or nothing at all. [docs/targets.md](docs/targets.md) separates
+or a disk image, or nothing at all. [targets.md](../parasol/docs/targets.md) separates
 the two.
 
 ## The map
@@ -141,7 +146,7 @@ the two.
 `--map` writes `<output>.sol.map` beside the generated source: every position in
 the generated file, against the position in the `.psol` that caused it.
 
-```
+```text
 # parasol source map 1
 # from examples/vectors.psol
 # to   examples/vectors.sol
@@ -193,20 +198,20 @@ bounded lookahead that consults no dialect, so `{ a | b }` is a parameter and a
 body in every module there will ever be — and `{ (a) | b }` is the escape, one
 bracket down, exactly as `#[(b = c) = d]` escapes the dictionary rule. Nine
 versions of documents said this was impossible;
-[POSTMORTEM.md](docs/POSTMORTEM.md) 18 says why they were wrong and
-[COMPLETED.md](docs/COMPLETED.md) 16 what it took. **`||` is two bars and not a
+[POSTMORTEM.md](../parasol/docs/POSTMORTEM.md) 18 says why they were wrong and
+[COMPLETED.md](../parasol/docs/COMPLETED.md) 16 what it took. **`||` is two bars and not a
 bar**, and a block wants a lone one everywhere it looks, so the pair could be
 handed to dialects without the single one moving at all. **And since 0.14.0 the
 single one may be declared too** — not as an operator character, but as the
 token it already was, looked up by the parser. So the bitwise `or` is spelled
 `|`, the way C spells it, and the logical one `||`, the way C spells that.
 Solveig settles the same question the same way, and
-[says so](https://hansolovkarlsson.github.io/Solveig/docs/GRAMMAR.html):
+[says so](GRAMMAR.md):
 *ordered choice is what keeps that true*.
 
 **What a module did not declare has no meaning in it.**
 
-```
+```text
 module.psol:5:14: error: '*' has no meaning in this module
  5 | a := #2 + #3 * #4.
    |              ^
@@ -222,7 +227,7 @@ looks right and the operator simply did not exist for the statements above it.
 
 ## A dialect is a file
 
-```
+```parasol
 ; lib/control.psol
 @use "arith.psol".
 
@@ -231,7 +236,7 @@ looks right and the operator simply did not exist for the statements above it.
 @syntax while <t> do <b>         => { t }:whileTrue({ b }).
 ```
 
-```
+```parasol
 @use "../lib/control.psol".
 
 if n > #10 then "over ten":print else "not over ten":print.
@@ -261,7 +266,7 @@ with its dialect in the same folder should not need a command line to say so.
 its declarations are not added twice and cannot collide with themselves. A file
 still being read is a cycle, and says so with the chain that got there:
 
-```
+```text
 y.psol:1:1: error: 'x.psol' is already being read -- @use is a cycle
  1 | @use "x.psol".
    | ^^^^^^^^^^^^
@@ -284,7 +289,7 @@ an update.
 | A `@use` over this module | **A warning.** Almost certainly the `@use` wanting to be above the declaration rather than below it. |
 | Two `@use`s | **A warning.** Neither author knew about the other, which is the case the rule exists for. |
 
-```
+```text
 b.psol:1:8: warning: operator '+' was already declared by a.psol -- this one wins, and nothing else will say so
  1 | @infix + 55 concat.
    |        ^
@@ -299,7 +304,7 @@ nothing else will say so.
 
 ## An operator that stands for a template
 
-```
+```text
 @infix && 30 => left:and({ right }).
 
 x > #1 && y > #0
@@ -307,7 +312,7 @@ x > #1 && y > #0
 
 becomes
 
-```
+```text
 x:greaterThan(#1):and({ y:greaterThan(#0) })
 ```
 
@@ -349,7 +354,7 @@ they did, and a module that prefers them may still say so.
 **A form is not a method, and the difference is why it exists: its arguments
 arrive unevaluated.**
 
-```
+```text
 @syntax unless(test, body) => test:not:ifTrue({ body }).
 
 unless(x > #5, "small":print).
@@ -357,7 +362,7 @@ unless(x > #5, "small":print).
 
 becomes
 
-```
+```text
 x:greaterThan(#5):not:ifTrue({ "small":print }).
 ```
 
@@ -369,7 +374,7 @@ sets of braces per loop into none.
 
 **A form may read as a statement instead of as a call.**
 
-```
+```text
 @syntax unless <test> then <body> => test:not:ifTrue({ body }).
 
 unless x > #5 then "small":print.
@@ -385,7 +390,7 @@ guessing.
 
 **Two holes may sit in a row when the second is a block.**
 
-```
+```text
 @syntax if <c> <t: block>    => c:ifTrue(t).
 @syntax while <c> <b: block> => { c }:whileTrue(b).
 
@@ -408,7 +413,7 @@ before 0.6.0 gave holes kinds.
 
 ## Two forms under one word
 
-```
+```parasol
 @syntax if <c> then <a>          => c:ifTrue({ a }).
 @syntax if <c> then <a> else <b> => c:ifElse({ a }, { b }).
 ```
@@ -421,7 +426,7 @@ the other wants `else`, so the next token settles it.
 That works because the declaration refuses any pair that would have parted
 company anywhere else:
 
-```
+```text
 on.psol:3:9: error: this cannot be told apart from the other 'on'
  3 | @syntax on error do <b> => b:run.
    |         ^^
@@ -434,7 +439,7 @@ refused at the second one, where somebody is looking at the first.
 
 **A use that goes wrong says what it wanted**, with the declaration pointed at:
 
-```
+```text
 if.psol:5:6: error: expected 'then' here, in the form 'if'
  5 | if x "y":print.
    |      ^^^
@@ -442,11 +447,11 @@ if.psol:5:6: error: expected 'then' here, in the form 'if'
 
 ## A hole may say what it accepts
 
-```
+```parasol
 @syntax swap <a: place> and <b: place> => { | t | t := a. a := b. b := t }:value.
 ```
 
-```
+```text
 p.psol:4:6: error: 'swap' wants a place here, and this is an integer
  4 | swap #1 and b.
    |      ^^
@@ -473,7 +478,7 @@ checked against what that form *became*. `swap alias x and y` is a place if
 **A hole asks for what the template does not supply.** That is the rule, and it
 is narrower than it first looked:
 
-```
+```parasol
 @syntax while <t> do <b>            => { t }:whileTrue({ b }).
 @syntax repeat <n> times <b: block> => n:repeat(b).
 ```
@@ -492,7 +497,7 @@ however the declarations are arranged. There is no recursion to limit.
 
 **A name a template binds cannot capture a name its caller passed it.**
 
-```
+```parasol
 @syntax swap(a, b) => { | t | t := a. a := b. b := t }:value.
 
 t := #1.
@@ -502,7 +507,7 @@ swap(t, u).
 
 becomes
 
-```
+```text
 { | t__1 |
     t__1 := t.
     t := u.
@@ -524,7 +529,7 @@ is what makes *fresh* mean fresh rather than probably fresh.
 
 **And a name a template reaches *out* for cannot be caught by its caller.**
 
-```
+```parasol
 @syntax bump(n) => total := total:add(n).
 
 total := #0.
@@ -540,7 +545,7 @@ is what the failure looks like.
 
 **The caller's local is what gives way**, renamed throughout its own frame:
 
-```
+```text
 total := #0.
 run := { | total__1 |
     total__1 := #100.
@@ -565,7 +570,7 @@ The characteristic failure of a macro system is an error about code nobody
 wrote. Every node an expansion produces records the use that produced it, and a
 diagnostic walks the chain:
 
-```
+```text
 outer.psol:5:7: error: this cannot be assigned to
  5 | outer(#5).
    |       ^^
@@ -619,6 +624,391 @@ macro system that tried has to teach — a system that expands without it grows
 programs that depend on the capture, and those programs are what make it
 impossible to add.
 
+## How it works, as it was asked
+
+Asked on 2026-09-02, with 0.9.0 in and three programs written, and kept **as
+it was asked and answered** rather than rewritten, because the explanation
+landed and nothing else was doing the same job: the grammar page says what the
+syntax is, the roadmap says what is left, and neither says how the parts fit
+together. It is a transcript, so it is in the first person and it is dated;
+the paths in it are today's. Five questions were asked. The first, *what is
+next?*, was a status answer at 0.9.0 whose items are on the roadmap, and the
+four that explain the tool are here. The diagrams that came out of the last
+question are in [PARASOL-PIPELINE.html](PARASOL-PIPELINE.html): the master
+pipeline, lockstep pattern matching, where a span comes from during expansion,
+and one generated line with two origins.
+
+### 2 · How does it work?
+
+> So exactly how does it work? Parasol runs the rules on the code and replaces the
+> parts that matches?
+
+Roughly yes — but the order matters, and it's the thing the design is built
+around: **the rules don't scan finished code looking for matches. They change how
+the file parses in the first place.**
+
+#### The pipeline
+
+`parasol/cmd/main.c:123-173`, in order:
+
+1. **Read the header.** Every `@infix`/`@prefix`/`@syntax`/`@use` at the top of
+   the file builds a `ParasolDialect` — a precedence table and a form table
+   (`parasol/src/dialect.c`).
+2. **Parse the body under that dialect.** The parser consults the table as it
+   goes. `parasol/src/reader.c` has holes at exactly three places (`infix`,
+   `unary`, `form` in `PARASOL-GRAMMAR.md`); everything else in the grammar is
+   fixed for every `.psol` there will ever be.
+3. **Expand.** The tree now has a `PARASOL_NODE_MACRO` at every use of a declared
+   form. `parasol_expand` (`parasol/src/expand.c`) replaces each one with an instance
+   of its template, in place.
+4. **Emit Solveig source**, plus a `.sol.map`.
+
+So the "matching" happens in step 2 — during parsing — and the "replacing" in
+step 3, over a tree that already knows which declaration each use matched.
+There's no rewrite-and-rescan loop over text.
+
+#### How a use is recognised
+
+Two mechanisms, and they're different:
+
+**Operators** are just a precedence table. `@infix + 60 add.` means the `infix`
+loop knows `+` binds at 60 and produces `a:add(b)`. Adding an operator can't
+change what an expression without it already meant — that's why operators came
+first.
+
+**Forms** are names the header declared, and a declared form wins over anything
+else the name could be (`reader.c:1022`). A name the header *didn't* declare is
+whatever Solveig says it is — `f(x)` is `x:f` until some line above says
+otherwise. Two shapes: a call `unless(test, body)`, or a pattern
+`if <c> then <a>`.
+
+Pattern matching is the interesting half. All the forms under one word are
+matched **at once, in lockstep**, candidates dropping out as the tokens come in
+(`reader.c:837-941`) — no backtracking. Two forms can only part company *on a
+word*, which is why `if <c> then <a>` and `if <c> then <a> else <b>` coexist with
+nothing declaring which is meant: after the second hole, the next token is either
+`else` or it isn't. That single property is also why the roadmap's optional-parts
+item insists an optional part must begin with a word.
+
+#### What expansion actually does
+
+Three things at once (`parasol/include/parasol/expand.h`), because doing any later
+means redoing the others:
+
+- **substitution** — the argument is copied in *keeping its own spans*, so an
+  error inside an argument points at the argument, not the template;
+- **hygiene** — every name the template binds is renamed to one nothing in the
+  module uses;
+- **provenance** — each produced node remembers the use that produced it, so a
+  diagnostic can print the trail.
+
+You can see all three in `examples/forms.psol` → `build/examples/forms.sol`:
+
+```text
+swap t and u          ->  { | t__1 | t__1 := t. t := u. u := t__1 }:value.
+```
+
+The template binds `t`; the caller also has a `t`. Without the rename that swap
+loses a value instead of swapping.
+
+And the reason a form isn't just a method: **its arguments arrive unevaluated.**
+`unless(x > #5, y:print)` hands `y:print` over as *code*, and the braces in
+`test:not:ifTrue({ body })` are the template's doing. A method can't do that —
+which is exactly why `@infix && 30 and.` produces `a:and(b)` and a run-time
+refusal, and templates exist.
+
+#### Two properties that fall out
+
+**Expansion terminates without a counter.** A template is read under the header
+as it stood at its own line, so it can only mention forms declared above it — the
+highest form index strictly falls. That's a property of reading the header top to
+bottom, not a recursion limit bolted on.
+
+**Parsing never runs anything.** A tool can read any `.psol` top to bottom and
+know its syntax. That's the line [Parasol's roadmap](../parasol/docs/ROADMAP.md) refuses to cross ("Not
+planned: a dialect that changes the lexer"), and it's the same rule constraining
+the two open items I mentioned earlier — a guard must validate and not select,
+and constant folding would mean evaluating a send at expand time.
+
+---
+
+### 3 · Would a different body language clash differently?
+
+> So depending on what language is in the body, different pattern works better or
+> worse dependig on what they define? For instance, the issue with | that we had
+> in the past, which clashes with the syntax of Solveig. So if the body was a
+> different programming language, then the clash might not happen with the |, say
+> Pascal for instance?
+
+Good question, and it splits into two very different ones. The short answer:
+**the `|` clash is a property of the *reader*, not of the body language — so a
+different object language changes nothing, and a different host language would
+move the clash rather than remove it.**
+
+#### Why `|` is reserved
+
+Not because of anything the program is about. Parasol's fixed token set and core
+grammar *are* Solveig's spelling, deliberately — `#3` for integers, `'sym` for
+symbols, `x:msg` for sends, `{ }` for blocks, `.` between statements.
+[PARASOL-GRAMMAR.md](PARASOL-GRAMMAR.md) puts it as: *everything but `operator` is Solveig's own
+spelling, so a file can be read by somebody who knows Solveig without a second
+set of habits.*
+
+`|` is load-bearing in that grammar — it's what separates a block's parameters
+from its body, and it brackets temporaries. So `|`, `:`, `.` and `,` are not
+operator characters and cannot become any. A dialect gets the characters that
+mean nothing until it says so, and that set (`+ - * / < > = ! & ^ % ~ ? \`) is
+fixed by the lexer, which no `.psol` can change.
+
+#### Reading 1: the body is a different language
+
+This is `programs/ember` — a lexer, parser and **ARM64 code generator** written
+in Parasol. It emits machine instructions, and that never touched Parasol's token set
+once. Same with `programs/grammar`: EBNF rules live in a table as data, not as
+forms.
+
+The object language sits one level down, as data the program manipulates. It has
+no vote on which characters Parasol's lexer reserves. So a Pascal compiler written
+in Parasol would still not be able to declare `|`.
+
+`programs/grammar` is actually the sharpest evidence here: it was written to
+settle whether repeated pattern parts were needed, and the finding was that **a
+grammar can't be written as forms at all** — a template can't declare a form — so
+the repetition it wanted was in the object language, where Parasol's syntax doesn't
+reach.
+
+#### Reading 2: Parasol emits Pascal instead of Solveig
+
+*Now* the question is real, and it's exactly the unbuilt half of `@language`.
+[targets.md](../parasol/docs/targets.md) notes the front end knows nothing about Solveig — the lexer,
+dialect table, tree, spans and map are all substrate-agnostic, and
+`parasol/src/emit.c` is the only file that has ever heard of Solveig. Replacing it
+is a seam, not a rewrite.
+
+But swapping *only* the emitter wouldn't free `|`, because `|` is the reader's
+constraint, not the emitter's. You'd still be reading Solveig-shaped source and
+writing Pascal out the back. That's precisely why targets.md says the growth is
+for `@language` to choose **the reader *and* the emitter** — and why the roadmap
+files it as a decision rather than a build.
+
+If you did swap the reader for a Pascal-shaped one, then yes: `|` becomes free,
+since Pascal doesn't use it. But the budget doesn't get bigger, it gets
+redistributed. Pascal would reserve `;` as its separator, `..` for ranges,
+`(* *)` for comments, and `^` for pointers — and `^` is currently a *free*
+operator character a Parasol dialect can claim today. `..` would be worse than a
+swap: `.` isn't an operator character, so a range operator would need a lexer
+case rather than a declaration, which is the shape of the `@token` request that
+was refused in 0.9.0.
+
+#### The rule that survives both readings
+
+Whatever the host, some characters are load-bearing for the reader and can't be
+declarable — otherwise you're across the line where a tool has to run a file to
+tokenise it, which is where Forth and TeX ended up.
+
+Which is why the answer to the `|` want wasn't to make `|` claimable. It was
+`||`: a new token taken by the lexer before the bar, belonging to every dialect
+rather than to any declaration. Grow the fixed vocabulary rather than make the
+vocabulary declarable — and the roadmap says explicitly that's the shape any
+future version of that request should take.
+
+---
+
+### 4 · The process, end to end
+
+> Explain to me the process and steps how Parasol works. I'm still confounded by
+> how things tie together.
+
+Let me trace one real file all the way through. I compiled this just now:
+
+```text
+; trace.psol
+@language solveig.
+@use "control.psol".
+
+n := #3.
+total := #0.
+while n > #0 do (total := total + n. n := n - #1).
+if total > #5 then total:print else "small":print.
+```
+
+#### Step 0 — a file is two halves
+
+`module = { directive } { statement }`. Every `@`-directive comes first, then the
+code. That split is the whole architecture: **the top of the file decides how the
+bottom of it parses.** Nothing after the first statement can change the syntax.
+
+(`@include` is the exception that proves it — it's Solveig's own directive, so
+Parasol treats it as a *statement* and passes it through.)
+
+#### Step 1 — gather the files
+
+`parasol_unit_read` loads `trace.psol`. The `@use "control.psol"` pulls in
+`lib/control.psol`, which itself does `@use "arith.psol"`. Each file is read
+**once** — a diamond costs nothing — and they all live in one `ParasolUnit` with a
+single shared offset space. That last detail matters in step 5.
+
+A dialect file is directives and nothing else. A statement in one is an error.
+
+#### Step 2 — the header builds two tables
+
+Reading top to bottom, the directives fill a `ParasolDialect`:
+
+| from | table | entry |
+|---|---|---|
+| `@infix + 60 add.` | precedence table | `+`, binds at 60, becomes `:add` |
+| `@infix > 40 greaterThan.` | precedence table | `>`, binds at 40, becomes `:greaterThan` |
+| `@syntax while <t> do <b> => { t }:whileTrue({ b }).` | form table | word `while`, holes `t` and `b`, plus the template |
+| `@syntax if <c> then <a> => …` | form table | word `if`, two parts |
+| `@syntax if <c> then <a> else <b> => …` | form table | word `if`, three parts |
+
+Two `if` forms under one word, and nothing declares which is meant. That's fine,
+and step 3 says why.
+
+**These tables are all that varies.** Everything else — `#3`, `'sym`,
+`x:msg(y)`, `{ }`, `.` between statements — is fixed for every `.psol` there will
+ever be.
+
+#### Step 3 — parse the body, consulting the tables
+
+The parser has exactly three holes in it (`infix`, `unary`, `form`) and the
+dialect fills them.
+
+Hits `while`. The header declared it, and **a declared form beats anything else
+that name could be** — otherwise `while` would just be an ordinary identifier.
+Now it matches the pattern, and this is the part worth being precise about:
+
+> All the forms under that word advance **in lockstep**, candidates dropping out
+> as tokens arrive. No backtracking.
+
+At `if`, both candidates are alive through `<c> then <a>`. Then one token
+decides: `else` keeps the long form and kills the short one; anything else does
+the reverse. That's why two forms can only part company *on a word* — and it's
+why the roadmap's optional-parts item insists an optional part must begin with
+one.
+
+What comes out is a tree with an unexpanded `MACRO` node at each use, tagged with
+which declaration matched. `n > #0` inside it is already parsed as
+`n:greaterThan(#0)` — operators resolve here, in the same pass.
+
+#### Step 4 — expand
+
+`parasol_expand` replaces each `MACRO` with its template. Run `--tree` on that file
+and you can see all three things it does at once:
+
+```text
+send whileTrue @1178+9 scope:1 from:while      <- template's span, in control.psol
+  block @1172+1 scope:1 from:while
+    send greaterThan @70+1                     <- argument's own span, in trace.psol
+      name n @68+1
+```
+
+- **substitution** — `{ t }` became a block wrapping `n:greaterThan(#0)`, and
+  that subtree kept offset `@70`, its position *in trace.psol*. An error inside an
+  argument points at the argument, not at the library.
+- **hygiene** — `scope:1` and `scope:2` are the two expansions. Any name the
+  template binds gets renamed per scope; that's how `swap t and u` emits `t__1`
+  instead of destroying the caller's `t`.
+- **provenance** — `from:while` on every produced node, so a diagnostic can say
+  which form you're inside and where it was written.
+
+And it terminates without a counter: a template is read under the header **as it
+stood at its own line**, so it can only mention forms declared above it. The
+highest form index strictly falls. That's a consequence of reading the header top
+to bottom, not a recursion limit.
+
+#### Step 5 — emit, and the map
+
+Only `parasol/src/emit.c` has ever heard of Solveig. It walks the expanded tree and
+prints:
+
+```text
+n := #3.
+total := #0.
+{ n:greaterThan(#0) }:whileTrue({ (total := total:add(n). n := n:sub(#1)) }).
+total:greaterThan(#5):ifElse({ total:print }, { "small":print }).
+```
+
+Alongside it, `--map` writes what those spans were for:
+
+```text
+5:1   24:40  1172  lib/control.psol     <- the whileTrue came from the template
+5:3   6:7    68                        <- the condition came from your line 6
+```
+
+Generated line 5 has two origins on one line, and the map knows which is which.
+**That's the payback for carrying spans through expansion** — without it,
+generated code is where the trail goes cold.
+
+Then Solveig takes over, and Parasol is done:
+
+```sh
+parasol trace.psol -o trace.sol --map
+solas trace.sol -o trace.sob
+solvm trace.sob
+```
+
+#### What ties it together
+
+Three invariants, and every design decision on the roadmap is downstream of one
+of them:
+
+**The header is the only thing that varies, and it is read, never run.** Any tool
+can tokenise and parse any `.psol` top to bottom. This is what the refused
+`@token` directive would have cost, and it's why a guard must validate rather
+than select — if a guard could *choose* a parse, reading a file would require
+evaluating it.
+
+**Matching happens while parsing, not afterwards.** There's no scan-and-rewrite
+pass over finished code. That's what buys single-token decisions and no
+backtracking — and what makes *choosing the wrong shape silent*, since a pattern
+where a call was meant is also a legal parse.
+
+**Expansion is one pass, and it carries the provenance out with it.** Hygiene
+went in the same commit as forms rather than after, because a system that expands
+without it grows programs that depend on the capture.
+
+---
+
+### 5 · Is it a precompiler?
+
+> So is it fair to say that in a way Parasol is a very flexible and smart
+> precompiler?
+
+**"Smart precompiler" gets the position right and the mechanism wrong.** Parasol
+does sit where a precompiler sits — runs before the real compiler, emits source,
+never runs your program. But `cpp` and `m4` substitute over *tokens or text*,
+with no grammar and no tree, which is why `cpp` can happily emit something that
+won't parse. Parasol's matching happens *inside* the parser, and expansion operates
+on a tree that already parsed. It's a **hygienic syntax-macro system whose
+extension point is the grammar** — closer to `syntax-rules` or `macro_rules!`
+than to `#define`. The line it deliberately won't cross is Lisp's: no code runs
+at expand time.
+
+|  | a preprocessor (cpp, m4) | Parasol |
+| --- | --- | --- |
+| operates on | tokens or text, with no grammar | a tree, matched inside the parser |
+| bad output | can emit something that will not parse | cannot — expansion is over a parse that succeeded |
+| capture | none; `SWAP` eats your `t` | every template-bound name renamed per expansion |
+| positions | `#line`, by hand | a span on every node, and a map |
+| extension point | a substitution | the grammar itself — precedence and pattern shape |
+
+The nearer relatives are `syntax-rules`, `macro_rules!` and Dylan — hygienic
+syntax macros. The line Parasol keeps that Lisp does not is that **nothing runs at
+expand time**. A template is a pattern and a tree, never a computation. That
+single restriction is what the two hardest open questions are both about:
+whether a guard may evaluate anything (it may not, or parsing would depend on
+running the file), and whether the expander may fold `#32:sub(#17)` when
+`integer:sub` is a slot a program may reassign.
+
+It is also worth saying that Parasol is not "very flexible" in the unbounded sense,
+and that this is the point. The lexer is fixed, the core grammar is fixed, there
+are three holes and no more, a rule may not begin with a nonterminal, and nothing
+evaluates. The flexibility is inside a fence, and the fence is what lets any tool
+read a `.psol` without running it.
+
+---
+
 ## Building
 
 From Solveig's root, since 2026-09-14, where the one Makefile is:
@@ -635,7 +1025,7 @@ make sanitize   # the whole suite under AddressSanitizer and UBSan, from a clean
 **The build needs no Solveig.** `make test`, `make examples`, the program
 targets and `parasol --sob` do, because each hands it a file, and the file
 goes through the `solas` and `solvm` that the same `make` built. There is no
-Makefile in this directory any more; the section that builds Parasol in the
+Makefile under `parasol/` any more; the section that builds Parasol in the
 root's says why it takes nothing from the rest of that file, and how the
 build enforces it.
 
@@ -668,7 +1058,7 @@ operators at the top of one file and costs the language nothing.
 
 What comes out the other end is the library's own line back again:
 
-```
+```text
 integer:utf8Tail := { at |
     (#128:bitOr(self:shiftRight(at):bitAnd(#63))):asCharacter }.
 ```
@@ -682,8 +1072,8 @@ line. Repetition — a form taking a list — has no spelling at all.
 **A hole cannot ask for anything a look does not settle.** The five kinds are
 all decided by inspecting what was parsed. A real guard — an arbitrary condition
 — needs an evaluator, and Parasol has none on purpose;
-[docs/rules-and-logic.md](docs/rules-and-logic.md) prices it and says what rule
-would have to be fixed first.
+[rules-and-logic.md](../parasol/docs/rules-and-logic.md) prices it and says what
+rule would have to be fixed first.
 
 **A form is not free at run time, and the number is known.** A template expands
 rather than calls, so it should cost what writing the code out costs. It does
@@ -698,8 +1088,8 @@ numbers, and the second argues the first was not as large as it looked — so th
 case for folding rests on the claim being made true rather than on the figure.
 It would also need the expander to decide which sends are safe to evaluate,
 which is the guard question one size smaller;
-[ROADMAP.md](docs/ROADMAP.md) carries both measurements and the rule to settle
-first.
+[ROADMAP.md](../parasol/docs/ROADMAP.md) carries both measurements and the rule
+to settle first.
 
 **A wrong precedence is silent.** A module declares its own ladder, so there is
 nothing for `@infix * 60` to be wrong against — it is as legal as `70` and means
@@ -735,7 +1125,7 @@ it was worth reading how — but the answer Parasol took is Solveig's, because
 Solveig had already made the choice for globals and a language should not hold
 two philosophies about one question.
 
-Every part of this repository that looked over-careful is why that answer was
+Every part of Parasol that looked over-careful is why that answer was
 cheap to give: the spans were already on the tree, so making them carry a file
 was a field and not a rewrite; the map already existed, so it grew a column; the
 expansion trail already walked a chain, so it learned to name a file.
@@ -747,29 +1137,31 @@ into a diagnostic at the use — which is the same argument the spans and the
 trail were built on, one level up.
 
 **How far the rules could go, and where they stop**, is worked through in
-[docs/rules-and-logic.md](docs/rules-and-logic.md): `@syntax` is already BNF with
+[rules-and-logic.md](../parasol/docs/rules-and-logic.md): `@syntax` is already BNF with
 most of EBNF missing and one thing refused, and refusing a rule that begins with
 a nonterminal is what keeps the matcher from guessing. The same page prices
 predicate logic, which turns out to be three questions wearing one name.
 
 ## The documents
 
+Three beside this one in `docs/`, since 2026-09-15; the rest still under
+`parasol/docs/`, until the steps that move them.
+
 | | |
 | --- | --- |
-| [does-it-pay.md](docs/does-it-pay.md) | what seven programs and four strangers say about the question this project exists to answer |
-| [REFERENCE.md](docs/REFERENCE.md) | every directive, hole kind and shipped dialect, and where everything lives — the page to look things up in |
-| [what-is-parasol.md](docs/what-is-parasol.md) | how the parts fit together, kept as the five questions that were asked and answered |
-| [pipeline.html](docs/pipeline.html) | the same path drawn — the pipeline, lockstep matching, expansion, and the map |
-| [GRAMMAR.md](docs/GRAMMAR.md) | the core grammar, the tokens, and which shape a form should have |
-| [ROADMAP.md](docs/ROADMAP.md) | what is outstanding, what is refused, and what a customer declined |
-| [COMPLETED.md](docs/COMPLETED.md) | the case for each piece of work as it was argued *before* the work |
-| [CHANGELOG.md](docs/CHANGELOG.md) | what landed, per version, with the commit |
-| [POSTMORTEM.md](docs/POSTMORTEM.md) | every defect this project found in itself, and **what found it** |
-| [journal.md](docs/journal.md) | what a day of work actually consisted of |
-| [conventions.md](docs/conventions.md) | the standing agreements and the method |
-| [targets.md](docs/targets.md) | what Parasol targets, and what a program written in Parasol targets |
-| [rules-and-logic.md](docs/rules-and-logic.md) | how far the rules could go, where they stop, and predicate logic |
-| [solveig-notes.md](docs/solveig-notes.md) | what Parasol has found in Solveig, as a running log |
+| [PARASOL-REFERENCE.md](PARASOL-REFERENCE.md) | every directive, hole kind and shipped dialect, and where everything lives — the page to look things up in |
+| [PARASOL-GRAMMAR.md](PARASOL-GRAMMAR.md) | the core grammar, the tokens, and which shape a form should have |
+| [PARASOL-PIPELINE.html](PARASOL-PIPELINE.html) | the path through the compiler, drawn: the pipeline, lockstep matching, expansion, and the map |
+| [does-it-pay.md](../parasol/docs/does-it-pay.md) | what seven programs and four strangers say about the question this project exists to answer |
+| [ROADMAP.md](../parasol/docs/ROADMAP.md) | what is outstanding, what is refused, and what a customer declined |
+| [COMPLETED.md](../parasol/docs/COMPLETED.md) | the case for each piece of work as it was argued *before* the work |
+| [CHANGELOG.md](../parasol/docs/CHANGELOG.md) | what landed, per version, with the commit |
+| [POSTMORTEM.md](../parasol/docs/POSTMORTEM.md) | every defect this project found in itself, and **what found it** |
+| [journal.md](../parasol/docs/journal.md) | what a day of work actually consisted of |
+| [conventions.md](../parasol/docs/conventions.md) | the standing agreements and the method |
+| [targets.md](../parasol/docs/targets.md) | what Parasol targets, and what a program written in Parasol targets |
+| [rules-and-logic.md](../parasol/docs/rules-and-logic.md) | how far the rules could go, where they stop, and predicate logic |
+| [solveig-notes.md](../parasol/docs/solveig-notes.md) | what Parasol has found in Solveig, as a running log |
 
 ## The programs
 

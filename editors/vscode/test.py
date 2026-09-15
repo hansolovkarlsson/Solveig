@@ -231,7 +231,7 @@ FIXTURE = [
 ]
 
 # Parasol's tokens are Solveig's with operators everywhere, and the directives
-# have parts: docs at parasol/docs/REFERENCE.md, "The header" and "Tokens".
+# have parts: docs at docs/PARASOL-REFERENCE.md, "The header" and "Tokens".
 P = 'parasol'
 PARASOL_FIXTURE = [
     ('@use "../lib/clike.psol".', [

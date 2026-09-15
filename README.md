@@ -109,7 +109,7 @@ lights, and **Solveig** carries the same star into Norse: *sól* joined to
 | `solum/`  | **SolVM** -- the virtual machine, built as `bin/solvm`               |
 | `solis/`  | **Solis** -- the REPL: reads until the input could compile        |
 | `solid/`  | **Solid** -- the debugger: breakpoints, stepping, and locals      |
-| `docs/`   | [GUIDE.md](docs/GUIDE.md), [TUTORIAL.md](docs/TUTORIAL.md), [REFERENCE.md](docs/REFERENCE.md), [CHEATSHEET.md](docs/CHEATSHEET.md), [GRAMMAR.md](docs/GRAMMAR.md), [SOLABASIC-CHEATSHEET.md](docs/SOLABASIC-CHEATSHEET.md), [PASCAL.md](docs/PASCAL.md), [design.md](docs/design.md), [BYTECODE.md](docs/BYTECODE.md), [ROADMAP.md](docs/ROADMAP.md), [COMPLETED.md](docs/COMPLETED.md), [CHANGELOG.md](docs/CHANGELOG.md), [journal.md](docs/journal.md), [programs.md](docs/programs.md), [embedding.md](docs/embedding.md), [extensions.md](docs/extensions.md), [NET.md](docs/NET.md), [lineage.md](docs/lineage.md), [method.md](docs/method.md) |
+| `docs/`   | [GUIDE.md](docs/GUIDE.md), [TUTORIAL.md](docs/TUTORIAL.md), [REFERENCE.md](docs/REFERENCE.md), [CHEATSHEET.md](docs/CHEATSHEET.md), [GRAMMAR.md](docs/GRAMMAR.md), [SOLABASIC-CHEATSHEET.md](docs/SOLABASIC-CHEATSHEET.md), [PARASOL.md](docs/PARASOL.md), [PASCAL.md](docs/PASCAL.md), [design.md](docs/design.md), [BYTECODE.md](docs/BYTECODE.md), [ROADMAP.md](docs/ROADMAP.md), [COMPLETED.md](docs/COMPLETED.md), [CHANGELOG.md](docs/CHANGELOG.md), [journal.md](docs/journal.md), [programs.md](docs/programs.md), [embedding.md](docs/embedding.md), [extensions.md](docs/extensions.md), [NET.md](docs/NET.md), [lineage.md](docs/lineage.md), [method.md](docs/method.md) |
 | `tests/`  | Test suite                                                        |
 | `examples/` | One `.sol` demonstration per concept the guide names, and five `.psol` ones for Parasol |
 | `programs/` | Whole `.sol` programs, each written to do a job -- [what each does](docs/programs.md); and seven directories of programs written in Parasol, since 2026-09-14 |
@@ -118,7 +118,7 @@ lights, and **Solveig** carries the same star into Norse: *sól* joined to
 | `lib/`    | The library that ships with the language, found on the search path; Parasol's three dialects are here too, since 2026-09-14 |
 | `extensions/` | Bundles built by `make` and loaded only when a host names one -- [net](extensions/net/README.md), UDP sockets, documented in [NET.md](docs/NET.md) |
 | `editors/` | Editor support: [vscode](editors/vscode/README.md), syntax colouring, bracket matching and completion for VS Code, `.sol` and `.psol` alike, installed from the folder |
-| `parasol/`  | **Parasol** -- a second compiler, whose syntax arrives with the file it is compiling and whose output is Solveig source. Built by the one Makefile since 2026-09-14, with its own records and, until the next release, its own version; [what it is](parasol/README.md) |
+| `parasol/`  | **Parasol** -- a second compiler, whose syntax arrives with the file it is compiling and whose output is Solveig source. Built by the one Makefile since 2026-09-14, with its own records and, until the next release, its own version; [what it is](docs/PARASOL.md) |
 
 Two more live outside this repository, and outside it on purpose — the front
 page says *no dependencies beyond a C11 compiler and `make`*, and it stays true
@@ -210,7 +210,7 @@ version the binaries inside it report.
 run with `--expr` (or `-e`): the language has no operators, the region is a
 fixed ladder of them the compiler carries for the programs written to it, and
 the general form, where a module declares its own, is
-[Parasol](parasol/README.md), which had already refused to carry `@expr`
+[Parasol](docs/PARASOL.md), which had already refused to carry `@expr`
 because supporting both would be supporting two. A program written to the
 region adds one word to its build line. `[...]:ifElseIf` is `[...]:switch`,
 same behaviour, and the second compiler is Parasol with `.psol` modules under
@@ -362,7 +362,7 @@ rather than asserted.
 region, and every operator lowers to the send it already read as — the bytes are
 the chain's, so the notation costs nothing and adds nothing to the language.
 Since 2026-09-14 it is off unless `solas --expr` asks for it: the general form,
-where a module declares its own operators, is [Parasol](parasol/README.md), and
+where a module declares its own operators, is [Parasol](docs/PARASOL.md), and
 the region stays for the programs written to it.
 **Extensions** give the machine a capability it could not grow: a C file
 compiled on its own, named with `--extension=` when a program is started and

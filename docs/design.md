@@ -162,7 +162,7 @@ included, because that is where the block's body would have gone.
 **And since 2026-09-14 it is a front-end option rather than the language.**
 The region is off unless `solas --expr` asks for it, because the toolkit had
 two mechanisms for one thing: a ladder fixed in the compiler, and
-[Parasol](../parasol/README.md), where a module declares its own operators and
+[Parasol](PARASOL.md), where a module declares its own operators and
 Parasol emits the sends. Parasol had already refused to carry `@expr` on the
 ground that supporting both would be supporting two; the flag is solas drawing
 its side of the same line without breaking a program written to the region.

@@ -1389,7 +1389,7 @@ only to work around it are gone from both grammars.
 
 The rule — *a pattern for something that reads as a step, a call for something
 that reads as an application* — moved from a program's README into
-[GRAMMAR.md](GRAMMAR.md), where somebody choosing a shape would look. The real
+[GRAMMAR.md](../../docs/PARASOL-GRAMMAR.md), where somebody choosing a shape would look. The real
 finding is that **choosing wrongly is silent**: both readings are legal, so
 nothing at the declaration can warn.
 

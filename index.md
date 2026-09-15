@@ -63,6 +63,11 @@ while staying ordinary messages you can send any other way.
   every supplied function of the BASIC dialect, on one page. The
   [reference manual](docs/SOLABASIC-REFERENCE.md) is the full account and
   [the definition](docs/SOLABASIC.md) says where the boundary came from.
+- **[Parasol](docs/PARASOL.md)**: the second compiler. A module declares its
+  own operators and forms in its header, and what comes out is Solveig source
+  for `solas`. The case for it, at length, and how the parts fit together; the
+  [reference](docs/PARASOL-REFERENCE.md) is the page to look a spelling up in
+  and the [grammar](docs/PARASOL-GRAMMAR.md) is what no dialect can change.
 - **[Speed](docs/performance.md)** — measured against CPython 3.14 on nine
   matched programs: where it wins, where it loses, and the three defects the
   comparison found that nothing measured from the inside had noticed. Also the
@@ -140,7 +145,7 @@ are still format version 14: nothing in the machine moved this release. The
 `@expr` infix region is behind a flag now: `solas`, `solis` and `solid`
 refuse it unless run with `--expr`, because the language has no operators and
 the general form of the region, where a module declares its own, is
-[Parasol](parasol/README.md). A program written to the region adds one word
+[Parasol](docs/PARASOL.md). A program written to the region adds one word
 to its build line. `[...]:ifElseIf` in the control library is `[...]:switch`,
 and the second compiler is Parasol, with `.psol` modules, under `parasol/`.
 
@@ -157,7 +162,7 @@ status, and is split across files with `@include`.
 
 Around it: a [debugger](docs/programs.md), `@expr` for infix arithmetic where
 the notation is worth it (behind `solas --expr`; declared operators are
-[Parasol](parasol/README.md)'s), [extensions](docs/extensions.md) loaded from a C
+[Parasol](docs/PARASOL.md)'s), [extensions](docs/extensions.md) loaded from a C
 binary at run time, and a host API for embedding the machine. Measured against
 CPython 3.14 on nine matched programs it comes out
 [a little ahead](docs/performance.md).

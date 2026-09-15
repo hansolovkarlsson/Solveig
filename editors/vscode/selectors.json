@@ -1,5 +1,5 @@
 {
- "generated": "by editors/vscode/messages.py from docs/REFERENCE.md, lib/*.sol and parasol/docs/REFERENCE.md; do not edit",
+ "generated": "by editors/vscode/messages.py from docs/REFERENCE.md, lib/*.sol and docs/PARASOL-REFERENCE.md; do not edit",
  "types": [
   "integer",
   "float",

@@ -203,12 +203,13 @@ static void test_everything_written_down_is_true(void)
        are there -- the one cross-reference nothing read, in a repository whose
        filing system is moving a heading between files when an entry closes. The
        fences are tracked because a heading inside one is not an anchor on the
-       page, and the count of those is asserted too: it is 3 today -- one
-       changelog heading COMPLETED.md quotes inside a block, and two lines of
-       a ```sh transcript in experiment/extension-probe/README.md that begin
-       with a shell comment's `#` -- it was 12 while a paragraph in
-       CHANGELOG.md was wrapped so that ``` began a line, and a ceiling is
-       what makes that visible here rather than only in the report. A floor on
+       page, and the count of those is asserted too: it is 0 today and was 11
+       while a paragraph in CHANGELOG.md was wrapped so that ``` began a line,
+       and a ceiling is what makes that visible here rather than only in the
+       report. Only a fence no tag opened counts, since that is the fence a
+       wrapped paragraph opens; a `#` line inside a ```sh or ```text block is
+       a shell comment or a quoted heading, and there were eleven of those the
+       day the Parasol pages arrived with two source maps on them. A floor on
        the links for the same reason as every other one. */
     int links = 0, named = 0, fenced = 0;
     at = strstr(out, "links in");

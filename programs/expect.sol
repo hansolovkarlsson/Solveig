@@ -1711,23 +1711,32 @@ anchorsFor := dictionary:new.
 headingsIndexed := #0.
 
 ; A heading that falls inside a fenced block is not a heading, and the count of
-; them is reported because it is the one part of this that has no other witness.
-; One is legitimate -- COMPLETED.md quotes a changelog heading inside a block to
-; show what the hash rule reads -- and the number goes to twelve the moment a
-; paragraph wraps so that ``` starts a line, which is how this repository's
-; documentation was broken for ten days.
+; them is reported because it is the one part of this that has no other witness:
+; the number went to twelve the moment a paragraph wrapped so that ``` started
+; a line, which is how this repository's documentation was broken for ten days.
+;
+; **Only a fence that no tag opened is counted, since 2026-09-15.** The fault
+; the count exists for is a bare ``` in prose, and that opens a bare fence. A
+; tagged one is deliberate, and what a `#` line inside it is depends on the
+; tag: a shell comment in a ```sh transcript, a changelog heading COMPLETED.md
+; quotes in a ```text block to show what the hash rule reads, and the four
+; comment lines a Parasol source map opens with, twice, on the day the Parasol
+; pages arrived. Eleven of those against a ceiling of four is a ceiling that
+; has to move every time a page quotes a map; reading the tag keeps the count
+; about the one thing it can witness.
 headingsInFences := #0.
 
-anchorsOf := { path | | set, counts, inFence |
+anchorsOf := { path | | set, counts, inFence, bare |
     anchorsFor:includes(path):ifFalse({
         set := dictionary:new. counts := dictionary:new. inFence := false.
+        bare := false.
         system:readFile(path):split("\n"):do({ line | | t, level, a, n |
             t := line:trim.
             t:startsWith("```"):ifElse(
                 { inFence:ifElse(
                     { t:equals("```"):ifTrue({ inFence := false }) },
-                    { inFence := true }) },
-                { inFence:ifTrue({
+                    { inFence := true. bare := t:equals("```") }) },
+                { inFence:and({ bare }):ifTrue({
                     headingLevel:value(line):greaterThan(#0):ifTrue({
                         headingsInFences := headingsInFences:add(#1) }) }).
                   inFence:ifFalse({
@@ -1989,7 +1998,7 @@ linksSeen:greaterThan(#0):ifTrue({
         "none has its text wrapped across a line, which publishes as a 404"
             :display }).
     headingsInFences:greaterThan(#0):ifTrue({
-        "{} heading{} sit{} inside a fenced block, and {} not {}"
+        "{} heading{} sit{} inside a fenced block no tag opened, and {} not {}"
             :fill([headingsInFences,
                    headingsInFences:equals(#1):ifElse({""},{"s"}),
                    headingsInFences:equals(#1):ifElse({"s"},{""}),

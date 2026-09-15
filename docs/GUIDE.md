@@ -115,7 +115,7 @@ a loop, the body of one, or a block kept in a name for later.
 `@expr` is refused with a message that names it. The language has no
 operators; the region is a fixed set of them the compiler carries for the
 programs written to it, and the general form, where a file declares its own
-operators, is [Parasol](../parasol/README.md). Everything else in this guide
+operators, is [Parasol](PARASOL.md). Everything else in this guide
 compiles bare.
 
 > **Run:** [examples/hello.sol](../examples/hello.sol)

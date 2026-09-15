@@ -121,7 +121,7 @@ def library():
 
 def parasol():
     """The header directives and hole kinds, from the two tables that list them."""
-    text = open(os.path.join(ROOT, 'parasol', 'docs', 'REFERENCE.md'), encoding='utf-8').read()
+    text = open(os.path.join(ROOT, 'docs', 'PARASOL-REFERENCE.md'), encoding='utf-8').read()
     heading, directives, kinds = '', [], []
     for line in text.split('\n'):
         if line.startswith('#'):
@@ -171,7 +171,7 @@ def build():
                 seen.add(key); uniq.append(s)
         e['signatures'] = uniq
     directives, kinds = parasol()
-    return {'generated': 'by editors/vscode/messages.py from docs/REFERENCE.md, lib/*.sol and parasol/docs/REFERENCE.md; do not edit',
+    return {'generated': 'by editors/vscode/messages.py from docs/REFERENCE.md, lib/*.sol and docs/PARASOL-REFERENCE.md; do not edit',
             'types': TYPES,
             'selectors': [by[k] for k in sorted(by)],
             'directives': directives,

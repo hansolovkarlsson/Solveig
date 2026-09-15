@@ -2048,7 +2048,7 @@ new status paragraph was a link to `parasol/README.md`, which is a 404 on the
 site: the front-matter plugin does not render a file called README, so the
 link that is right on GitHub is wrong on Pages, and `site.sh` did not see it
 because it holds links against pages and a README is not one. The link now
-goes to Parasol's own [what-is-parasol](../parasol/docs/what-is-parasol.md), which is
+goes to Parasol's own [what-is-parasol](PARASOL.md#how-it-works-as-it-was-asked), which is
 served. One line, after the tag, which is what the last step of the procedure
 is for.
 

@@ -68,7 +68,7 @@ the machine.
 `solid` alike (`-e` is the same), and a bare compile refuses the directive
 with a message naming the flag. The language has no operators, and the
 toolkit had two mechanisms for infix all the same: a ladder fixed in this
-compiler and [Parasol](../parasol/README.md), where a module declares its
+compiler and [Parasol](PARASOL.md), where a module declares its
 own. Parasol had refused `@expr` on the sentence that *supporting both would
 be supporting two*; this is solas drawing its side of the line without a
 removal, so a program written to the region adds one word to its build line.
@@ -104,7 +104,7 @@ extension was touched, so the bundles were not reloaded.
 ```
 
 The language has no operators, and the toolkit had two mechanisms for infix
-all the same: a ladder fixed in this compiler, and [Parasol](../parasol/README.md),
+all the same: a ladder fixed in this compiler, and [Parasol](PARASOL.md),
 where a module declares its own. Parasol had refused to carry `@expr` on the
 sentence that *supporting both would be supporting two*, and this is solas
 drawing its side of the same line without a removal. Hans's call, after
