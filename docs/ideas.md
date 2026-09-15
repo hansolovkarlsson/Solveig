@@ -60,7 +60,7 @@ marked as a sketch.
 | Phoenix — a second language whose output Solum uses | **Defer** — the machinery is proven three times over; [the unexplored half](#programs-that-would-press-on-something) is whether a hosted language can publish a *library* rather than a program |
 | A conformance suite for a second implementation | **Built, both halves, on 2026-09-03** — [conformance/](../conformance/README.md), **89 cases** scored on their bytes with both tools taken from `SOL_COMPILE` and `SOL_RUN`, and in `make test`. Three kinds and not two: a refusal is compile-time and a **trap is run-time**, which the scoping had run together — 13 of the 15 demonstrations in `examples/` turn out to be the machine's business, not the front end's. Every answer written from the documentation before it was run. **Two findings, both in the documentation**: a REFERENCE.md paragraph wrong about `onError` in both halves, and a **self-including file that PRODUCING.md filed as a refusal when it is a warning** — it compiles, leaves with 0, and runs. [The scoping](#a-conformance-suite--a-corpus-a-second-implementation-can-score-itself-against) has the shape; what is left is the five 65,535 limits, which are a generator's business |
 | Programs that would press on something — Pascal, predicate logic, a parser toolkit, `tail`, and [which Unix tool next](#which-unix-tool-next-and-what-each-would-press-on--surveyed-2026-08-31) | **Defer, and none needs permission** — each is [predicted to find one thing](#programs-that-would-press-on-something), written down before it is written. **The editor was written**, and found what this page said it would. **So was `sha256sum`, on 2026-08-31**, the first off the Unix survey and the first program here with no I/O in its inner loop: [the prediction held in both halves](#it-was-written-on-2026-08-31-and-the-prediction-held-in-both-halves) and produced the number it was written for — **208 bytecode instructions a byte, 4.3 ns each, 234M a second**. **And `diff` on 2026-09-02**, where [one prediction of four held](#it-was-written-on-2026-09-02-and-one-of-the-four-predictions-held) — the output format, which was the whole difficulty — and the three that did not are more useful than the one that did. **And `gzip -d` on 2026-09-04**, the last of the three the survey named and [the one whose prediction measured the wrong thing](#it-was-written-on-2026-09-04-and-the-prediction-measured-the-wrong-thing): it asked for the cost of a 32 KB window as boxed values, and the window is 4.8% of the program. **And `sort` the same day**, which had been filed among the also-rans and is [promoted to an entry of its own](#sort--filed-below-as-pressing-on-less-and-written-anyway): the gap it was predicted to find was not there, because a write is not the reverse of a read — a producer knows what comes next — and what its merge wanted was the ranged read, already built |
-| An SQLite file, read and then written, as the twenty-third program | **Scoped on 2026-09-15, chosen over a format of our own for the oracle; steps 0 to 4 were built the same day, and [the positioned write was wanted at step 4 and not before](#step-4-the-same-night-and-the-first-prediction-fired-where-it-said), as predicted; [the reader pressed on nothing](#steps-0-and-1-were-built-the-same-day-and-the-reader-pressed-on-nothing), as predicted**: [the entry](#an-sqlite-file-read-and-then-written-scoped-2026-09-15) predicted the positioned write is wanted at step 4 and not before, and it was, raised and closed the same day as [3.27](COMPLETED.md#327-a-file-is-written-whole-or-appended-to-and-nothing-in-between--done), `writeFile(path, from, text)`; that a page as strings is bearable, and it is so far at 0.36 ms a row; and that locking, flushing and a truncate are not found at all. Six steps, each held against `sqlite3` and `PRAGMA integrity_check` |
+| An SQLite file, read and then written, as the twenty-third program | **Scoped on 2026-09-15, chosen over a format of our own for the oracle; all six steps were built the same day, and [the positioned write was wanted at step 4 and not before](#step-4-the-same-night-and-the-first-prediction-fired-where-it-said), as predicted; [the reader pressed on nothing](#steps-0-and-1-were-built-the-same-day-and-the-reader-pressed-on-nothing), as predicted**: [the entry](#an-sqlite-file-read-and-then-written-scoped-2026-09-15) predicted the positioned write is wanted at step 4 and not before, and it was, raised and closed the same day as [3.27](COMPLETED.md#327-a-file-is-written-whole-or-appended-to-and-nothing-in-between--done), `writeFile(path, from, text)`; that a page as strings is bearable, and it is so far at 0.36 ms a row; and that locking, flushing and a truncate are not found at all. Six steps, each held against `sqlite3` and `PRAGMA integrity_check` |
 | Networking, and sending code to a running machine | **The first half is built**, on 2026-08-29 — [extensions/net](../extensions/net/README.md), five messages, and the waiting question answered with a timeout rather than a block; [the second half](#networking-and-sending-code-to-a-machine-that-is-already-running) is untouched and still needs 3.4, 6.32 and a proxy |
 | SQLite, SDL2, GTK | **One project, not three** — [extensions](#extensions-a-capability-from-a-binary-rather-than-from-the-vm); GTK and SDL2 fire that trigger and SQLite does not, and wanting *both* toolkits is what settles the mechanism |
 | A game controller, and more of the sound, in [solveig-sdl](https://github.com/hansolovkarlsson/solveig-sdl) | **Held, with a trigger**, said by Hans on 2026-09-14 after the eleventh game and written where that binding's rule for growing lives: every cabinet had a stick and the arrows stand in for it, and one `beep` has carried twelve games and a tune and would not carry a console's music. Neither is a trigger yet. The famous console games come first, and they are what will ask; the binding grows only when a program wants what it cannot have |
@@ -6280,6 +6280,34 @@ size, 12 KB written for 12 KB owed. Level with the tool for one statement,
 which is process start-up on both sides and says nothing about the engines;
 over a thousand statements the interpreter is twenty times slower, and the
 entry says so beside the table, since the first draft of it did not.
+
+##### Step 5 the same night, and the plan is done
+
+**DELETE, the freelist, and a WHERE that is a conjunction.** A leaf that
+empties is dropped and freed; a root left with one child takes its
+contents; a page below the root left with one child hands its child's
+entries back to the root rather than the child itself, since every leaf
+must stay at one depth; an index entry that cannot stay where it is goes
+back in the same way. `integrity_check` named two wrong shapes on the way
+(*Child page depth differs*, and seventeen leaves *never used*) and accepts
+a third that a read then refuses, an empty leaf left standing, so the judge
+is the three checks together. The account is in
+[programs.md](programs.md#sqlite-reads-and-writes-an-sqlite-file). The
+sweep, with deletes in the writable rung and its author case, agrees on two
+seeds both ways.
+
+**The scoring, prediction by prediction.** The positioned write: held in
+every particular, built. The byte buffer: bearable, 0.36 ms a row, no
+entry. The negative integer from eight bytes: a comment, twice. `%!.15g`:
+wrong in its detail, since the exact printer was written rather than awk's
+moved. Not found: locking, flushing, a truncate, 3.5, float bits, the
+dispatch cost. All as written, with the one detail wrong. **What the plan
+did not predict**: that the oracle would be approximate in one place
+(`%!.15g`) and generous in another (an empty leaf), that an unordered query
+has as many answers as the planner has plans, that `sqlite3` reserves
+twelve bytes a page, and that the whole of it would fit in one day. Six
+steps, five commits, and the sixth step is this paragraph and the ones
+above it.
 
 ##### The calls only you can make
 

@@ -2580,8 +2580,8 @@ chosen shapes and two hundred generated ones a seed; on the day the reader
 landed, four seeds agreed in every case, 852 of 852, after the third seed had
 found one defect, below. The plan is in
 [ideas.md](ideas.md#an-sqlite-file-read-and-then-written-scoped-2026-09-15),
-prediction above outcome; steps 1 to 4 are built, and step 5, delete, is
-next. Step 2 followed step 1 the same day: a WHERE on a column
+prediction above outcome; all six steps were built on the day it was
+scoped. Step 2 followed step 1 the same day: a WHERE on a column
 that is the first column of a plain index walks the index tree, pruning as it
 descends, and fetches each matching rowid from the table. `SQLITE_PAGES=1`
 in the environment reports the pages a run read, which is the number the
@@ -2740,11 +2740,70 @@ fresh file are 3.35 seconds here against 0.040. Fifteen to a hundred times,
 the interpreter's ratio, as `gzip` and `sha256sum` found. `SQLITE_PAGES=1`
 prints pages read, pages changed and bytes written for any run that wrote.
 
+### Delete, and the freelist
+
+Step 5, the same night. `DELETE FROM t [WHERE ...]`, and the WHERE grew for
+it into what the generator had been writing all along: comparisons on
+columns joined by AND, `=`, `<`, `>`, `<=` and `>=`, with SQLite's rule that
+a NULL on either side matches nothing; SELECT has the same WHERE now. The
+rows are found first and removed after, each from the table tree and from
+every index. A leaf that empties is dropped from its parent and freed; a
+root left with one child takes its contents, which shortens every path
+together; and a page below the root left with one child does not hand the
+child up, since that would leave one leaf shallower than the rest: the
+child's entries go back into the tree from the root and its pages are
+freed. The same for an index interior cell whose child emptied, or which is
+itself the entry to remove, since the entry cannot stand without a child.
+SQLite merges siblings instead and frees more pages: on the three-thousand-row
+file with two indexes, 1,332 rows deleted freed 98 pages here against 115
+there.
+
+**Two wrong shapes on the way to this one**, both named by `integrity_check`
+on the fifth seed. The first draft handed a lone child up in place of its
+parent: *Child page depth differs*. The second freed the parent and not the
+pages under it when the last row of a table went: seventeen leaves *never
+used*, full of rows the tree could no longer reach. A generator with deletes
+in it found both within two hundred cases, and the author case did not. The
+same seed found a third thing, in the writer and not the delete: a whole
+real converts to an integer on its way into a numeric column when it lies
+strictly inside the integers, and the bound here was 9.2e18 where SQLite's
+is 2^63, so `9.20681221302119e+18` was stored as a real that `sqlite3`
+stores as an integer. Seed 1's four hundred cases had never produced a
+whole real between the two bounds.
+
+**The freelist** is the header's head and count, a chain of trunk pages each
+holding a pointer to the next trunk, a count and that many free page numbers.
+A freed page goes onto the head trunk while it has room and becomes a new
+trunk in front of it when not; INSERT takes a free leaf before it takes a
+trunk before it grows the file, so a table emptied and refilled stays the
+size it was. Files `sqlite3` made arrive with freelists and freeblocks of
+their own, and the sweep's third rung deletes from those too.
+
+**What `integrity_check` accepts is not what a reader accepts.** An empty
+leaf inside a tree passes `integrity_check`, this was tried by hand on a
+file `sqlite3` had made, and a `SELECT count(*)` through it then fails with
+*database disk image is malformed*. So the judge here is all three checks
+together, and the third rung would have caught what the first did not.
+
+**And one fact about the oracle found on the way**: the `sqlite3` on this
+machine reserves twelve bytes at the end of every page, byte 20 of the
+header, in every file it makes. The reader has honoured it since its first
+line, since the usable size is what the format is defined over; the writer
+leaves the reserved bytes of a page it rewrites as zeros, and nothing has
+complained, which says the twelve bytes are reserved and not read.
+
+The sweep is fourteen author cases, eight of them writable, and two hundred
+generated a seed with deletes in the writable rung now: **629 of 629 on seed
+1 and 629 of 629 on seed 5**, both ways.
+
 ### What it wanted from the language, so far
 
 The positioned write, above, at step 4 and not before, which is what the
-plan said, and it was built the same day; the reader and the writer from
-nothing asked for nothing, which is also what it said. The second prediction, that a page as an array of
+plan said, and it was built the same day; the reader, the writer from
+nothing and the delete asked for nothing, which is also what it said. A
+truncate was on the list of things a database might want and is not: the
+file never shrinks, since a freed page is a freed page, and that is what the
+plan predicted too. The second prediction, that a page as an array of
 strings joined on demand is bearable, has its first number above: 0.36
 milliseconds a row, 0.6 with two indexes. Two notes rather than
 entries: the ninth byte of a varint and the eighth of an integer meet

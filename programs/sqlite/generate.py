@@ -10,10 +10,10 @@
 # statements to run on both sides. Everything is drawn from one seeded
 # generator, so a case that disagreed is reproduced by its name.
 #
-# `writable` keeps the build inside what sqlite.sol's writer does: no DELETE
-# (step 5), no row or index entry long enough to need an overflow page, and
-# in exchange more rows on the small page sizes, so that the writer's splits
-# reach three levels. The files are named gen-w-SEED-0001.sql.
+# `writable` keeps the build inside what sqlite.sol's writer does: no row or
+# index entry long enough to need an overflow page, and in exchange more rows
+# on the small page sizes, so that the writer's splits reach three levels and
+# a DELETE empties pages. The files are named gen-w-SEED-0001.sql.
 #
 # This is the second of the three authors method.md names. The cases beside it
 # are what one person thought of; a generator produces what it was told it
@@ -224,7 +224,7 @@ def case(seed, number, out, writable=False):
 
         # Deletes: by a key value, by a rowid range, by one rowid. Leaves
         # freeblocks, and on the small page sizes a freelist.
-        if nrows > 5 and r.random() < 0.5 and not writable:
+        if nrows > 5 and r.random() < 0.5:
             how = r.random()
             if how < 0.4 and key_cols:
                 i = r.choice(key_cols)

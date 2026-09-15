@@ -16,20 +16,23 @@
 ; the files, with `PRAGMA integrity_check` and by reading them.
 ;
 ; The plan is in ideas.md under *An SQLite file, read and then written*, with
-; what it predicted written above what it found. This file is steps 1 to 4 of
+; what it predicted written above what it found. This file is steps 1 to 5 of
 ; it: the reader over tables, then the index trees, which a WHERE on an
 ; indexed column walks instead of scanning; then the writer from nothing,
 ; CREATE TABLE, CREATE INDEX and INSERT into a fresh file, pages built in
 ; memory and the file written whole at the end; then the same into a file
-; sqlite3 made, its pages decoded, changed and written back where they live.
-; That last part is COMPLETED 3.27, raised from here on 2026-09-15 with the
-; measurement `SQLITE_PAGES=1` prints and built the same day: one INSERT into
-; 100 MB needs four pages read and three written, paid 24,390 of each while
-; the only write the language had replaced the file, and pays 3 now. The SQL it parses is the SQL
+; sqlite3 made, its pages decoded, changed and written back where they live;
+; then DELETE, which empties pages onto the freelist that INSERT draws from
+; again. The writing-back is COMPLETED 3.27, raised from here on 2026-09-15
+; with the measurement `SQLITE_PAGES=1` prints and built the same day: one
+; INSERT into 100 MB needs four pages read and three written, paid 24,390 of
+; each while the only write the language had replaced the file, and pays 3
+; now. The SQL it parses is the SQL
 ; the plan bounds: SELECT of named columns, `rowid` or `*`, from one table,
 ; with a WHERE of one comparison and an ORDER BY; CREATE TABLE with plain
 ; columns; CREATE INDEX on plain columns; INSERT of literals; PRAGMA
-; page_size. Nothing else, and a statement outside that is reported as such
+; page_size; DELETE with the same WHERE. A WHERE is comparisons on columns
+; joined by AND. Nothing else, and a statement outside that is reported as such
 ; rather than quietly meaning something else. `SQLITE_PAGES=1` in the
 ; environment reports how many pages a run read and how many bytes it wrote,
 ; which are the numbers a statement is measured by here.
@@ -74,6 +77,10 @@
 ;   implementation shares, since `integrity_check` checks it. The writer
 ;   here never makes one: a row that would need one is refused by name.
 ;
+;   Pages a tree no longer needs are on the freelist: a chain of trunk pages,
+;   each a pointer to the next trunk, a count, and that many free page
+;   numbers, with the head and the total in the file header at 32 and 36.
+;
 ;   Writing is the same shapes in the other direction, and one more: a page
 ;   that will not hold its cells splits. A table tree is a B+tree, so a leaf
 ;   that splits sends up a copy of its last left rowid; an index tree is a
@@ -81,7 +88,16 @@
 ;   split keeps its number as the left half, the new page is the right, and
 ;   the root keeps its number by moving its contents down when it splits,
 ;   which is how a tree gains a level and why a root page number in the
-;   schema never changes.
+;   schema never changes. Deleting is the reverse: a leaf that empties is
+;   dropped from its parent and freed, and a root left with one child takes
+;   its contents. A page below the root left with one child is not replaced
+;   by it, since every leaf of a tree stands at one depth and that would
+;   leave one shallower: its child's entries are put back into the tree from
+;   the root and the pages freed. The same for an index interior cell that
+;   loses its child or is itself the entry to go, since an entry cannot
+;   stand without a child beside it. SQLite merges siblings instead and so
+;   frees more pages; `integrity_check` accepts either, and named the two
+;   shapes tried before this one.
 ;
 ; Three things about the language, found here:
 ;
@@ -423,12 +439,53 @@ db:object := { n | | o |
         self:dirty:atPut(n, o).
         o }) }.
 
-; A fresh page at the end of the file.
-db:newPage := { kind | | o |
-    self:pageCount := self:pageCount:inc.
+; A page for a new tree node: the freelist's if it has one, else one more at
+; the end of the file. The freelist is a chain of trunk pages, each a pointer
+; to the next trunk, a count, and that many free leaf page numbers; the head
+; and the total are in the file header at 32 and 36. A leaf is taken from the
+; head trunk first, and when a trunk has none left the trunk itself is taken.
+db:newPage := { kind | | o, n, t |
+    self:freelistCount:greaterThan(#0):ifElse(
+        { t := self:trunk(self:freelistHead).
+          t:leaves:size:greaterThan(#0):ifElse(
+              { n := t:leaves:removeLast },
+              { n := self:freelistHead. self:freelistHead := t:next. self:dirty:remove(n) }).
+          self:freelistCount := self:freelistCount:dec },
+        { self:pageCount := self:pageCount:inc. n := self:pageCount }).
     o := page:of(kind).
-    self:dirty:atPut(self:pageCount, o).
-    self:pageCount }.
+    self:dirty:atPut(n, o).
+    n }.
+
+; A page a tree no longer needs joins the freelist: onto the head trunk while
+; it has room, else as a new trunk in front of it. What a free leaf page holds
+; is nobody's business, so its bytes stay whatever they were.
+db:freePage := { n | | t |
+    self:freelistCount := self:freelistCount:inc.
+    (self:freelistHead:equals(#0):or({ self:trunk(self:freelistHead):leaves:size:greaterOrEqual(self:usable:div(#4):sub(#2)) })):ifElse(
+        { self:dirty:atPut(n, trunk:of(self:freelistHead, [])).
+          self:freelistHead := n },
+        { self:trunk(self:freelistHead):leaves:add(n) }) }.
+
+; A trunk page as an object to change, decoded from the file on first use.
+db:trunk := { n | | t, s, count, i |
+    self:dirty:includes(n):ifElse({ self:dirty:at(n) }, {
+        s := self:page(n).
+        count := u32:value(s, #5).
+        t := trunk:of(u32:value(s, #1), []).
+        i := #0.
+        { i:lessThan(count) }:whileTrue({ t:leaves:add(u32:value(s, i:mul(#4):add(#9))). i := i:inc }).
+        self:dirty:atPut(n, t).
+        t }) }.
+
+trunk := object:new.
+trunk:next := #0.
+trunk:leaves := nil.
+trunk:of := { next, leaves | | t | t := self:new. t:next := next. t:leaves := leaves. t }.
+trunk:bytes := { n, d | | out |
+    out := [u32Bytes:value(self:next), u32Bytes:value(self:leaves:size)].
+    self:leaves:do({ l | out:add(u32Bytes:value(l)) }).
+    out:add(zeros:value(d:pageSize:sub(#8):sub(self:leaves:size:mul(#4)))).
+    out:join("") }.
 
 ; The 100 bytes at the front of page 1.
 db:fileHeader := {
@@ -777,6 +834,97 @@ treeInsert := { d, root, raw, key, isIndex | | divider, o, left, ln |
         o:kind := o:isTable:ifElse({ #5 }, { #2 }).
         o:cells := [divider:at(#1)]. o:keys := [divider:at(#2)].
         o:children := [ln]. o:right := divider:at(#3) }) }.
+
+; Removing `key` from the tree under page n. Answers nil when the page
+; stands and #0 when it emptied, in which case the parent drops it and frees
+; it. Every leaf of a tree is at one depth, and a removal must keep that, so
+; nothing here is ever replaced by a shorter subtree: a page left with no
+; cells and one child does not hand the child up, it hands the child's
+; entries up, onto `again`, to be put back into the tree from the root once
+; the removal is done, and the child's pages are freed. The same for an
+; index interior cell whose child emptied, since the entry beside the child
+; cannot stand without one, and for the case where that cell is itself the
+; entry to remove. A table interior cell is a separator and not a row, so it
+; just goes. The first draft of this handed a lone child up in place of its
+; parent, and `integrity_check` said "Child page depth differs".
+removeCell := { arr, i | | out, k |
+    out := []. k := #1.
+    { k:lessOrEqual(arr:size) }:whileTrue({ k:notEquals(i):ifTrue({ out:add(arr:at(k)) }). k := k:inc }).
+    out }.
+
+; Every entry of the subtree under page n onto `again`, as [raw, key], and
+; every page of it freed. For an index tree the interior cells are entries
+; too; for a table tree only the leaves hold rows.
+collectEntries := { d, n, again, isIndex | | o |
+    o := d:object(n).
+    (o:isLeaf:or({ isIndex })):ifTrue({
+        [#1, o:cells:size]:loop({ i | again:add([o:cells:at(i), o:keys:at(i)]) }) }).
+    o:isLeaf:ifFalse({
+        o:children:do({ c | collectEntries:value(d, c, again, isIndex) }).
+        collectEntries:value(d, o:right, again, isIndex) }).
+    d:freePage(n) }.
+
+deleteFrom := { d, n, key, isIndex, again, root | | o, i, found, child, below |
+    o := d:object(n).
+    found := nil. i := #1.
+    { found:isNil:and({ i:lessOrEqual(o:keys:size) }) }:whileTrue({
+        (isIndex:ifElse({ compareEntry:value(o:keys:at(i), key):greaterOrEqual(#0) }, { o:keys:at(i):greaterOrEqual(key) })):ifTrue({ found := i }).
+        found:isNil:ifTrue({ i := i:inc }) }).
+    ; found is the first cell at or past the key, or nil for past them all.
+    o:isLeaf:ifElse(
+        { (found:notNil:and({ isIndex:ifElse({ compareEntry:value(o:keys:at(found), key):equals(#0) }, { o:keys:at(found):equals(key) }) })):ifTrue({
+              o:cells := removeCell:value(o:cells, found).
+              o:keys := removeCell:value(o:keys, found) }).
+          o:cells:size:equals(#0):ifElse({ #0 }, { nil }) },
+        { (isIndex:and({ found:notNil }):and({ compareEntry:value(o:keys:at(found), key):equals(#0) })):ifElse(
+            { ; The entry is this interior cell: the cell goes, and the child
+              ; beside it goes back in from the root.
+              collectEntries:value(d, o:children:at(found), again, true).
+              o:cells := removeCell:value(o:cells, found).
+              o:keys := removeCell:value(o:keys, found).
+              o:children := removeCell:value(o:children, found) },
+            { child := found:isNil:ifElse({ o:right }, { o:children:at(found) }).
+              below := deleteFrom:value(d, child, key, isIndex, again, root).
+              below:notNil:ifTrue({
+                  ; The child emptied: free it and drop the cell beside it.
+                  d:freePage(child).
+                  found:isNil:ifElse(
+                      { o:cells:size:greaterThan(#0):ifElse(
+                            { isIndex:ifTrue({ again:add([o:cells:at(o:cells:size), o:keys:at(o:keys:size)]) }).
+                              o:right := o:children:at(o:children:size).
+                              o:cells := removeCell:value(o:cells, o:cells:size).
+                              o:keys := removeCell:value(o:keys, o:keys:size).
+                              o:children := removeCell:value(o:children, o:children:size) },
+                            { o:right := #0 }) },
+                      { isIndex:ifTrue({ again:add([o:cells:at(found), o:keys:at(found)]) }).
+                        o:cells := removeCell:value(o:cells, found).
+                        o:keys := removeCell:value(o:keys, found).
+                        o:children := removeCell:value(o:children, found) }) }) }).
+          ; A page with no cells and one child cannot stay, at any depth but
+          ; the root's, which treeDelete handles: its child's entries go back
+          ; in from the root, and it reports itself empty.
+          (o:cells:size:equals(#0):and({ o:right:notEquals(#0) }):and({ n:notEquals(root) })):ifTrue({
+              collectEntries:value(d, o:right, again, isIndex).
+              o:right := #0 }).
+          o:right:equals(#0):ifElse({ #0 }, { nil }) }) }.
+
+; Remove a key from a tree by its root, which keeps its page number: a root
+; left with one child takes that child's contents and frees it, which
+; shortens every path by one together; a root left with nothing is an empty
+; leaf again. Then whatever the removal displaced goes back in.
+treeDelete := { d, root, key, isIndex | | again, result, o, child, c |
+    again := [].
+    result := deleteFrom:value(d, root, key, isIndex, again, root).
+    o := d:object(root).
+    result:notNil:ifTrue({
+        o:kind := o:isTable:ifElse({ #13 }, { #10 }).
+        o:cells := []. o:keys := []. o:children := []. o:right := #0 }).
+    (o:isLeaf:not:and({ o:cells:size:equals(#0) })):ifTrue({
+        child := o:right.
+        c := d:object(child).
+        o:kind := c:kind. o:cells := c:cells. o:keys := c:keys. o:children := c:children. o:right := c:right.
+        d:freePage(child) }).
+    again:do({ e | treeInsert:value(d, root, e:at(#1), e:at(#2), isIndex) }) }.
 
 ; The largest rowid in a table tree, or nil when it is empty: down the
 ; right-most path to the last leaf.
@@ -1216,6 +1364,25 @@ columnRef := { tokens, i | | name |
         name := tok:value(tokens, i:inc):at(#2). i := i:add(#2) }).
     [name, i] }.
 
+; WHERE: comparisons on columns joined by AND, each [column, op, literal]
+; with op one of = < > <= >=. Answers the terms and the index after them.
+parseWhere := { tokens, i | | terms, r, op, done |
+    terms := []. done := false.
+    { done:not }:whileTrue({
+        r := columnRef:value(tokens, i). i := r:at(#2).
+        op := tok:value(tokens, i):at(#2).
+        tok:value(tokens, i):at(#1):equals('punct):ifFalse({ error:raise("expected a comparison and found ":concat(op)) }).
+        i := i:inc.
+        (op:equals("<"):or({ op:equals(">") })):and({ isPunct:value(tokens, i, "=") }):ifTrue({
+            op := op:concat("="). i := i:inc }).
+        (["=", "<", ">", "<=", ">="]:indexOf(op)):isNil:ifTrue({
+            error:raise("only = < > <= and >= are understood, not ":concat(op)) }).
+        terms:add([r:at(#1), op, nil]).
+        r := literal:value(tokens, i). i := r:at(#2).
+        terms:at(terms:size):atPut(#3, r:at(#1)).
+        isWord:value(tokens, i, "AND"):ifElse({ i := i:inc }, { done := true }) }).
+    [terms, i] }.
+
 parseSelect := { tokens | | i, columns, tableName, where, order, r, done |
     i := expect:value(tokens, #1, "SELECT").
     columns := []. done := false.
@@ -1227,14 +1394,10 @@ parseSelect := { tokens | | i, columns, tableName, where, order, r, done |
             { i := i:inc }, { done := true }) }).
     i := expect:value(tokens, i, "FROM").
     tableName := tok:value(tokens, i):at(#2). i := i:inc.
-    where := nil. order := [].
+    where := []. order := [].
     isWord:value(tokens, i, "WHERE"):ifTrue({
         i := i:inc.
-        r := columnRef:value(tokens, i). i := r:at(#2).
-        i := expect:value(tokens, i, "=").
-        where := [r:at(#1), nil].
-        r := literal:value(tokens, i). i := r:at(#2).
-        where:atPut(#2, r:at(#1)) }).
+        r := parseWhere:value(tokens, i). where := r:at(#1). i := r:at(#2) }).
     isWord:value(tokens, i, "ORDER"):ifTrue({
         i := i:inc.
         i := expect:value(tokens, i, "BY").
@@ -1299,7 +1462,73 @@ applyAffinity := { v, affinity | | n |
 out := [].
 emit := { line | out:add(line):add("\n") }.
 
-runSelect := { d, tables, parsed | | t, wanted, whereCol, whereVal, orderCols, realColumns, rows, keep, index |
+; One comparison, SQLite's way: NULL on either side is no match, otherwise
+; the order compare gives.
+holds := { a, op, b | | c |
+    a:isNil:or({ b:isNil }):ifElse({ false }, {
+        c := compare:value(a, b).
+        op:equals("="):ifElse({ c:equals(#0) },
+        { op:equals("<"):ifElse({ c:lessThan(#0) },
+        { op:equals(">"):ifElse({ c:greaterThan(#0) },
+        { op:equals("<="):ifElse({ c:lessOrEqual(#0) }, { c:greaterOrEqual(#0) }) }) }) }) }) }.
+
+; The rows of table t that a WHERE keeps, each [rowid, values] with REAL
+; columns turned back into reals. By rowid when a term names it with =;
+; through an index when a term is = on its first column; else every row. The
+; three answer the same rows, and differ in pages read.
+matchingRows := { d, t, where | | terms, realColumns, rows, keep, index, rowidTerm, eqTerm |
+    ; Terms resolved: [column, op, value with the column's affinity applied].
+    terms := where:collect({ w | | which |
+        which := resolve:value(t, w:at(#1)).
+        [which, w:at(#2), applyAffinity:value(w:at(#3), affinityAt:value(t, which))] }).
+    ; A REAL column stores a whole number as an integer to save the bytes, and
+    ; it is a real again on the way out: the one place a column's declared
+    ; type changes what a record says.
+    realColumns := [].
+    [#1, t:columns:size]:loop({ i |
+        t:columns:at(i):at(#2):equals('real):ifTrue({ realColumns:add(i) }) }).
+    rows := [].
+    keep := { rowid, values | | ok |
+        realColumns:do({ i |
+            (i:lessOrEqual(values:size):and({ values:at(i):isKindOf(integer) })):ifTrue({
+                values:atPut(i, real:of(floatParts:value(values:at(i):asFloat))) }) }).
+        ok := true.
+        terms:do({ term | ok := ok:and({ holds:value(valueAt:value(rowid, values, term:at(#1)), term:at(#2), term:at(#3)) }) }).
+        ok:ifTrue({ rows:add([rowid, values]) }) }.
+
+    rowidTerm := nil. eqTerm := nil. index := nil.
+    terms:do({ term |
+        term:at(#2):equals("="):ifTrue({
+            term:at(#1):equals('rowid):ifTrue({ rowidTerm := term }).
+            (term:at(#1):notEquals('rowid):and({ term:at(#3):notNil }):and({ eqTerm:isNil })):ifTrue({
+                t:indexes:do({ ix |
+                    index:isNil:and({ resolve:value(t, ix:at(#3):at(#1)):equals(term:at(#1)) }):ifTrue({
+                        index := ix. eqTerm := term }) }) }) }) }).
+
+    rowidTerm:notNil:ifElse(
+        { | v |
+          v := rowidTerm:at(#3).
+          v:isKindOf(integer):ifTrue({ | p |
+              p := findRow:value(d, t:root, v).
+              p:notNil:ifTrue({ keep:value(v, decodeRecord:value(p)) }) }).
+          v:isKindOf(real):ifTrue({ | f, n |
+              ; A real equal to an integer finds that rowid; any other finds none.
+              f := v:value.
+              f:equals(f:floor:asFloat):ifTrue({ | p |
+                  n := f:floor.
+                  p := findRow:value(d, t:root, n).
+                  p:notNil:ifTrue({ keep:value(n, decodeRecord:value(p)) }) }) }) },
+        { index:notNil:ifElse(
+            { eachIndexMatch:value(d, index:at(#2), eqTerm:at(#3), { entry | | rowid, p |
+                  rowid := entry:at(entry:size).
+                  p := findRow:value(d, t:root, rowid).
+                  p:isNil:ifTrue({ error:raise("index ":concat(index:at(#1)):concat(" names rowid ")
+                      :concat(rowid:asString):concat(" and the table has no such row")) }).
+                  keep:value(rowid, decodeRecord:value(p)) }) },
+            { eachRow:value(d, t:root, { rowid, p | keep:value(rowid, decodeRecord:value(p)) }) }) }).
+    rows }.
+
+runSelect := { d, tables, parsed | | t, wanted, orderCols, rows |
     t := tables:at(parsed:at(#2):asLowercase, nil).
     t:isNil:ifTrue({ error:raise("no such table: ":concat(parsed:at(#2))) }).
     ; The columns to print, resolved; `*` is every column of the table.
@@ -1309,54 +1538,8 @@ runSelect := { d, tables, parsed | | t, wanted, whereCol, whereVal, orderCols, r
             { [#1, t:columns:size]:loop({ i |
                   wanted:add(t:columns:at(i):at(#3):ifElse({ 'rowid }, { i })) }) },
             { wanted:add(resolve:value(t, c)) }) }).
-    whereCol := nil. whereVal := nil.
-    parsed:at(#3):notNil:ifTrue({
-        whereCol := resolve:value(t, parsed:at(#3):at(#1)).
-        whereVal := applyAffinity:value(parsed:at(#3):at(#2), affinityAt:value(t, whereCol)) }).
     orderCols := parsed:at(#4):collect({ c | resolve:value(t, c) }).
-    ; A REAL column stores a whole number as an integer to save the bytes, and
-    ; it is a real again on the way out: the one place a column's declared
-    ; type changes what a record says.
-    realColumns := [].
-    [#1, t:columns:size]:loop({ i |
-        t:columns:at(i):at(#2):equals('real):ifTrue({ realColumns:add(i) }) }).
-
-    rows := [].
-    keep := { rowid, values |
-        realColumns:do({ i |
-            (i:lessOrEqual(values:size):and({ values:at(i):isKindOf(integer) })):ifTrue({
-                values:atPut(i, real:of(floatParts:value(values:at(i):asFloat))) }) }).
-        (whereCol:isNil:or({ whereVal:notNil:and({ compare:value(valueAt:value(rowid, values, whereCol), whereVal):equals(#0) }) })):ifTrue({
-            rows:add([rowid, values]) }) }.
-
-    ; An index whose first column is the WHERE's, if there is one.
-    index := nil.
-    (whereCol:notNil:and({ whereCol:notEquals('rowid) }):and({ whereVal:notNil })):ifTrue({
-        t:indexes:do({ ix |
-            index:isNil:and({ resolve:value(t, ix:at(#3):at(#1)):equals(whereCol) }):ifTrue({ index := ix }) }) }).
-
-    ; By rowid when the WHERE names it; through the index when one covers the
-    ; column, each matching entry's rowid fetched from the table; else every
-    ; row. The three answer the same rows, and differ in pages read.
-    (whereCol:notNil:and({ whereCol:equals('rowid) })):ifElse(
-        { whereVal:isKindOf(integer):ifTrue({ | p |
-              p := findRow:value(d, t:root, whereVal).
-              p:notNil:ifTrue({ keep:value(whereVal, decodeRecord:value(p)) }) }).
-          whereVal:isKindOf(real):ifTrue({ | f, n |
-              ; A real equal to an integer finds that rowid; any other finds none.
-              f := whereVal:value.
-              f:equals(f:floor:asFloat):ifTrue({ | p |
-                  n := f:floor.
-                  p := findRow:value(d, t:root, n).
-                  p:notNil:ifTrue({ keep:value(n, decodeRecord:value(p)) }) }) }) },
-        { index:notNil:ifElse(
-            { eachIndexMatch:value(d, index:at(#2), whereVal, { entry | | rowid, p |
-                  rowid := entry:at(entry:size).
-                  p := findRow:value(d, t:root, rowid).
-                  p:isNil:ifTrue({ error:raise("index ":concat(index:at(#1)):concat(" names rowid ")
-                      :concat(rowid:asString):concat(" and the table has no such row")) }).
-                  keep:value(rowid, decodeRecord:value(p)) }) },
-            { eachRow:value(d, t:root, { rowid, p | keep:value(rowid, decodeRecord:value(p)) }) }) }).
+    rows := matchingRows:value(d, t, parsed:at(#3)).
 
     orderCols:size:greaterThan(#0):ifTrue({
         rows := rows:sorted({ a, b | | c, i |
@@ -1386,7 +1569,11 @@ statementText := { text, st | text:copyFrom(st:at(#1):at(#3), st:at(st:size):at(
 ; trick the reader undoes.
 integralOf := { v | | f |
     f := v:value.
-    (f:abs:lessThan(9.2e18):and({ f:equals(f:floor:asFloat) })):ifElse({ f:floor }, { v }) }.
+    ; Strictly inside the integers, both ends: SQLite keeps -2^63 itself a
+    ; real. A bound of 9.2e18 here left 9206812213021190144.0 a real that
+    ; sqlite3 stores as an integer, on the fifth seed of the sweep.
+    (f:lessThan(9223372036854775808.0):and({ f:greaterThan(-9223372036854775808.0) })
+        :and({ f:equals(f:floor:asFloat) })):ifElse({ f:floor }, { v }) }.
 
 ; The affinity applied to a value on its way into a column: text that reads
 ; as a number becomes one under a numeric affinity, a number becomes text
@@ -1540,6 +1727,40 @@ insertStatement := { d, tables, st | | i, name, t, which, r, rowValues, values, 
         error:raise("this INSERT goes on past what is understood, at: ":concat(tok:value(st, i):at(#2))) }).
     count }.
 
+; One row out of a table and each of its indexes. The index entries are
+; rebuilt from the row's values as they were put in, which is why the values
+; come along; `values` here are as stored, REAL columns included, since a
+; stored integer and a real that equals it compare as equal anyway.
+deleteRow := { d, t, rowid, values |
+    t:indexes:do({ ix | | entry |
+        entry := ix:at(#3):collect({ name | | which |
+            which := resolve:value(t, name).
+            which:equals('rowid):ifElse({ rowid }, { valueAt:value(rowid, values, which) }) }).
+        entry:add(rowid).
+        treeDelete:value(d, ix:at(#2), entry, true) }).
+    treeDelete:value(d, t:root, rowid, false).
+    ; The next rowid assigned is one past the largest that remains, as
+    ; SQLite assigns it, so the largest is looked for again.
+    t:maxRowid := nil }.
+
+; DELETE FROM t [WHERE ...]: the rows are found first and removed after,
+; since removing while walking would move the walk's ground.
+deleteStatement := { d, tables, st | | i, name, t, where, r, rows |
+    i := expect:value(st, #1, "DELETE").
+    i := expect:value(st, i, "FROM").
+    name := tok:value(st, i):at(#2). i := i:inc.
+    t := tables:at(name:asLowercase, nil).
+    t:isNil:ifTrue({ error:raise("no such table: ":concat(name)) }).
+    where := [].
+    isWord:value(st, i, "WHERE"):ifTrue({
+        i := i:inc.
+        r := parseWhere:value(st, i). where := r:at(#1). i := r:at(#2) }).
+    i:lessOrEqual(st:size):ifTrue({
+        error:raise("this DELETE goes on past what is understood, at: ":concat(tok:value(st, i):at(#2))) }).
+    rows := matchingRows:value(d, t, where).
+    rows:do({ row | deleteRow:value(d, t, row:at(#1), row:at(#2)) }).
+    rows:size }.
+
 ; PRAGMA page_size = N sets the size of a database that is still empty, and
 ; is ignored on one that is not, as SQLite ignores it. Any other pragma is
 ; not understood, and says so rather than answering nothing.
@@ -1556,12 +1777,13 @@ execute := { d, tables, st, text | | first |
     first := st:at(#1):at(#2):asUppercase.
     first:equals("SELECT"):ifElse({ runSelect:value(d, tables, parseSelect:value(st)) },
     { first:equals("INSERT"):ifElse({ insertStatement:value(d, tables, st) },
+    { first:equals("DELETE"):ifElse({ deleteStatement:value(d, tables, st) },
     { first:equals("PRAGMA"):ifElse({ pragmaStatement:value(d, st) },
     { (first:equals("CREATE"):and({ isWord:value(st, #2, "TABLE") })):ifElse({ createTable:value(d, tables, st, text) },
     { (first:equals("CREATE"):and({ isWord:value(st, #2, "INDEX") })):ifElse({ createIndex:value(d, tables, st, text) },
     { (first:equals("CREATE"):and({ isWord:value(st, #2, "UNIQUE") })):ifElse(
         { error:raise("a UNIQUE index is not written here; the constraint is not checked") },
-        { error:raise("only SELECT, CREATE TABLE, CREATE INDEX, INSERT and PRAGMA page_size are understood; this begins with ":concat(st:at(#1):at(#2))) }) }) }) }) }) }) }.
+        { error:raise("only SELECT, CREATE TABLE, CREATE INDEX, INSERT, DELETE and PRAGMA page_size are understood; this begins with ":concat(st:at(#1):at(#2))) }) }) }) }) }) }) }) }.
 
 ; ---------------------------------------------------------------------------
 ; The demonstration
