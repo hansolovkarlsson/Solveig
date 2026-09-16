@@ -205,6 +205,19 @@ version the binaries inside it report.
 
 ## Status
 
+**0.47.0** — Parasol is a member of the toolkit, and a database is a file the
+language reads and writes. Parasol's C is `parasol/{cmd,include,src}` as the
+other four are, built by the one Makefile, tested by `make test`, reporting
+this version, its pages under `docs/` and its seven programs under
+`programs/`. `lib/sqlite.sol` reads and writes the file `sqlite3` writes, with
+an object front over the engine where a row is an object whose columns are
+slots, and the `sql` program is a shell over it; one sweep against `sqlite3`
+judges both, 632 of 632. For it the machine gained `writeFile(path, from,
+text)`, a range of a file written, and `object:new(dictionary)`, a slot per
+pair. 146 messages, `.sob` format 14, and 0.46.0's compiler and this one
+produce byte-identical `.sob` files for all 36 examples; one of them,
+`database.sol`, needs this machine to run.
+
 **0.46.0** — the `@expr` region is behind a flag, Proto is Parasol, and
 `ifElseIf` is `switch`. `solas`, `solis` and `solid` refuse `@expr` unless
 run with `--expr` (or `-e`): the language has no operators, the region is a

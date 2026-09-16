@@ -6,7 +6,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#define SOLUM_VERSION "0.46.0"
+#define SOLUM_VERSION "0.47.0"
 
 /* What a loaded extension is allowed to call.
  *

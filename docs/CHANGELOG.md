@@ -5,6 +5,71 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+## 0.47.0 — 2026-09-16
+
+**Parasol is a member of the toolkit, and a database is a file the language
+reads and writes.** Twenty entries, two days, and the machine gained one
+argument and one form.
+
+**Parasol is the fifth tool.** Its C is `parasol/{cmd,include,src}` as
+`solas/` is, built by the one Makefile in a section that includes no Solveig
+header and links no Solveig library, with `make test` reading the binary's
+symbol table to say so; its examples are in `examples/`, its dialects in
+`lib/`, its seven programs are directories under `programs/`, its pages are
+[PARASOL.md](PARASOL.md) and the `PARASOL-*` beside it, and its records to
+the day it joined are frozen under `docs/parasol/`, with what is still open
+as section 7 of the roadmap. `parasol --version` reports this number: the
+version was the first step of the plan and the last to close, and the frozen
+changelog stays at 0.17.0, the last that was Parasol's own.
+
+**`lib/sqlite.sol` reads and writes the file `sqlite3` writes**, and the
+`sql` program is a shell over it: CREATE TABLE, CREATE INDEX, INSERT, SELECT
+by rowid, through an index or by a scan, UPDATE and DELETE, the file left as
+`sqlite3` would leave it. Over the engine is an object front, `open`,
+`create` and `table`, a query that answers `find`, `where`, `filter`,
+`orderBy`, `all`, `each`, `count` and `delete`, and a row that is an object
+whose columns are slots, with `save` and `delete` beside them. The shell is
+a client of the objects, so one sweep against `sqlite3` judges both: 632 of
+632 on seed 1, 629 of 629 on seed 2. It is the first of the directions
+[design.md](design.md#the-directions-intended-stated-2026-08-31) names
+reached, and [examples/database.sol](../examples/database.sol) runs it.
+
+**Two things in the machine for it.** `writeFile(path, from, text)` writes
+a range of a file, the mirror of `readFile(path, from, count)`, so an
+INSERT into a 100 MB database writes 12 KB and not 100 MB. And
+`object:new(dictionary)` makes a slot per pair, keys symbols or strings, the
+one place the language makes a slot from a name held in a value; the row
+was its first customer, and it was built after rows as dictionaries had run
+and the sweep had passed, so its shape was decided by a caller.
+
+**`make test` assembles `ember`'s output only where the assembler can.**
+The build workflow's Linux runners had been red since Parasol joined, on
+`cc fizzbuzz.s`, ARM64 assembly on x86-64, and nothing local could see it.
+Green on all five jobs since.
+
+**146 messages, `.sob` format 14.** `new` takes an argument now and
+`writeFile` a range, and no registration was added. Checked rather than
+asserted: 0.46.0's compiler and this one produce byte-identical `.sob` files
+for all 36 examples, `operators.sol` with `--expr` on both, and 34 run the
+same on both machines both ways round. The two that do not are
+`system.sol`, which prints how long things took, and `database.sol`, which
+is the one example that needs this machine: 0.46.0's refuses `new` with an
+argument. `builtins.c` was touched and `extensions/` was not, so the ABI was
+checked rather than the bytecode alone: 0.46.0's `net.so` loaded on this
+build and the counter ran, client and server.
+
+### One version for the tree: `parasol --version` reports Solveig's — `1fe9e24`, 2026-09-16
+
+`parasol --version` says the tree's number, and the banner on every generated
+`.sol` names it; `PARASOL_SOLVEIG_MINIMUM` is gone, since the parent is the
+version by construction. The number reaches Parasol through the generated
+`config.h` the Makefile already wrote for `PARASOL_LIB_DIR`, from the same
+`SOLUM_VERSION` that names the tarball, so nothing under `parasol/` includes
+a Solveig header and the boundary check on the binary still holds. This is
+[7.1](COMPLETED.md#71-one-version-for-the-tree-at-the-next-release--done),
+the first step of the plan that made Parasol a member of the toolkit and the
+last to close; the frozen changelog under `docs/parasol/` stays at 0.17.0.
+
 ### `make test` assembles ember's output only where the assembler can — `b7cccd1`, 2026-09-16
 
 The build workflow's Linux runners were red from 2026-09-14, when Parasol
@@ -112,8 +177,8 @@ thirty-nine pages.
 ### `parasol/` is `cmd`, `include` and `src` — `d6cf91d`, 2026-09-15
 
 **The plan that made Parasol a member of the toolkit is done but for the
-version**, which is [7.1](ROADMAP.md#71-one-version-for-the-tree-at-the-next-release)
-and waits on the next release. Its `CLAUDE.md` and `LICENSE` are gone, the
+version**, which is [7.1](COMPLETED.md#71-one-version-for-the-tree-at-the-next-release--done)
+and waited on the next release. Its `CLAUDE.md` and `LICENSE` are gone, the
 first folded into the root's, the second byte for byte the root's already.
 [COMPLETED.md](COMPLETED.md#72-what-is-left-in-parasol--done) 7.2.
 

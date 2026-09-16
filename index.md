@@ -140,14 +140,15 @@ a different language.
 
 ## Status
 
-**0.46.0** — the language answers 146 messages, unchanged, and `.sob` files
-are still format version 14: nothing in the machine moved this release. The
-`@expr` infix region is behind a flag now: `solas`, `solis` and `solid`
-refuse it unless run with `--expr`, because the language has no operators and
-the general form of the region, where a module declares its own, is
-[Parasol](docs/PARASOL.md). A program written to the region adds one word
-to its build line. `[...]:ifElseIf` in the control library is `[...]:switch`,
-and the second compiler is Parasol, with `.psol` modules, under `parasol/`.
+**0.47.0** — the language answers 146 messages and `.sob` files are still
+format version 14; `new` takes a dictionary now, a slot per pair, and
+`writeFile` takes a position, a range of a file written. [Parasol](docs/PARASOL.md),
+the second compiler, is a member of the toolkit: built by the one Makefile,
+tested by `make test`, reporting this version, with its seven programs under
+`programs/`. And a database is a file the language reads and writes:
+`lib/sqlite.sol` reads and writes the file `sqlite3` writes, a row is an
+object whose columns are slots, and the `sql` program is a shell over it,
+checked against `sqlite3` statement by statement.
 
 Working: the scanner, the single-pass compiler, the re-entrant dispatch loop
 with call frames, blocks with lexical capture, message-based control flow, a
