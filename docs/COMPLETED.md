@@ -388,7 +388,7 @@ created. Nothing about flushing or locking came with it, since nothing asked.
 **What it was.** `writeFile` replaced a file and `appendFile` added to its
 end, and no message changed bytes in the middle of one. The design page had
 said since 2026-08-31 that a database would be the program to want that, and
-the plan for [sqlite.sol](programs.md#sqlite-reads-and-writes-an-sqlite-file)
+the plan for [sqlite](programs.md#sql-and-sqlite-an-sql-shell-and-the-library-that-reads-and-writes-the-file)
 in [ideas.md](ideas.md#an-sqlite-file-read-and-then-written-scoped-2026-09-15)
 predicted the moment: not the reader, not the writer into a fresh file, which
 is small and is written whole, but the first INSERT into a file of a few

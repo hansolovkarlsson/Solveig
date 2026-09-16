@@ -6207,7 +6207,7 @@ cache under `--memory` is what bounds.
 
 **As predicted for the reader, and the prediction was cheap.** The findings
 were in the corpus and the oracle rather than in the language, and are in
-[programs.md](programs.md#sqlite-reads-and-writes-an-sqlite-file):
+[programs.md](programs.md#sql-and-sqlite-an-sql-shell-and-the-library-that-reads-and-writes-the-file):
 a REAL column stores whole numbers as integers; an unordered query has as many
 answers as the planner has plans, which cost 39 of 200 generated cases before
 the generator stopped asking; `sqlite3` prints a REAL from an approximate
@@ -6241,7 +6241,7 @@ most likely wrong about the size of the work, and it was an evening and some
 five hundred lines, which is what the step guessed. `integrity_check` found
 two defects on the way to its first `ok` and named the byte both times, which
 is the oracle doing what it was chosen for; the account is in
-[programs.md](programs.md#sqlite-reads-and-writes-an-sqlite-file). The
+[programs.md](programs.md#sql-and-sqlite-an-sql-shell-and-the-library-that-reads-and-writes-the-file). The
 writer's rung of the sweep is 420 of 420 on seed 1 and 420 of 420 on seed 2,
 each case judged by `integrity_check`, by `sqlite3` reading the written file,
 and by this program reading it.
@@ -6257,7 +6257,7 @@ be: a fresh file is small and is written whole, and step 4 is the moment.
 **INSERT into a file `sqlite3` made**: its pages decoded into the writer's
 objects, changed, and the file written whole, since that is the only write
 the language has. The table is in
-[programs.md](programs.md#sqlite-reads-and-writes-an-sqlite-file) and in
+[programs.md](programs.md#sql-and-sqlite-an-sql-shell-and-the-library-that-reads-and-writes-the-file) and in
 [3.27](COMPLETED.md#327-a-file-is-written-whole-or-appended-to-and-nothing-in-between--done),
 which this raised: one INSERT into 100 MB needs 4 pages read and 3 written,
 and the whole-file route reads 24,386 more and writes 24,390, 1.16 s against
@@ -6293,7 +6293,7 @@ back in the same way. `integrity_check` named two wrong shapes on the way
 (*Child page depth differs*, and seventeen leaves *never used*) and accepts
 a third that a read then refuses, an empty leaf left standing, so the judge
 is the three checks together. The account is in
-[programs.md](programs.md#sqlite-reads-and-writes-an-sqlite-file). The
+[programs.md](programs.md#sql-and-sqlite-an-sql-shell-and-the-library-that-reads-and-writes-the-file). The
 sweep, with deletes in the writable rung and its author case, agrees on two
 seeds both ways.
 
@@ -6337,7 +6337,7 @@ above it.
 **The idea Hans had for the database was never SQL.** It was the shape Ruby's
 ActiveRecord has: the database an object, each table an object, a row an
 object whose columns are properties, and messages to search, insert, update
-and delete. SQL arrived in [sqlite](programs.md#sqlite-reads-and-writes-an-sqlite-file)
+and delete. SQL arrived in [sqlite](programs.md#sql-and-sqlite-an-sql-shell-and-the-library-that-reads-and-writes-the-file)
 for one reason, that the oracle speaks it: to be compared byte for byte with
 `sqlite3` the program had to accept the statements `sqlite3` accepts, so
 the SQL front is the test harness's language and not the design's. Under it
@@ -6353,11 +6353,11 @@ run:
 @include "sqlite.sol".
 db := sqlite:open("notes.db").
 notes := db:create("notes", ["title TEXT", "done INTEGER"]).
-notes:insert({ title: "milk", done: #0 }).
-notes:where({ done: #0 }):each({ n | n:title:display }).
+notes:insert(#['title = "milk", 'done = #0]).
+notes:where(#['done = #0]):each({ n | n:title:display }).
 n := notes:find(#1).
 n:title := "eggs". n:save.
-notes:where({ done: #1 }):delete.
+notes:where(#['done = #1]):delete.
 db:close.
 ```
 
@@ -6443,7 +6443,7 @@ Each step ends with the sweep green before the next begins.
 | --- | --- |
 | **the move** | A mechanical rewrite of some hundred and fifty call sites and nothing found by it: a block passed inward captures `self`, as every method in `json.sol` relies on, so the engine's inner blocks keep their receiver. **Predicted zero defects, and the sweep is what says so**, run before step 1 adds a line. |
 | **the shell over the objects** | The reader's bytes must not move. The two places predicted to break: `rowid` as a column, which the shell resolves and the query must too; and ORDER BY over mixed storage classes, which `compare` ranks and the query's `orderBy` must call rather than reinvent. The sweep finds either on the first seed. |
-| **`object:new(dictionary)`** | Thirty lines in `builtins.c`, one GC root that is load-bearing, and the shape questions the caller decides: a string key is interned as the symbol would be; a name that is not an identifier makes a slot only `slotAt` and `perform` reach, which is stated and not refused; the dictionary is read in its own order, so `slots` answers the columns in schema order. **The name leak is bounded by the schema** and is a sentence in the reference. |
+| **`object:new(dictionary)`** | Thirty lines in `builtins.c`, one GC root that is load-bearing, and the shape questions the caller decides: a string key is interned as the symbol would be; a name that is not an identifier makes a slot only `slotAt` and `perform` reach, which is stated and not refused; the dictionary is read in its own order, which is hash order, so `slots` on a row answers the columns in no order worth relying on, as `keys` on the dictionary would, and a program that wants them in schema order asks the table. **The name leak is bounded by the schema** and is a sentence in the reference. |
 | **rows as objects** | `n:title` walks the row's own slots, then the prototype's. A row of five columns is five comparisons of interned pointers; a dictionary `at` on a symbol key is a hash and a compare. **Predicted within 2× of each other either way at five columns, and the linear walk losing past twenty.** This is the prediction least sure of, and it is 6.15's argument put to a number. |
 | **a column called `save`** | Refused at `table`, by name, since a row that cannot be saved because its column shadows the message is the kind of silence the house rule is against. Predicted to be met by nobody and to cost one sentence. |
 | **UPDATE in the shell** | The plan above put it out of scope as *DELETE and INSERT at the SQL level*, and it was; it comes in now because the oracle cannot judge `save` without it. Predicted a morning: SET of literals, the same WHERE, and the generator emitting it. |
@@ -6463,7 +6463,7 @@ does not add a second spelling of it.
 
 1. **The names.** The library `lib/sqlite.sol` binding `sqlite`, the program
    `programs/sql.sol`. **Taken on 2026-09-15, on the recommendation.**
-2. **How an operator is spelled in `where`.** `where({ done: #0 })` is
+2. **How an operator is spelled in `where`.** `where(#['done = #0])` is
    equality; a comparison wants a spelling, and the choice is between the
    SQL one the engine already holds, `where("count", ">", #3)`, and the
    language's, `where("count", 'greaterThan, #3)`. Recommended the SQL

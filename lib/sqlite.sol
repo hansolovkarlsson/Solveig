@@ -1,41 +1,32 @@
 ; sqlite.sol -- an SQLite database file, read and written.
 ;
-; Run with:  ./bin/solas programs/sqlite.sol && ./bin/solvm programs/sqlite.sob
-; Over a file:  ./bin/solvm programs/sqlite.sob notes.db < statements.sql
-; Or one statement:  ./bin/solvm programs/sqlite.sob notes.db 'SELECT * FROM t'
-; With no arguments it demonstrates itself on a file it writes under build/.
+;     @include "sqlite.sol".
 ;
-; The twenty-third program here, and the first of the directions design.md
-; lists to be reached. It reads and writes the file format that `sqlite3`
-; uses, from the format's own description and nothing else, and answers
-; SELECT in the shell's default list mode: columns with `|` between them,
-; nothing for NULL, one row a line. That is so the two can be compared byte
-; for byte, which is what programs/sqlite/sweep.sh does in both directions:
-; `sqlite3` builds every database in the corpus and `sqlite3` says what is in
-; it, and then this program builds the same databases and `sqlite3` judges
-; the files, with `PRAGMA integrity_check` and by reading them.
+;     d := sqlite:db:open("notes.db").
+;     tables := sqlite:loadSchema(d).
+;     sqlite:matchingRows(d, tables:at("notes"), []):size:print.
+;     d:flush.
 ;
-; The plan is in ideas.md under *An SQLite file, read and then written*, with
-; what it predicted written above what it found. This file is steps 1 to 5 of
-; it: the reader over tables, then the index trees, which a WHERE on an
-; indexed column walks instead of scanning; then the writer from nothing,
-; CREATE TABLE, CREATE INDEX and INSERT into a fresh file, pages built in
-; memory and the file written whole at the end; then the same into a file
-; sqlite3 made, its pages decoded, changed and written back where they live;
-; then DELETE, which empties pages onto the freelist that INSERT draws from
-; again. The writing-back is COMPLETED 3.27, raised from here on 2026-09-15
-; with the measurement `SQLITE_PAGES=1` prints and built the same day: one
-; INSERT into 100 MB needs four pages read and three written, paid 24,390 of
-; each while the only write the language had replaced the file, and pays 3
-; now. The SQL it parses is the SQL
-; the plan bounds: SELECT of named columns, `rowid` or `*`, from one table,
-; with a WHERE of one comparison and an ORDER BY; CREATE TABLE with plain
-; columns; CREATE INDEX on plain columns; INSERT of literals; PRAGMA
-; page_size; DELETE with the same WHERE. A WHERE is comparisons on columns
-; joined by AND. Nothing else, and a statement outside that is reported as such
-; rather than quietly meaning something else. `SQLITE_PAGES=1` in the
-; environment reports how many pages a run read and how many bytes it wrote,
-; which are the numbers a statement is measured by here.
+; Found on the search path, so no program has to say where this lives. See
+; docs/REFERENCE.md#the-library.
+;
+; This file binds one name, `sqlite`, and hangs the engine on it: the bytes,
+; the values, the file and its pages, the B-trees, the records, the SQL
+; tokenizer that the schema needs, the schema, and one row put in or taken
+; out. It reads and writes the file format that `sqlite3` uses, from the
+; format's own description and nothing else, and is held against `sqlite3`
+; by programs/sql/sweep.sh through programs/sql.sol, the SQL shell over
+; it, which is where the statements are parsed and the answers printed in
+; the shell's list mode. Until 2026-09-15 the two were one file,
+; programs/sqlite.sol; the plan that split them is in ideas.md under *The
+; database as objects*, and the engine moved first, unchanged, so that the
+; sweep could say the move changed nothing before anything was added.
+;
+; What the library asks of a caller today is what the shell asks: a
+; database `d` from `sqlite:db:open`, its `tables` from `sqlite:loadSchema`,
+; and `d:flush` when done, since pages are changed in memory and written
+; once. The objects the plan names, a table with `insert` and `where`, a
+; row with its columns as slots, are the next step and are not here yet.
 ;
 ; What the format is, in the amount this file needs:
 ;
@@ -125,15 +116,17 @@
 
 @include "scan.sol".
 
+sqlite := object:new.
+
 ; ---------------------------------------------------------------------------
 ; Bytes
 ;
 ; `at` answers a one-character string and `asByte` its number, and everything
 ; below reads big-endian, which is what this format is throughout.
 
-u8 := { s, i | s:at(i):asByte }.
-u16 := { s, i | s:at(i):asByte:shiftLeft(#8):bitOr(s:at(i:inc):asByte) }.
-u32 := { s, i |
+sqlite:u8 := { s, i | s:at(i):asByte }.
+sqlite:u16 := { s, i | s:at(i):asByte:shiftLeft(#8):bitOr(s:at(i:inc):asByte) }.
+sqlite:u32 := { s, i |
     s:at(i):asByte:shiftLeft(#24)
         :bitOr(s:at(i:add(#1)):asByte:shiftLeft(#16))
         :bitOr(s:at(i:add(#2)):asByte:shiftLeft(#8))
@@ -144,7 +137,7 @@ u32 := { s, i |
 ; the shift into bit 63 is the one the language refuses. Arithmetic instead:
 ; when the value so far has its top bit (of 56) set, it is subtracted from
 ; 2^56 first, so that the multiplication by 256 lands negative and in range.
-varint := { s, i | | v, b, n, at |
+sqlite:varint := { s, i | | v, b, n, at |
     v := #0. n := #0. at := i.
     { n:lessThan(#8):and({ s:at(at):asByte:greaterOrEqual(#128) }) }:whileTrue({
         v := v:shiftLeft(#7):bitOr(s:at(at):asByte:bitAnd(#127)).
@@ -160,7 +153,7 @@ varint := { s, i | | v, b, n, at |
 ; A big-endian signed integer of `n` bytes at `i`, n from 1 to 8. Below eight
 ; bytes the value fits with room to spare and the sign is a subtraction; at
 ; eight the top byte is weighted by hand, disasm.sol's route.
-signedBytes := { s, i, n | | v, k, b |
+sqlite:signedBytes := { s, i, n | | v, k, b |
     n:equals(#8):ifElse(
         { b := s:at(i):asByte.
           v := #0. k := #1.
@@ -185,16 +178,16 @@ signedBytes := { s, i, n | | v, k, b |
 ; significand (the implicit bit included) and exponent the power of two it is
 ; scaled by, so that value = mantissa * 2^exponent exactly.
 
-powerOfTwo := { n | | out, i |
+sqlite:powerOfTwo := { n | | out, i |
     out := 1.0. i := #0.
     n:greaterOrEqual(#0):ifElse(
         { { i:lessThan(n) }:whileTrue({ out := out:mul(2.0). i := i:inc }) },
         { { i:lessThan(n:negated) }:whileTrue({ out := out:div(2.0). i := i:inc }) }).
     out }.
 
-floatFromBytes := { s, i | | hi, lo, sign, exponent, mantissa, value, e2 |
-    hi := u32:value(s, i).
-    lo := u32:value(s, i:add(#4)).
+sqlite:floatFromBytes := { s, i | | hi, lo, sign, exponent, mantissa, value, e2 |
+    hi := sqlite:u32(s, i).
+    lo := sqlite:u32(s, i:add(#4)).
     sign     := hi:shiftRight(#31):bitAnd(#1).
     exponent := hi:shiftRight(#20):bitAnd(#2047).
     mantissa := hi:bitAnd(#1048575):mul(#4294967296):add(lo).
@@ -203,14 +196,14 @@ floatFromBytes := { s, i | | hi, lo, sign, exponent, mantissa, value, e2 |
     exponent:equals(#0):ifElse(
         { e2 := #-1074 },                                        ; subnormal
         { e2 := exponent:sub(#1075). mantissa := mantissa:add(#4503599627370496) }).
-    value := mantissa:asFloat:mul(powerOfTwo:value(e2)).
+    value := mantissa:asFloat:mul(sqlite:powerOfTwo(e2)).
     sign:equals(#1):ifTrue({ value := value:negated }).
     [value, sign, mantissa, e2] }.
 
 ; The same parts from a float the parser made, for a literal that has to be
 ; printed or compared as text. Normalised into [1, 2) by halving and doubling,
 ; as sob:f64 does, and then down into the subnormals where that library stops.
-floatParts := { x | | sign, exponent, mantissa, y |
+sqlite:floatParts := { x | | sign, exponent, mantissa, y |
     sign := #0. y := x.
     x:lessThan(0.0):or({ x:equals(0.0):and({ 1:div(x):lessThan(0.0) }) })
         :ifTrue({ sign := #1. y := x:negated }).
@@ -233,7 +226,7 @@ floatParts := { x | | sign, exponent, mantissa, y |
 ; point (zero or negative when the value is below 1). A small big-integer in
 ; base 10^9, least significant limb first: multiplied by two for a positive
 ; exponent, and by five for a negative one, since m / 2^k = m * 5^k / 10^k.
-bigTimes := { limbs, factor | | carry, i, v |
+sqlite:bigTimes := { limbs, factor | | carry, i, v |
     carry := #0. i := #1.
     { i:lessOrEqual(limbs:size) }:whileTrue({
         v := limbs:at(i):mul(factor):add(carry).
@@ -243,7 +236,7 @@ bigTimes := { limbs, factor | | carry, i, v |
     carry:greaterThan(#0):ifTrue({ limbs:add(carry) }).
     limbs }.
 
-bigDigits := { limbs | | out, i, piece |
+sqlite:bigDigits := { limbs | | out, i, piece |
     out := limbs:at(limbs:size):asString.
     i := limbs:size:dec.
     { i:greaterOrEqual(#1) }:whileTrue({
@@ -252,16 +245,16 @@ bigDigits := { limbs | | out, i, piece |
         i := i:dec }).
     out }.
 
-exactDecimal := { mantissa, exponent | | limbs, k, digits, pointAt, lead |
+sqlite:exactDecimal := { mantissa, exponent | | limbs, k, digits, pointAt, lead |
     limbs := [mantissa:mod(#1000000000), mantissa:div(#1000000000)].
     limbs:at(#2):equals(#0):ifTrue({ limbs:removeLast }).
     k := #0.
     exponent:greaterOrEqual(#0):ifElse(
-        { { k:lessThan(exponent) }:whileTrue({ bigTimes:value(limbs, #2). k := k:inc }).
-          digits := bigDigits:value(limbs).
+        { { k:lessThan(exponent) }:whileTrue({ sqlite:bigTimes(limbs, #2). k := k:inc }).
+          digits := sqlite:bigDigits(limbs).
           pointAt := digits:size },
-        { { k:lessThan(exponent:negated) }:whileTrue({ bigTimes:value(limbs, #5). k := k:inc }).
-          digits := bigDigits:value(limbs).
+        { { k:lessThan(exponent:negated) }:whileTrue({ sqlite:bigTimes(limbs, #5). k := k:inc }).
+          digits := sqlite:bigDigits(limbs).
           pointAt := digits:size:sub(exponent:negated) }).
     ; Strip leading zeros (the point moves with them) and trailing ones.
     lead := #1.
@@ -276,10 +269,10 @@ exactDecimal := { mantissa, exponent | | limbs, k, digits, pointAt, lead |
 ; expansion as SQLite's own printf rounds its; trailing zeros dropped but at
 ; least one digit after the point; exponential form when the decimal exponent
 ; is below -4 or at least 15, with a sign and at least two digits.
-fifteen := { parts | | sign, digits, pointAt, d, carry, i, exp10, out, whole, frac |
+sqlite:fifteen := { parts | | sign, digits, pointAt, d, carry, i, exp10, out, whole, frac |
     sign := parts:at(#2).
     parts:at(#3):equals(#0):ifElse({ "0.0" }, {
-        d := exactDecimal:value(parts:at(#3), parts:at(#4)).
+        d := sqlite:exactDecimal(parts:at(#3), parts:at(#4)).
         digits := d:at(#1). pointAt := d:at(#2).
         digits:size:greaterThan(#15):ifTrue({
             carry := digits:at(#16):asByte:greaterOrEqual(#53).      ; "5"
@@ -323,34 +316,34 @@ fifteen := { parts | | sign, digits, pointAt, d, carry, i, exp10, out, whole, fr
 ; blob is a string inside a `blob`, since the format keeps the two apart and
 ; so must a comparison. A REAL carries its parts too, for printing.
 
-blob := object:new.
-blob:bytes := "".
-blob:of := { s | | b | b := self:new. b:bytes := s. b }.
+sqlite:blob := object:new.
+sqlite:blob:bytes := "".
+sqlite:blob:of := { s | | b | b := self:new. b:bytes := s. b }.
 
-real := object:new.
-real:value := 0.0.
-real:parts := nil.
-real:of := { parts | | r | r := self:new. r:value := parts:at(#1). r:parts := parts. r }.
+sqlite:real := object:new.
+sqlite:real:value := 0.0.
+sqlite:real:parts := nil.
+sqlite:real:of := { parts | | r | r := self:new. r:value := parts:at(#1). r:parts := parts. r }.
 
-isNumber := { v | v:isKindOf(integer):or({ v:isKindOf(real) }) }.
-asFloatValue := { v | v:isKindOf(integer):ifElse({ v:asFloat }, { v:value }) }.
+sqlite:isNumber := { v | v:isKindOf(integer):or({ v:isKindOf(sqlite:real) }) }.
+sqlite:asFloatValue := { v | v:isKindOf(integer):ifElse({ v:asFloat }, { v:value }) }.
 
 ; Rank for ordering: NULL, then numbers, then text, then blobs.
-rank := { v |
+sqlite:rank := { v |
     v:isNil:ifElse({ #0 },
-        { isNumber:value(v):ifElse({ #1 },
+        { sqlite:isNumber(v):ifElse({ #1 },
             { v:isKindOf(string):ifElse({ #2 }, { #3 }) }) }) }.
 
 ; SQLite's order: by rank, then numerically, then by bytes.
-compare := { a, b | | ra, rb |
-    ra := rank:value(a). rb := rank:value(b).
+sqlite:compare := { a, b | | ra, rb |
+    ra := sqlite:rank(a). rb := sqlite:rank(b).
     ra:notEquals(rb):ifElse(
         { ra:lessThan(rb):ifElse({ #-1 }, { #1 }) },
         { ra:equals(#0):ifElse({ #0 },
           { ra:equals(#1):ifElse(
               { a:isKindOf(integer):and({ b:isKindOf(integer) }):ifElse(
                     { a:lessThan(b):ifElse({ #-1 }, { a:greaterThan(b):ifElse({ #1 }, { #0 }) }) },
-                    { | x, y | x := asFloatValue:value(a). y := asFloatValue:value(b).
+                    { | x, y | x := sqlite:asFloatValue(a). y := sqlite:asFloatValue(b).
                       x:lessThan(y):ifElse({ #-1 }, { x:greaterThan(y):ifElse({ #1 }, { #0 }) }) }) },
               { | x, y |
                 x := ra:equals(#2):ifElse({ a }, { a:bytes }).
@@ -360,10 +353,10 @@ compare := { a, b | | ra, rb |
 ; List mode: nothing for NULL, digits, `%!.15g`, the bytes of a text, and
 ; the bytes of a blob up to the first NUL, which is where the shell's `%s`
 ; stops and so where this stops.
-render := { v | | nul, at |
+sqlite:render := { v | | nul, at |
     v:isNil:ifElse({ "" },
         { v:isKindOf(integer):ifElse({ v:asString },
-            { v:isKindOf(real):ifElse({ fifteen:value(v:parts) },
+            { v:isKindOf(sqlite:real):ifElse({ sqlite:fifteen(v:parts) },
                 { v:isKindOf(string):ifElse({ v },
                     { nul := #0:asCharacter.
                       at := v:bytes:indexOf(nul).
@@ -373,27 +366,27 @@ render := { v | | nul, at |
 ; ---------------------------------------------------------------------------
 ; The file
 
-db := object:new.
-db:path := "".
-db:pageSize := #0.
-db:usable := #0.
-db:pageCount := #0.
-db:cache := nil.
-db:reads := #0.
-db:dirty := nil.                ; page number -> page object, to be written
-db:changes := #0.               ; the file change counter, offset 24
-db:cookie := #0.                ; the schema cookie, offset 40
-db:freelistHead := #0.
-db:freelistCount := #0.
-db:written := #0.               ; bytes written by flush, for the measurement
-db:changed := #0.               ; pages that were changed when flush ran
-db:readBefore := #0.            ; pages read before flush had to read the rest
+sqlite:db := object:new.
+sqlite:db:path := "".
+sqlite:db:pageSize := #0.
+sqlite:db:usable := #0.
+sqlite:db:pageCount := #0.
+sqlite:db:cache := nil.
+sqlite:db:reads := #0.
+sqlite:db:dirty := nil.                ; page number -> page object, to be written
+sqlite:db:changes := #0.               ; the file change counter, offset 24
+sqlite:db:cookie := #0.                ; the schema cookie, offset 40
+sqlite:db:freelistHead := #0.
+sqlite:db:freelistCount := #0.
+sqlite:db:written := #0.               ; bytes written by flush, for the measurement
+sqlite:db:changed := #0.               ; pages that were changed when flush ran
+sqlite:db:readBefore := #0.            ; pages read before flush had to read the rest
 
 ; A file that is there is opened; one that is not, or one of no bytes, which
 ; is what sqlite3 leaves after a script that only set a pragma, is a new
 ; database in memory, one empty schema page, written when something has
 ; changed.
-db:open := { path | | d, header |
+sqlite:db:open := { path | | d, header |
     d := self:new.
     d:path := path.
     d:cache := dictionary:new.
@@ -402,26 +395,26 @@ db:open := { path | | d, header |
         { header := system:readFile(path, #1, #100).
           header:size:lessThan(#100):or({ header:copyFrom(#1, #15):notEquals("SQLite format 3") })
               :ifTrue({ error:raise("file is not a database: ":concat(path)) }).
-          d:pageSize := u16:value(header, #17).
+          d:pageSize := sqlite:u16(header, #17).
           d:pageSize:equals(#1):ifTrue({ d:pageSize := #65536 }).
-          d:usable := d:pageSize:sub(u8:value(header, #21)).
-          d:changes := u32:value(header, #25).
-          d:pageCount := u32:value(header, #29).
-          d:freelistHead := u32:value(header, #33).
-          d:freelistCount := u32:value(header, #37).
-          d:cookie := u32:value(header, #41) },
+          d:usable := d:pageSize:sub(sqlite:u8(header, #21)).
+          d:changes := sqlite:u32(header, #25).
+          d:pageCount := sqlite:u32(header, #29).
+          d:freelistHead := sqlite:u32(header, #33).
+          d:freelistCount := sqlite:u32(header, #37).
+          d:cookie := sqlite:u32(header, #41) },
         { d:pageSize := #4096.
           d:usable := #4096.
           d:pageCount := #1.
-          d:dirty:atPut(#1, page:of(#13)) }).
+          d:dirty:atPut(#1, sqlite:page:of(#13)) }).
     d }.
 
-db:isEmpty := { self:pageCount:equals(#1):and({ self:object(#1):cells:size:equals(#0) }) }.
+sqlite:db:isEmpty := { self:pageCount:equals(#1):and({ self:object(#1):cells:size:equals(#0) }) }.
 
 ; One page, by number: a page being written, serialised; else the cache; else
 ; the file. A page from the file is one ranged read, and the count of them is
 ; the number to watch in a query.
-db:page := { n | | from, p |
+sqlite:db:page := { n | | from, p |
     self:dirty:includes(n):ifElse({ self:dirty:at(n):bytes(n, self) },
     { self:cache:includes(n):ifElse({ self:cache:at(n) }, {
         from := n:dec:mul(self:pageSize):inc.
@@ -433,9 +426,9 @@ db:page := { n | | from, p |
         p }) }) }.
 
 ; The same page as an object to change, which marks it to be written.
-db:object := { n | | o |
+sqlite:db:object := { n | | o |
     self:dirty:includes(n):ifElse({ self:dirty:at(n) }, {
-        o := decodePage:value(self, self:page(n), n).
+        o := sqlite:decodePage(self, self:page(n), n).
         self:dirty:atPut(n, o).
         o }) }.
 
@@ -444,7 +437,7 @@ db:object := { n | | o |
 ; to the next trunk, a count, and that many free leaf page numbers; the head
 ; and the total are in the file header at 32 and 36. A leaf is taken from the
 ; head trunk first, and when a trunk has none left the trunk itself is taken.
-db:newPage := { kind | | o, n, t |
+sqlite:db:newPage := { kind | | o, n, t |
     self:freelistCount:greaterThan(#0):ifElse(
         { t := self:trunk(self:freelistHead).
           t:leaves:size:greaterThan(#0):ifElse(
@@ -452,61 +445,61 @@ db:newPage := { kind | | o, n, t |
               { n := self:freelistHead. self:freelistHead := t:next. self:dirty:remove(n) }).
           self:freelistCount := self:freelistCount:dec },
         { self:pageCount := self:pageCount:inc. n := self:pageCount }).
-    o := page:of(kind).
+    o := sqlite:page:of(kind).
     self:dirty:atPut(n, o).
     n }.
 
 ; A page a tree no longer needs joins the freelist: onto the head trunk while
 ; it has room, else as a new trunk in front of it. What a free leaf page holds
 ; is nobody's business, so its bytes stay whatever they were.
-db:freePage := { n | | t |
+sqlite:db:freePage := { n | | t |
     self:freelistCount := self:freelistCount:inc.
     (self:freelistHead:equals(#0):or({ self:trunk(self:freelistHead):leaves:size:greaterOrEqual(self:usable:div(#4):sub(#2)) })):ifElse(
-        { self:dirty:atPut(n, trunk:of(self:freelistHead, [])).
+        { self:dirty:atPut(n, sqlite:trunk:of(self:freelistHead, [])).
           self:freelistHead := n },
         { self:trunk(self:freelistHead):leaves:add(n) }) }.
 
 ; A trunk page as an object to change, decoded from the file on first use.
-db:trunk := { n | | t, s, count, i |
+sqlite:db:trunk := { n | | t, s, count, i |
     self:dirty:includes(n):ifElse({ self:dirty:at(n) }, {
         s := self:page(n).
-        count := u32:value(s, #5).
-        t := trunk:of(u32:value(s, #1), []).
+        count := sqlite:u32(s, #5).
+        t := sqlite:trunk:of(sqlite:u32(s, #1), []).
         i := #0.
-        { i:lessThan(count) }:whileTrue({ t:leaves:add(u32:value(s, i:mul(#4):add(#9))). i := i:inc }).
+        { i:lessThan(count) }:whileTrue({ t:leaves:add(sqlite:u32(s, i:mul(#4):add(#9))). i := i:inc }).
         self:dirty:atPut(n, t).
         t }) }.
 
-trunk := object:new.
-trunk:next := #0.
-trunk:leaves := nil.
-trunk:of := { next, leaves | | t | t := self:new. t:next := next. t:leaves := leaves. t }.
-trunk:bytes := { n, d | | out |
-    out := [u32Bytes:value(self:next), u32Bytes:value(self:leaves:size)].
-    self:leaves:do({ l | out:add(u32Bytes:value(l)) }).
-    out:add(zeros:value(d:pageSize:sub(#8):sub(self:leaves:size:mul(#4)))).
+sqlite:trunk := object:new.
+sqlite:trunk:next := #0.
+sqlite:trunk:leaves := nil.
+sqlite:trunk:of := { next, leaves | | t | t := self:new. t:next := next. t:leaves := leaves. t }.
+sqlite:trunk:bytes := { n, d | | out |
+    out := [sqlite:u32Bytes(self:next), sqlite:u32Bytes(self:leaves:size)].
+    self:leaves:do({ l | out:add(sqlite:u32Bytes(l)) }).
+    out:add(sqlite:zeros(d:pageSize:sub(#8):sub(self:leaves:size:mul(#4)))).
     out:join("") }.
 
 ; The 100 bytes at the front of page 1.
-db:fileHeader := {
+sqlite:db:fileHeader := {
     ["SQLite format 3":concat(#0:asCharacter),
-     u16Bytes:value(self:pageSize:equals(#65536):ifElse({ #1 }, { self:pageSize })),
+     sqlite:u16Bytes(self:pageSize:equals(#65536):ifElse({ #1 }, { self:pageSize })),
      #1:asCharacter, #1:asCharacter,                    ; rollback journal, both ways
      self:pageSize:sub(self:usable):asCharacter,        ; reserved bytes a page
      #64:asCharacter, #32:asCharacter, #32:asCharacter, ; the payload fractions, fixed
-     u32Bytes:value(self:changes),
-     u32Bytes:value(self:pageCount),
-     u32Bytes:value(self:freelistHead),
-     u32Bytes:value(self:freelistCount),
-     u32Bytes:value(self:cookie),
-     u32Bytes:value(#4),                                ; schema format
-     u32Bytes:value(#0),                                ; default cache size
-     u32Bytes:value(#0),                                ; largest root page: no autovacuum
-     u32Bytes:value(#1),                                ; UTF-8
-     u32Bytes:value(#0), u32Bytes:value(#0), u32Bytes:value(#0),   ; user version, incremental vacuum, application id
-     zeros:value(#20),
-     u32Bytes:value(self:changes),                      ; version-valid-for
-     u32Bytes:value(#0)]:join("") }.                    ; the library that wrote it: none SQLite knows
+     sqlite:u32Bytes(self:changes),
+     sqlite:u32Bytes(self:pageCount),
+     sqlite:u32Bytes(self:freelistHead),
+     sqlite:u32Bytes(self:freelistCount),
+     sqlite:u32Bytes(self:cookie),
+     sqlite:u32Bytes(#4),                                ; schema format
+     sqlite:u32Bytes(#0),                                ; default cache size
+     sqlite:u32Bytes(#0),                                ; largest root page: no autovacuum
+     sqlite:u32Bytes(#1),                                ; UTF-8
+     sqlite:u32Bytes(#0), sqlite:u32Bytes(#0), sqlite:u32Bytes(#0),   ; user version, incremental vacuum, application id
+     sqlite:zeros(#20),
+     sqlite:u32Bytes(self:changes),                      ; version-valid-for
+     sqlite:u32Bytes(#0)]:join("") }.                    ; the library that wrote it: none SQLite knows
 
 ; The pages that changed, each written where it lives, and the file header
 ; with them. `writeFile(path, from, text)` is ROADMAP 3.27, raised from this
@@ -515,7 +508,7 @@ db:fileHeader := {
 ; read and every page written, 100 MB for 12 KB. The whole-file route is
 ; gone rather than kept as a fallback, since two paths through a writer is
 ; the shape that hides a defect in the one not taken.
-db:flush := { | n |
+sqlite:db:flush := { | n |
     self:dirty:size:greaterThan(#0):ifTrue({
         self:changes := self:changes:inc.
         self:changed := self:dirty:size.
@@ -538,12 +531,12 @@ db:flush := { | n |
 ; ---------------------------------------------------------------------------
 ; Bytes, written
 
-u16Bytes := { n | n:shiftRight(#8):bitAnd(#255):asCharacter:concat(n:bitAnd(#255):asCharacter) }.
-u32Bytes := { n |
+sqlite:u16Bytes := { n | n:shiftRight(#8):bitAnd(#255):asCharacter:concat(n:bitAnd(#255):asCharacter) }.
+sqlite:u32Bytes := { n |
     [n:shiftRight(#24):bitAnd(#255), n:shiftRight(#16):bitAnd(#255),
      n:shiftRight(#8):bitAnd(#255), n:bitAnd(#255)]:collect({ b | b:asCharacter }):join("") }.
 
-zeros := { n | | out, piece |
+sqlite:zeros := { n | | out, piece |
     out := "". piece := #0:asCharacter.
     { n:greaterThan(#0) }:whileTrue({
         n:bitAnd(#1):equals(#1):ifTrue({ out := out:concat(piece) }).
@@ -556,7 +549,7 @@ zeros := { n | | out, piece |
 ; byte is the low eight bits of the value and the rest is the value shifted
 ; right by eight, which for a negative value is an arithmetic shift, masked
 ; down to fifty-six bits: the two's complement pattern SQLite stores.
-varintBytes := { v | | out, hi, groups, i |
+sqlite:varintBytes := { v | | out, hi, groups, i |
     (v:greaterOrEqual(#0):and({ v:lessThan(#72057594037927936) })):ifElse(       ; 2^56
         { out := [v:bitAnd(#127):asCharacter].
           v := v:shiftRight(#7).
@@ -577,7 +570,7 @@ varintBytes := { v | | out, hi, groups, i |
 
 ; A signed integer in n big-endian bytes; the shift is arithmetic, so the
 ; bytes of a negative value come out in two's complement.
-intBytes := { v, n | | out, i |
+sqlite:intBytes := { v, n | | out, i |
     out := []. i := n:dec.
     { i:greaterOrEqual(#0) }:whileTrue({
         out:add(v:shiftRight(i:mul(#8)):bitAnd(#255):asCharacter). i := i:dec }).
@@ -585,7 +578,7 @@ intBytes := { v, n | | out, i |
 
 ; The serial type an integer takes: 0 and 1 in no bytes, else the fewest
 ; bytes that hold it.
-intSerial := { v |
+sqlite:intSerial := { v |
     v:equals(#0):ifElse({ #8 },
     { v:equals(#1):ifElse({ #9 },
     { (v:greaterOrEqual(#-128):and({ v:lessOrEqual(#127) })):ifElse({ #1 },
@@ -594,12 +587,12 @@ intSerial := { v |
     { (v:greaterOrEqual(#-2147483648):and({ v:lessOrEqual(#2147483647) })):ifElse({ #4 },
     { (v:greaterOrEqual(#-140737488355328):and({ v:lessOrEqual(#140737488355327) })):ifElse({ #5 },
     { #6 }) }) }) }) }) }) }) }.
-serialWidth := [#1, #2, #3, #4, #6, #8].
+sqlite:serialWidth := [#1, #2, #3, #4, #6, #8].
 
 ; Eight bytes of a double from its parts, floatFromBytes inverted: the field
 ; is the exponent plus 1075, or zero for a subnormal, and the implicit bit is
 ; taken back off the mantissa.
-floatBytes := { parts | | sign, mantissa, e2, field, hi, lo |
+sqlite:floatBytes := { parts | | sign, mantissa, e2, field, hi, lo |
     sign := parts:at(#2). mantissa := parts:at(#3). e2 := parts:at(#4).
     mantissa:equals(#0):ifElse(
         { field := #0 },
@@ -608,26 +601,26 @@ floatBytes := { parts | | sign, mantissa, e2, field, hi, lo |
               { field := e2:add(#1075). mantissa := mantissa:sub(#4503599627370496) }) }).
     hi := sign:shiftLeft(#31):bitOr(field:shiftLeft(#20)):bitOr(mantissa:shiftRight(#32)).
     lo := mantissa:bitAnd(#4294967295).
-    u32Bytes:value(hi):concat(u32Bytes:value(lo)) }.
+    sqlite:u32Bytes(hi):concat(sqlite:u32Bytes(lo)) }.
 
 ; A record from an array of values: the header of serial types, its own
 ; length in front, then the bodies.
-recordBytes := { values | | types, bodies, headerSize, headerBytes |
+sqlite:recordBytes := { values | | types, bodies, headerSize, headerBytes |
     types := []. bodies := [].
     values:do({ v |
         v:isNil:ifTrue({ types:add(#0). bodies:add("") }).
         v:isKindOf(integer):ifTrue({ | t |
-            t := intSerial:value(v). types:add(t).
-            bodies:add(t:greaterOrEqual(#8):ifElse({ "" }, { intBytes:value(v, serialWidth:at(t)) })) }).
-        v:isKindOf(real):ifTrue({ types:add(#7). bodies:add(floatBytes:value(v:parts)) }).
+            t := sqlite:intSerial(v). types:add(t).
+            bodies:add(t:greaterOrEqual(#8):ifElse({ "" }, { sqlite:intBytes(v, sqlite:serialWidth:at(t)) })) }).
+        v:isKindOf(sqlite:real):ifTrue({ types:add(#7). bodies:add(sqlite:floatBytes(v:parts)) }).
         v:isKindOf(string):ifTrue({ types:add(v:size:mul(#2):add(#13)). bodies:add(v) }).
-        v:isKindOf(blob):ifTrue({ types:add(v:bytes:size:mul(#2):add(#12)). bodies:add(v:bytes) }) }).
-    headerBytes := types:collect({ t | varintBytes:value(t) }):join("").
+        v:isKindOf(sqlite:blob):ifTrue({ types:add(v:bytes:size:mul(#2):add(#12)). bodies:add(v:bytes) }) }).
+    headerBytes := types:collect({ t | sqlite:varintBytes(t) }):join("").
     ; The header's length counts its own varint, which is one byte until the
     ; header is 127 bytes long and two after.
     headerSize := headerBytes:size:inc.
     headerSize:greaterThan(#127):ifTrue({ headerSize := headerBytes:size:add(#2) }).
-    varintBytes:value(headerSize):concat(headerBytes):concat(bodies:join("")) }.
+    sqlite:varintBytes(headerSize):concat(headerBytes):concat(bodies:join("")) }.
 
 ; ---------------------------------------------------------------------------
 ; A page being written
@@ -638,32 +631,32 @@ recordBytes := { values | | types, bodies, headerSize, headerBytes |
 ; with no freeblocks and no fragments, which is one well-formed page among
 ; the many `integrity_check` accepts.
 
-page := object:new.
-page:kind := #13.
-page:cells := nil.
-page:keys := nil.
-page:children := nil.          ; interior pages only, parallel to cells
-page:right := #0.              ; interior pages only
+sqlite:page := object:new.
+sqlite:page:kind := #13.
+sqlite:page:cells := nil.
+sqlite:page:keys := nil.
+sqlite:page:children := nil.          ; interior pages only, parallel to cells
+sqlite:page:right := #0.              ; interior pages only
 
-page:of := { kind | | p |
+sqlite:page:of := { kind | | p |
     p := self:new.
     p:kind := kind. p:cells := []. p:keys := []. p:children := []. p:right := #0.
     p }.
 
-page:isLeaf := { self:kind:equals(#13):or({ self:kind:equals(#10) }) }.
-page:isTable := { self:kind:equals(#13):or({ self:kind:equals(#5) }) }.
-page:headerSize := { self:isLeaf:ifElse({ #8 }, { #12 }) }.
+sqlite:page:isLeaf := { self:kind:equals(#13):or({ self:kind:equals(#10) }) }.
+sqlite:page:isTable := { self:kind:equals(#13):or({ self:kind:equals(#5) }) }.
+sqlite:page:headerSize := { self:isLeaf:ifElse({ #8 }, { #12 }) }.
 
 ; Bytes in use on page `n` of database `d`: the headers, the pointer array
 ; and every cell with its child pointer.
-page:used := { n, d | | total, extra |
+sqlite:page:used := { n, d | | total, extra |
     extra := self:isLeaf:ifElse({ #0 }, { #4 }).
     total := n:equals(#1):ifElse({ #100 }, { #0 }):add(self:headerSize):add(self:cells:size:mul(#2)).
     self:cells:do({ c | total := total:add(c:size):add(extra) }).
     total }.
-page:fits := { n, d | self:used(n, d):lessOrEqual(d:usable) }.
+sqlite:page:fits := { n, d | self:used(n, d):lessOrEqual(d:usable) }.
 
-page:bytes := { n, d | | h, extra, pos, offsets, i, content, pointers, header, free |
+sqlite:page:bytes := { n, d | | h, extra, pos, offsets, i, content, pointers, header, free |
     extra := self:isLeaf:ifElse({ #0 }, { #4 }).
     h := n:equals(#1):ifElse({ #100 }, { #0 }).
     ; Cells from the end of the usable area downwards, so the last cell sits
@@ -676,51 +669,51 @@ page:bytes := { n, d | | h, extra, pos, offsets, i, content, pointers, header, f
         i := i:dec }).
     i := #1.
     { i:lessOrEqual(self:cells:size) }:whileTrue({
-        self:isLeaf:ifFalse({ content:add(u32Bytes:value(self:children:at(i))) }).
+        self:isLeaf:ifFalse({ content:add(sqlite:u32Bytes(self:children:at(i))) }).
         content:add(self:cells:at(i)).
         i := i:inc }).
     pointers := []. i := offsets:size.
-    { i:greaterOrEqual(#1) }:whileTrue({ pointers:add(u16Bytes:value(offsets:at(i))). i := i:dec }).
+    { i:greaterOrEqual(#1) }:whileTrue({ pointers:add(sqlite:u16Bytes(offsets:at(i))). i := i:dec }).
     header := [self:kind:asCharacter,
-               u16Bytes:value(#0),                                       ; no freeblocks
-               u16Bytes:value(self:cells:size),
-               u16Bytes:value(self:cells:size:equals(#0):ifElse({ d:usable }, { pos }):bitAnd(#65535)),
+               sqlite:u16Bytes(#0),                                       ; no freeblocks
+               sqlite:u16Bytes(self:cells:size),
+               sqlite:u16Bytes(self:cells:size:equals(#0):ifElse({ d:usable }, { pos }):bitAnd(#65535)),
                #0:asCharacter].                                          ; no fragments
-    self:isLeaf:ifFalse({ header:add(u32Bytes:value(self:right)) }).
+    self:isLeaf:ifFalse({ header:add(sqlite:u32Bytes(self:right)) }).
     free := pos:sub(h):sub(self:headerSize):sub(self:cells:size:mul(#2)).
     free:lessThan(#0):ifTrue({ error:raise("page ":concat(n:asString):concat(" overflowed by ")
         :concat(free:negated:asString):concat(" bytes")) }).
     [n:equals(#1):ifElse({ d:fileHeader }, { "" }),
-     header:join(""), pointers:join(""), zeros:value(free), content:join(""),
-     zeros:value(d:pageSize:sub(d:usable))]:join("") }.
+     header:join(""), pointers:join(""), sqlite:zeros(free), content:join(""),
+     sqlite:zeros(d:pageSize:sub(d:usable))]:join("") }.
 
 ; A page from its bytes, for changing: every cell copied raw and its key
 ; decoded. A cell that spills to overflow pages is carried with its pointer,
 ; which is what keeps a row this program did not write intact when it moves.
-decodePage := { d, s, n | | o, h, offsets, extra |
-    h := headerAt:value(n).
-    o := page:of(u8:value(s, h)).
-    offsets := cells:value(s, n).
+sqlite:decodePage := { d, s, n | | o, h, offsets, extra |
+    h := sqlite:headerAt(n).
+    o := sqlite:page:of(sqlite:u8(s, h)).
+    offsets := sqlite:cells(s, n).
     extra := o:isLeaf:ifElse({ #0 }, { #4 }).
-    o:isLeaf:ifFalse({ o:right := u32:value(s, h:add(#8)) }).
+    o:isLeaf:ifFalse({ o:right := sqlite:u32(s, h:add(#8)) }).
     offsets:do({ at | | start, v, size, local, rowid, end, key |
         start := at:add(extra).
-        o:isLeaf:ifFalse({ o:children:add(u32:value(s, at)) }).
+        o:isLeaf:ifFalse({ o:children:add(sqlite:u32(s, at)) }).
         o:isTable:ifElse(
             { o:isLeaf:ifElse(
-                  { v := varint:value(s, start). size := v:at(#1).
-                    v := varint:value(s, v:at(#2)). rowid := v:at(#1).
-                    local := localSize:value(d, size, false).
+                  { v := sqlite:varint(s, start). size := v:at(#1).
+                    v := sqlite:varint(s, v:at(#2)). rowid := v:at(#1).
+                    local := sqlite:localSize(d, size, false).
                     end := v:at(#2):add(local):dec.
                     local:lessThan(size):ifTrue({ end := end:add(#4) }).
                     key := rowid },
-                  { v := varint:value(s, start).
+                  { v := sqlite:varint(s, start).
                     end := v:at(#2):dec. key := v:at(#1) }) },
-            { v := varint:value(s, start). size := v:at(#1).
-              local := localSize:value(d, size, true).
+            { v := sqlite:varint(s, start). size := v:at(#1).
+              local := sqlite:localSize(d, size, true).
               end := v:at(#2):add(local):dec.
               local:lessThan(size):ifTrue({ end := end:add(#4) }).
-              key := decodeRecord:value(payload:value(d, s, v:at(#2), size, true)) }).
+              key := sqlite:decodeRecord(sqlite:payload(d, s, v:at(#2), size, true)) }).
         o:cells:add(s:copyFrom(start, end)).
         o:keys:add(key) }).
     o }.
@@ -738,24 +731,24 @@ decodePage := { d, s, n | | o, h, offsets, extra |
 ; repoint. The root keeps its number too, by moving its contents down into a
 ; new page when it splits, which is how a tree grows a level.
 
-compareEntry := { a, b | | c, i |
+sqlite:compareEntry := { a, b | | c, i |
     c := #0. i := #1.
     { c:equals(#0):and({ i:lessOrEqual(a:size) }):and({ i:lessOrEqual(b:size) }) }:whileTrue({
-        c := compare:value(a:at(i), b:at(i)). i := i:inc }).
+        c := sqlite:compare(a:at(i), b:at(i)). i := i:inc }).
     c }.
 
-keyLess := { isIndex, a, b |
-    isIndex:ifElse({ compareEntry:value(a, b):lessThan(#0) }, { a:lessThan(b) }) }.
+sqlite:keyLess := { isIndex, a, b |
+    isIndex:ifElse({ sqlite:compareEntry(a, b):lessThan(#0) }, { a:lessThan(b) }) }.
 
 ; Where a key goes among a page's keys: the first position whose key is
 ; greater, or one past the end.
-positionFor := { o, key, isIndex | | i |
+sqlite:positionFor := { o, key, isIndex | | i |
     i := #1.
-    { i:lessOrEqual(o:keys:size):and({ keyLess:value(isIndex, o:keys:at(i), key):or({
+    { i:lessOrEqual(o:keys:size):and({ sqlite:keyLess(isIndex, o:keys:at(i), key):or({
         isIndex:not:and({ o:keys:at(i):equals(key) }) }) }) }:whileTrue({ i := i:inc }).
     i }.
 
-insertAt := { arr, i, v | | out, k |
+sqlite:insertAt := { arr, i, v | | out, k |
     out := []. k := #1.
     { k:lessThan(i) }:whileTrue({ out:add(arr:at(k)). k := k:inc }).
     out:add(v).
@@ -765,7 +758,7 @@ insertAt := { arr, i, v | | out, k |
 ; Split page `o` (number n) in two: it keeps the left half, a new page takes
 ; the right, and the divider goes up as [raw, key, newPage]. The split point
 ; is where the bytes reach half.
-splitPage := { d, o, n, isIndex | | half, sum, k, right, rn, divider, extra |
+sqlite:splitPage := { d, o, n, isIndex | | half, sum, k, right, rn, divider, extra |
     extra := o:isLeaf:ifElse({ #0 }, { #4 }).
     half := o:used(n, d):div(#2). sum := #0. k := #0.
     { sum:lessThan(half):and({ k:lessThan(o:cells:size:dec) }) }:whileTrue({
@@ -776,7 +769,7 @@ splitPage := { d, o, n, isIndex | | half, sum, k, right, rn, divider, extra |
     right := d:object(rn).
     (o:isLeaf:and({ isIndex:not })):ifElse(
         { ; Table leaf: cells 1..k stay, k+1.. go right, key k is copied up.
-          divider := [varintBytes:value(o:keys:at(k)), o:keys:at(k), rn].
+          divider := [sqlite:varintBytes(o:keys:at(k)), o:keys:at(k), rn].
           right:cells := o:cells:copyFrom(k:inc, o:cells:size).
           right:keys := o:keys:copyFrom(k:inc, o:keys:size).
           o:cells := o:cells:copyFrom(#1, k).
@@ -796,18 +789,18 @@ splitPage := { d, o, n, isIndex | | half, sum, k, right, rn, divider, extra |
 
 ; Insert `raw` with `key` under page n. Answers nil, or the divider a split
 ; produced for the parent to place.
-insertCell := { d, n, raw, key, isIndex | | o, i, below |
+sqlite:insertCell := { d, n, raw, key, isIndex | | o, i, below |
     o := d:object(n).
     o:isLeaf:ifElse(
-        { i := positionFor:value(o, key, isIndex).
+        { i := sqlite:positionFor(o, key, isIndex).
           ; The position is past any equal rowid, so the one before it is
           ; the duplicate to refuse.
           (isIndex:not:and({ i:greaterThan(#1) }):and({ o:keys:at(i:dec):equals(key) })):ifTrue({
               error:raise("UNIQUE constraint failed: rowid ":concat(key:asString)) }).
-          o:cells := insertAt:value(o:cells, i, raw).
-          o:keys := insertAt:value(o:keys, i, key) },
-        { i := positionFor:value(o, key, isIndex).
-          below := insertCell:value(d, i:greaterThan(o:children:size):ifElse({ o:right }, { o:children:at(i) }),
+          o:cells := sqlite:insertAt(o:cells, i, raw).
+          o:keys := sqlite:insertAt(o:keys, i, key) },
+        { i := sqlite:positionFor(o, key, isIndex).
+          below := sqlite:insertCell(d, i:greaterThan(o:children:size):ifElse({ o:right }, { o:children:at(i) }),
                                     raw, key, isIndex).
           below:notNil:ifTrue({
               ; The child at i split: it stays as the left half under the
@@ -815,17 +808,17 @@ insertCell := { d, n, raw, key, isIndex | | o, i, below |
               i:greaterThan(o:children:size):ifElse(
                   { o:cells:add(below:at(#1)). o:keys:add(below:at(#2)).
                     o:children:add(o:right). o:right := below:at(#3) },
-                  { o:cells := insertAt:value(o:cells, i, below:at(#1)).
-                    o:keys := insertAt:value(o:keys, i, below:at(#2)).
-                    o:children := insertAt:value(o:children, i, o:children:at(i)).
+                  { o:cells := sqlite:insertAt(o:cells, i, below:at(#1)).
+                    o:keys := sqlite:insertAt(o:keys, i, below:at(#2)).
+                    o:children := sqlite:insertAt(o:children, i, o:children:at(i)).
                     o:children:atPut(i:inc, below:at(#3)) }) }) }).
-    o:fits(n, d):ifElse({ nil }, { splitPage:value(d, o, n, isIndex) }) }.
+    o:fits(n, d):ifElse({ nil }, { sqlite:splitPage(d, o, n, isIndex) }) }.
 
 ; Insert at a tree's root, which keeps its page number however the tree
 ; grows: when the root splits, its left half moves to a new page and the root
 ; becomes an interior page over the two.
-treeInsert := { d, root, raw, key, isIndex | | divider, o, left, ln |
-    divider := insertCell:value(d, root, raw, key, isIndex).
+sqlite:treeInsert := { d, root, raw, key, isIndex | | divider, o, left, ln |
+    divider := sqlite:insertCell(d, root, raw, key, isIndex).
     divider:notNil:ifTrue({
         o := d:object(root).
         ln := d:newPage(o:kind).
@@ -847,7 +840,7 @@ treeInsert := { d, root, raw, key, isIndex | | divider, o, left, ln |
 ; entry to remove. A table interior cell is a separator and not a row, so it
 ; just goes. The first draft of this handed a lone child up in place of its
 ; parent, and `integrity_check` said "Child page depth differs".
-removeCell := { arr, i | | out, k |
+sqlite:removeCell := { arr, i | | out, k |
     out := []. k := #1.
     { k:lessOrEqual(arr:size) }:whileTrue({ k:notEquals(i):ifTrue({ out:add(arr:at(k)) }). k := k:inc }).
     out }.
@@ -855,36 +848,36 @@ removeCell := { arr, i | | out, k |
 ; Every entry of the subtree under page n onto `again`, as [raw, key], and
 ; every page of it freed. For an index tree the interior cells are entries
 ; too; for a table tree only the leaves hold rows.
-collectEntries := { d, n, again, isIndex | | o |
+sqlite:collectEntries := { d, n, again, isIndex | | o |
     o := d:object(n).
     (o:isLeaf:or({ isIndex })):ifTrue({
         [#1, o:cells:size]:loop({ i | again:add([o:cells:at(i), o:keys:at(i)]) }) }).
     o:isLeaf:ifFalse({
-        o:children:do({ c | collectEntries:value(d, c, again, isIndex) }).
-        collectEntries:value(d, o:right, again, isIndex) }).
+        o:children:do({ c | sqlite:collectEntries(d, c, again, isIndex) }).
+        sqlite:collectEntries(d, o:right, again, isIndex) }).
     d:freePage(n) }.
 
-deleteFrom := { d, n, key, isIndex, again, root | | o, i, found, child, below |
+sqlite:deleteFrom := { d, n, key, isIndex, again, root | | o, i, found, child, below |
     o := d:object(n).
     found := nil. i := #1.
     { found:isNil:and({ i:lessOrEqual(o:keys:size) }) }:whileTrue({
-        (isIndex:ifElse({ compareEntry:value(o:keys:at(i), key):greaterOrEqual(#0) }, { o:keys:at(i):greaterOrEqual(key) })):ifTrue({ found := i }).
+        (isIndex:ifElse({ sqlite:compareEntry(o:keys:at(i), key):greaterOrEqual(#0) }, { o:keys:at(i):greaterOrEqual(key) })):ifTrue({ found := i }).
         found:isNil:ifTrue({ i := i:inc }) }).
     ; found is the first cell at or past the key, or nil for past them all.
     o:isLeaf:ifElse(
-        { (found:notNil:and({ isIndex:ifElse({ compareEntry:value(o:keys:at(found), key):equals(#0) }, { o:keys:at(found):equals(key) }) })):ifTrue({
-              o:cells := removeCell:value(o:cells, found).
-              o:keys := removeCell:value(o:keys, found) }).
+        { (found:notNil:and({ isIndex:ifElse({ sqlite:compareEntry(o:keys:at(found), key):equals(#0) }, { o:keys:at(found):equals(key) }) })):ifTrue({
+              o:cells := sqlite:removeCell(o:cells, found).
+              o:keys := sqlite:removeCell(o:keys, found) }).
           o:cells:size:equals(#0):ifElse({ #0 }, { nil }) },
-        { (isIndex:and({ found:notNil }):and({ compareEntry:value(o:keys:at(found), key):equals(#0) })):ifElse(
+        { (isIndex:and({ found:notNil }):and({ sqlite:compareEntry(o:keys:at(found), key):equals(#0) })):ifElse(
             { ; The entry is this interior cell: the cell goes, and the child
               ; beside it goes back in from the root.
-              collectEntries:value(d, o:children:at(found), again, true).
-              o:cells := removeCell:value(o:cells, found).
-              o:keys := removeCell:value(o:keys, found).
-              o:children := removeCell:value(o:children, found) },
+              sqlite:collectEntries(d, o:children:at(found), again, true).
+              o:cells := sqlite:removeCell(o:cells, found).
+              o:keys := sqlite:removeCell(o:keys, found).
+              o:children := sqlite:removeCell(o:children, found) },
             { child := found:isNil:ifElse({ o:right }, { o:children:at(found) }).
-              below := deleteFrom:value(d, child, key, isIndex, again, root).
+              below := sqlite:deleteFrom(d, child, key, isIndex, again, root).
               below:notNil:ifTrue({
                   ; The child emptied: free it and drop the cell beside it.
                   d:freePage(child).
@@ -892,19 +885,19 @@ deleteFrom := { d, n, key, isIndex, again, root | | o, i, found, child, below |
                       { o:cells:size:greaterThan(#0):ifElse(
                             { isIndex:ifTrue({ again:add([o:cells:at(o:cells:size), o:keys:at(o:keys:size)]) }).
                               o:right := o:children:at(o:children:size).
-                              o:cells := removeCell:value(o:cells, o:cells:size).
-                              o:keys := removeCell:value(o:keys, o:keys:size).
-                              o:children := removeCell:value(o:children, o:children:size) },
+                              o:cells := sqlite:removeCell(o:cells, o:cells:size).
+                              o:keys := sqlite:removeCell(o:keys, o:keys:size).
+                              o:children := sqlite:removeCell(o:children, o:children:size) },
                             { o:right := #0 }) },
                       { isIndex:ifTrue({ again:add([o:cells:at(found), o:keys:at(found)]) }).
-                        o:cells := removeCell:value(o:cells, found).
-                        o:keys := removeCell:value(o:keys, found).
-                        o:children := removeCell:value(o:children, found) }) }) }).
+                        o:cells := sqlite:removeCell(o:cells, found).
+                        o:keys := sqlite:removeCell(o:keys, found).
+                        o:children := sqlite:removeCell(o:children, found) }) }) }).
           ; A page with no cells and one child cannot stay, at any depth but
           ; the root's, which treeDelete handles: its child's entries go back
           ; in from the root, and it reports itself empty.
           (o:cells:size:equals(#0):and({ o:right:notEquals(#0) }):and({ n:notEquals(root) })):ifTrue({
-              collectEntries:value(d, o:right, again, isIndex).
+              sqlite:collectEntries(d, o:right, again, isIndex).
               o:right := #0 }).
           o:right:equals(#0):ifElse({ #0 }, { nil }) }) }.
 
@@ -912,9 +905,9 @@ deleteFrom := { d, n, key, isIndex, again, root | | o, i, found, child, below |
 ; left with one child takes that child's contents and frees it, which
 ; shortens every path by one together; a root left with nothing is an empty
 ; leaf again. Then whatever the removal displaced goes back in.
-treeDelete := { d, root, key, isIndex | | again, result, o, child, c |
+sqlite:treeDelete := { d, root, key, isIndex | | again, result, o, child, c |
     again := [].
-    result := deleteFrom:value(d, root, key, isIndex, again, root).
+    result := sqlite:deleteFrom(d, root, key, isIndex, again, root).
     o := d:object(root).
     result:notNil:ifTrue({
         o:kind := o:isTable:ifElse({ #13 }, { #10 }).
@@ -924,35 +917,35 @@ treeDelete := { d, root, key, isIndex | | again, result, o, child, c |
         c := d:object(child).
         o:kind := c:kind. o:cells := c:cells. o:keys := c:keys. o:children := c:children. o:right := c:right.
         d:freePage(child) }).
-    again:do({ e | treeInsert:value(d, root, e:at(#1), e:at(#2), isIndex) }) }.
+    again:do({ e | sqlite:treeInsert(d, root, e:at(#1), e:at(#2), isIndex) }) }.
 
 ; The largest rowid in a table tree, or nil when it is empty: down the
 ; right-most path to the last leaf.
-lastRowid := { d, n | | p, h, offsets, v |
-    p := d:page(n). h := headerAt:value(n).
-    offsets := cells:value(p, n).
-    u8:value(p, h):equals(#13):ifElse(
+sqlite:lastRowid := { d, n | | p, h, offsets, v |
+    p := d:page(n). h := sqlite:headerAt(n).
+    offsets := sqlite:cells(p, n).
+    sqlite:u8(p, h):equals(#13):ifElse(
         { offsets:size:equals(#0):ifElse({ nil },
-              { v := varint:value(p, offsets:at(offsets:size)).
-                varint:value(p, v:at(#2)):at(#1) }) },
-        { lastRowid:value(d, u32:value(p, h:add(#8))) }) }.
+              { v := sqlite:varint(p, offsets:at(offsets:size)).
+                sqlite:varint(p, v:at(#2)):at(#1) }) },
+        { sqlite:lastRowid(d, sqlite:u32(p, h:add(#8))) }) }.
 
 ; ---------------------------------------------------------------------------
 ; B-tree pages
 
 ; Where a page's header begins: after the file header on page 1.
-headerAt := { n | n:equals(#1):ifElse({ #101 }, { #1 }) }.
+sqlite:headerAt := { n | n:equals(#1):ifElse({ #101 }, { #1 }) }.
 
 ; The cell offsets of a page, as one-based indices into the page string.
-cells := { p, n | | h, count, first, out, i |
-    h := headerAt:value(n).
-    count := u16:value(p, h:add(#3)).
-    first := h:add(u8:value(p, h):equals(#5):or({ u8:value(p, h):equals(#2) })
+sqlite:cells := { p, n | | h, count, first, out, i |
+    h := sqlite:headerAt(n).
+    count := sqlite:u16(p, h:add(#3)).
+    first := h:add(sqlite:u8(p, h):equals(#5):or({ sqlite:u8(p, h):equals(#2) })
         :ifElse({ #12 }, { #8 })).
     out := [].
     i := #0.
     { i:lessThan(count) }:whileTrue({
-        out:add(u16:value(p, first:add(i:mul(#2))):inc).
+        out:add(sqlite:u16(p, first:add(i:mul(#2))):inc).
         i := i:inc }).
     out }.
 
@@ -960,7 +953,7 @@ cells := { p, n | | h, count, first, out, i |
 ; keep up to U-35 of it; an index page, whose cells are compared on the way
 ; down, keeps at most a quarter of the usable size so that a page holds at
 ; least four keys.
-localSize := { d, total, isIndex | | maxLocal, minLocal, k |
+sqlite:localSize := { d, total, isIndex | | maxLocal, minLocal, k |
     maxLocal := isIndex:ifElse({ d:usable:sub(#12):mul(#64):div(#255):sub(#23) },
                                { d:usable:sub(#35) }).
     total:lessOrEqual(maxLocal):ifElse({ total }, {
@@ -970,63 +963,63 @@ localSize := { d, total, isIndex | | maxLocal, minLocal, k |
 
 ; A payload of `total` bytes starting at `at` on page `p`: the local part,
 ; and then the overflow chain, each page a pointer and then bytes.
-payload := { d, p, at, total, isIndex | | local, out, next, page, take, remaining |
-    local := localSize:value(d, total, isIndex).
+sqlite:payload := { d, p, at, total, isIndex | | local, out, next, chunk, take, remaining |
+    local := sqlite:localSize(d, total, isIndex).
     out := p:copyFrom(at, at:add(local):dec).
     local:lessThan(total):ifTrue({
-        next := u32:value(p, at:add(local)).
+        next := sqlite:u32(p, at:add(local)).
         remaining := total:sub(local).
         { remaining:greaterThan(#0) }:whileTrue({
-            page := d:page(next).
+            chunk := d:page(next).
             take := remaining:lessThan(d:usable:sub(#4)):ifElse({ remaining }, { d:usable:sub(#4) }).
-            out := out:concat(page:copyFrom(#5, take:add(#4))).
+            out := out:concat(chunk:copyFrom(#5, take:add(#4))).
             remaining := remaining:sub(take).
-            next := u32:value(page, #1) }) }).
+            next := sqlite:u32(chunk, #1) }) }).
     out }.
 
 ; Every row of a table tree, in rowid order: the block is given the rowid and
 ; the payload. Interior cells are a child and the largest rowid in it; the
 ; right-most child holds the rest.
-eachRow := { d, n, block | | p, h, kind, offsets, i, at, v, size, rowid |
+sqlite:eachRow := { d, n, block | | p, h, kind, offsets, i, at, v, size, rowid |
     p := d:page(n).
-    h := headerAt:value(n).
-    kind := u8:value(p, h).
-    offsets := cells:value(p, n).
+    h := sqlite:headerAt(n).
+    kind := sqlite:u8(p, h).
+    offsets := sqlite:cells(p, n).
     kind:equals(#13):ifElse(
         { offsets:do({ at |
-              v := varint:value(p, at). size := v:at(#1).
-              v := varint:value(p, v:at(#2)). rowid := v:at(#1).
-              block:value(rowid, payload:value(d, p, v:at(#2), size, false)) }) },
+              v := sqlite:varint(p, at). size := v:at(#1).
+              v := sqlite:varint(p, v:at(#2)). rowid := v:at(#1).
+              block:value(rowid, sqlite:payload(d, p, v:at(#2), size, false)) }) },
         { kind:equals(#5):ifFalse({
               error:raise("page ":concat(n:asString):concat(" is not a table page")) }).
-          offsets:do({ at | eachRow:value(d, u32:value(p, at), block) }).
-          eachRow:value(d, u32:value(p, h:add(#8)), block) }) }.
+          offsets:do({ at | sqlite:eachRow(d, sqlite:u32(p, at), block) }).
+          sqlite:eachRow(d, sqlite:u32(p, h:add(#8)), block) }) }.
 
 ; One row by rowid: descend to the leaf that would hold it, then look. Answers
 ; the payload or nil.
-findRow := { d, n, want | | p, h, kind, offsets, found, i, at, v, size, rowid, child |
+sqlite:findRow := { d, n, want | | p, h, kind, offsets, found, i, at, v, size, rowid, child |
     p := d:page(n).
-    h := headerAt:value(n).
-    kind := u8:value(p, h).
-    offsets := cells:value(p, n).
+    h := sqlite:headerAt(n).
+    kind := sqlite:u8(p, h).
+    offsets := sqlite:cells(p, n).
     found := nil.
     kind:equals(#13):ifElse(
         { i := #1.
           { found:isNil:and({ i:lessOrEqual(offsets:size) }) }:whileTrue({
               at := offsets:at(i).
-              v := varint:value(p, at). size := v:at(#1).
-              v := varint:value(p, v:at(#2)). rowid := v:at(#1).
-              rowid:equals(want):ifTrue({ found := payload:value(d, p, v:at(#2), size, false) }).
+              v := sqlite:varint(p, at). size := v:at(#1).
+              v := sqlite:varint(p, v:at(#2)). rowid := v:at(#1).
+              rowid:equals(want):ifTrue({ found := sqlite:payload(d, p, v:at(#2), size, false) }).
               i := i:inc }).
           found },
         { child := nil. i := #1.
           { child:isNil:and({ i:lessOrEqual(offsets:size) }) }:whileTrue({
               at := offsets:at(i).
-              want:lessOrEqual(varint:value(p, at:add(#4)):at(#1)):ifTrue({
-                  child := u32:value(p, at) }).
+              want:lessOrEqual(sqlite:varint(p, at:add(#4)):at(#1)):ifTrue({
+                  child := sqlite:u32(p, at) }).
               i := i:inc }).
-          child:isNil:ifTrue({ child := u32:value(p, h:add(#8)) }).
-          findRow:value(d, child, want) }) }.
+          child:isNil:ifTrue({ child := sqlite:u32(p, h:add(#8)) }).
+          sqlite:findRow(d, child, want) }) }.
 
 ; Every entry of an index tree whose first column equals `want`, in index
 ; order: the block is given the entry's record, whose last value is the rowid.
@@ -1036,30 +1029,30 @@ findRow := { d, n, want | | p, h, kind, offsets, found, i, at, v, size, rowid, c
 ; a child is skipped when its cell's key is already below `want`, and the
 ; walk stops at the first key above it, since equal keys are contiguous.
 ; Answers whether the walk has passed `want`, so a caller up the tree stops.
-eachIndexMatch := { d, n, want, block | | p, h, kind, offsets, i, at, v, size, entry, c, past, isLeaf |
+sqlite:eachIndexMatch := { d, n, want, block | | p, h, kind, offsets, i, at, v, size, entry, c, past, isLeaf |
     p := d:page(n).
-    h := headerAt:value(n).
-    kind := u8:value(p, h).
+    h := sqlite:headerAt(n).
+    kind := sqlite:u8(p, h).
     isLeaf := kind:equals(#10).
     isLeaf:or({ kind:equals(#2) }):ifFalse({
         error:raise("page ":concat(n:asString):concat(" is not an index page")) }).
-    offsets := cells:value(p, n).
+    offsets := sqlite:cells(p, n).
     past := false. i := #1.
     { past:not:and({ i:lessOrEqual(offsets:size) }) }:whileTrue({
         at := offsets:at(i).
         isLeaf:ifFalse({ at := at:add(#4) }).
-        v := varint:value(p, at). size := v:at(#1).
-        entry := decodeRecord:value(payload:value(d, p, v:at(#2), size, true)).
-        c := compare:value(entry:at(#1), want).
+        v := sqlite:varint(p, at). size := v:at(#1).
+        entry := sqlite:decodeRecord(sqlite:payload(d, p, v:at(#2), size, true)).
+        c := sqlite:compare(entry:at(#1), want).
         ; The child before this key can hold equals only when the key is
         ; not already below `want`.
         isLeaf:not:and({ c:greaterOrEqual(#0) }):ifTrue({
-            past := eachIndexMatch:value(d, u32:value(p, offsets:at(i)), want, block) }).
+            past := sqlite:eachIndexMatch(d, sqlite:u32(p, offsets:at(i)), want, block) }).
         c:equals(#0):ifTrue({ block:value(entry) }).
         c:greaterThan(#0):ifTrue({ past := true }).
         i := i:inc }).
     past:not:and({ isLeaf:not }):ifTrue({
-        past := eachIndexMatch:value(d, u32:value(p, h:add(#8)), want, block) }).
+        past := sqlite:eachIndexMatch(d, sqlite:u32(p, h:add(#8)), want, block) }).
     past }.
 
 ; ---------------------------------------------------------------------------
@@ -1068,29 +1061,29 @@ eachIndexMatch := { d, n, want, block | | p, h, kind, offsets, i, at, v, size, e
 ; The values of a record, as an array. Fewer values than the table has
 ; columns is a table altered since the row was written, and the rest are NULL
 ; to the caller.
-decodeRecord := { s | | v, headerSize, at, types, values, bodyAt, t, n |
-    v := varint:value(s, #1).
+sqlite:decodeRecord := { s | | v, headerSize, at, types, values, bodyAt, t, n |
+    v := sqlite:varint(s, #1).
     headerSize := v:at(#1). at := v:at(#2).
     types := [].
     { at:lessOrEqual(headerSize) }:whileTrue({
-        v := varint:value(s, at). types:add(v:at(#1)). at := v:at(#2) }).
+        v := sqlite:varint(s, at). types:add(v:at(#1)). at := v:at(#2) }).
     values := [].
     bodyAt := headerSize:inc.
     types:do({ t |
         t:equals(#0):ifTrue({ values:add(nil) }).
         t:greaterOrEqual(#1):and({ t:lessOrEqual(#6) }):ifTrue({
             n := [#1, #2, #3, #4, #6, #8]:at(t).
-            values:add(signedBytes:value(s, bodyAt, n)).
+            values:add(sqlite:signedBytes(s, bodyAt, n)).
             bodyAt := bodyAt:add(n) }).
         t:equals(#7):ifTrue({
-            values:add(real:of(floatFromBytes:value(s, bodyAt))).
+            values:add(sqlite:real:of(sqlite:floatFromBytes(s, bodyAt))).
             bodyAt := bodyAt:add(#8) }).
         t:equals(#8):ifTrue({ values:add(#0) }).
         t:equals(#9):ifTrue({ values:add(#1) }).
         t:greaterOrEqual(#12):ifTrue({
             n := t:sub(#12):div(#2).
             t:mod(#2):equals(#0):ifElse(
-                { values:add(blob:of(n:equals(#0):ifElse({ "" }, { s:copyFrom(bodyAt, bodyAt:add(n):dec) }))) },
+                { values:add(sqlite:blob:of(n:equals(#0):ifElse({ "" }, { s:copyFrom(bodyAt, bodyAt:add(n):dec) }))) },
                 { values:add(n:equals(#0):ifElse({ "" }, { s:copyFrom(bodyAt, bodyAt:add(n):dec) })) }).
             bodyAt := bodyAt:add(n) }) }).
     values }.
@@ -1102,16 +1095,16 @@ decodeRecord := { s | | v, headerSize, at, types, values, bodyAt, t, n |
 ; punctuation this file's SQL has. Each token is [kind, text]: 'word, 'number,
 ; 'text, 'blob, 'name or 'punct.
 
-isWordStart := { c | | b | b := c:asByte.
+sqlite:isWordStart := { c | | b | b := c:asByte.
     b:greaterOrEqual(#65):and({ b:lessOrEqual(#90) })
         :or({ b:greaterOrEqual(#97):and({ b:lessOrEqual(#122) }) })
         :or({ c:equals("_") }):or({ b:greaterOrEqual(#128) }) }.
-isDigit := { c | | b | b := c:asByte. b:greaterOrEqual(#48):and({ b:lessOrEqual(#57) }) }.
-isWordChar := { c | isWordStart:value(c):or({ isDigit:value(c) }) }.
-isSpace := { c | c:equals(" "):or({ c:equals("\n") }):or({ c:equals("\t") }):or({ c:equals("\r") }) }.
+sqlite:isDigit := { c | | b | b := c:asByte. b:greaterOrEqual(#48):and({ b:lessOrEqual(#57) }) }.
+sqlite:isWordChar := { c | sqlite:isWordStart(c):or({ sqlite:isDigit(c) }) }.
+sqlite:isSpace := { c | c:equals(" "):or({ c:equals("\n") }):or({ c:equals("\t") }):or({ c:equals("\r") }) }.
 
 ; A quoted run with the quote doubled inside, the quote already consumed.
-quoted := { s, q | | out, done |
+sqlite:quoted := { s, q | | out, done |
     out := "". done := false.
     { done:not }:whileTrue({
         s:atEnd:ifTrue({ error:raise("unterminated string") }).
@@ -1121,43 +1114,43 @@ quoted := { s, q | | out, done |
             { out := out:concat(s:next) }) }).
     out }.
 
-hexValue := { c | | b | b := c:asByte.
+sqlite:hexValue := { c | | b | b := c:asByte.
     b:lessOrEqual(#57):ifElse({ b:sub(#48) },
         { b:lessOrEqual(#70):ifElse({ b:sub(#55) }, { b:sub(#87) }) }) }.
 
-unhex := { h | | out, i |
+sqlite:unhex := { h | | out, i |
     h:size:mod(#2):equals(#1):ifTrue({ error:raise("odd number of hex digits in a blob") }).
     out := []. i := #1.
     { i:lessThan(h:size) }:whileTrue({
-        out:add(hexValue:value(h:at(i)):mul(#16):add(hexValue:value(h:at(i:inc))):asCharacter).
+        out:add(sqlite:hexValue(h:at(i)):mul(#16):add(sqlite:hexValue(h:at(i:inc))):asCharacter).
         i := i:add(#2) }).
     out:join("") }.
 
-tokenize := { text | | s, out, c, word, from, push |
+sqlite:tokenize := { text | | s, out, c, word, from, push |
     s := scan:on(text). out := [].
     ; A token is [kind, text, from, to], the last two the positions in the
     ; source, so that a CREATE statement can be stored as it was written.
     push := { kind, t | out:add([kind, t, from, s:pos:dec]) }.
     { s:atEnd:not }:whileTrue({
         c := s:peek. from := s:pos.
-        isSpace:value(c):ifElse({ s:step },
+        sqlite:isSpace(c):ifElse({ s:step },
         { (c:equals("-"):and({ s:peekAt(#1):equals("-") })):ifElse(
             { s:skipWhile({ ch | ch:notEquals("\n") }) },
-        { isWordStart:value(c):ifElse(
-            { word := s:takeWhile(isWordChar).
+        { sqlite:isWordStart(c):ifElse(
+            { word := s:takeWhile(sqlite:slotAt('isWordChar)).
               (word:asUppercase:equals("X"):and({ s:peek:equals("'") })):ifElse(
-                  { s:step. push:value('blob, unhex:value(quoted:value(s, "'"))) },
+                  { s:step. push:value('blob, sqlite:unhex(sqlite:quoted(s, "'"))) },
                   { push:value('word, word) }) },
-        { (isDigit:value(c):or({ c:equals("."):and({ s:peekAt(#1):notNil }):and({ isDigit:value(s:peekAt(#1)) }) })):ifElse(
-            { word := s:takeWhile({ ch | isDigit:value(ch):or({ ch:equals(".") }) }).
+        { (sqlite:isDigit(c):or({ c:equals("."):and({ s:peekAt(#1):notNil }):and({ sqlite:isDigit(s:peekAt(#1)) }) })):ifElse(
+            { word := s:takeWhile({ ch | sqlite:isDigit(ch):or({ ch:equals(".") }) }).
               (s:peek:notNil:and({ s:peek:asUppercase:equals("E") })):ifTrue({
                   word := word:concat(s:next).
                   (s:peek:equals("+"):or({ s:peek:equals("-") })):ifTrue({ word := word:concat(s:next) }).
-                  word := word:concat(s:takeWhile(isDigit)) }).
+                  word := word:concat(s:takeWhile(sqlite:slotAt('isDigit))) }).
               push:value('number, word) },
-        { c:equals("'"):ifElse({ s:step. push:value('text, quoted:value(s, "'")) },
-        { c:equals("\""):ifElse({ s:step. push:value('name, quoted:value(s, "\"")) },
-        { c:equals("`"):ifElse({ s:step. push:value('name, quoted:value(s, "`")) },
+        { c:equals("'"):ifElse({ s:step. push:value('text, sqlite:quoted(s, "'")) },
+        { c:equals("\""):ifElse({ s:step. push:value('name, sqlite:quoted(s, "\"")) },
+        { c:equals("`"):ifElse({ s:step. push:value('name, sqlite:quoted(s, "`")) },
         { c:equals("["):ifElse({ s:step. word := s:takeUntil({ ch | ch:equals("]") }). s:step. push:value('name, word) },
         { "(),;*=.<>-":indexOf(c):notNil:ifElse({ s:step. push:value('punct, c) },
             ; Anything else is a byte this SQL has no use for.
@@ -1165,7 +1158,7 @@ tokenize := { text | | s, out, c, word, from, push |
     out }.
 
 ; Statements: the tokens split at `;`.
-statements := { tokens | | out, current |
+sqlite:statements := { tokens | | out, current |
     out := []. current := [].
     tokens:do({ t |
         (t:at(#1):equals('punct):and({ t:at(#2):equals(";") })):ifElse(
@@ -1183,17 +1176,17 @@ statements := { tokens | | out, current |
 ; constraints up to the next comma, of which INTEGER PRIMARY KEY is the one
 ; that changes what a column is.
 
-table := object:new.
-table:name := "".
-table:root := #0.
-table:columns := [].           ; each [name, affinity, isRowid]
-table:indexes := [].           ; each [name, root, column names], plain ascending BINARY ones
-table:maxRowid := nil.         ; the largest rowid, once it has been looked for
+sqlite:table := object:new.
+sqlite:table:name := "".
+sqlite:table:root := #0.
+sqlite:table:columns := [].           ; each [name, affinity, isRowid]
+sqlite:table:indexes := [].           ; each [name, root, column names], plain ascending BINARY ones
+sqlite:table:maxRowid := nil.         ; the largest rowid, once it has been looked for
 
 ; The affinity rules, from the declared type: INT anywhere is INTEGER; CHAR,
 ; CLOB or TEXT is TEXT; BLOB or no type is BLOB; REAL, FLOA or DOUB is REAL;
 ; anything else NUMERIC.
-affinityOf := { typeText | | t |
+sqlite:affinityOf := { typeText | | t |
     t := typeText:asUppercase.
     t:indexOf("INT"):notNil:ifElse({ 'integer },
         { t:indexOf("CHAR"):notNil:or({ t:indexOf("CLOB"):notNil }):or({ t:indexOf("TEXT"):notNil }):ifElse({ 'text },
@@ -1201,14 +1194,14 @@ affinityOf := { typeText | | t |
                 { t:indexOf("REAL"):notNil:or({ t:indexOf("FLOA"):notNil }):or({ t:indexOf("DOUB"):notNil }):ifElse({ 'real },
                     { 'numeric }) }) }) }) }.
 
-constraintWords := ["CONSTRAINT", "PRIMARY", "NOT", "NULL", "UNIQUE", "CHECK", "DEFAULT",
+sqlite:constraintWords := ["CONSTRAINT", "PRIMARY", "NOT", "NULL", "UNIQUE", "CHECK", "DEFAULT",
                     "COLLATE", "REFERENCES", "GENERATED", "AS"].
-isConstraintWord := { w | constraintWords:indexOf(w:asUppercase):notNil }.
+sqlite:isConstraintWord := { w | sqlite:constraintWords:indexOf(w:asUppercase):notNil }.
 
 ; The tokens between the outer parentheses of a CREATE TABLE, split at the
 ; commas that are not inside parentheses of their own.
-columnsFromSql := { sql | | tokens, i, depth, groups, current, out, name, typeWords, isPk, j, t, inType |
-    tokens := tokenize:value(sql).
+sqlite:columnsFromSql := { sql | | tokens, i, depth, groups, current, out, name, typeWords, isPk, j, t, inType |
+    tokens := sqlite:tokenize(sql).
     i := #1.
     { i:lessOrEqual(tokens:size):and({ (tokens:at(i):at(#1):equals('punct):and({ tokens:at(i):at(#2):equals("(") })):not }) }:whileTrue({ i := i:inc }).
     i := i:inc.
@@ -1226,7 +1219,7 @@ columnsFromSql := { sql | | tokens, i, depth, groups, current, out, name, typeWo
     out := [].
     groups:do({ g |
         ; A table constraint rather than a column begins with one of the words.
-        (g:at(#1):at(#1):equals('word):and({ isConstraintWord:value(g:at(#1):at(#2)) })
+        (g:at(#1):at(#1):equals('word):and({ sqlite:isConstraintWord(g:at(#1):at(#2)) })
             :and({ g:at(#1):at(#2):asUppercase:equals("PRIMARY"):or({ g:at(#1):at(#2):asUppercase:equals("UNIQUE") })
                 :or({ g:at(#1):at(#2):asUppercase:equals("CHECK") }):or({ g:at(#1):at(#2):asUppercase:equals("CONSTRAINT") })
                 :or({ g:at(#1):at(#2):asUppercase:equals("FOREIGN") }) })):ifFalse({
@@ -1234,7 +1227,7 @@ columnsFromSql := { sql | | tokens, i, depth, groups, current, out, name, typeWo
             typeWords := []. isPk := false. j := #2. inType := true.
             { j:lessOrEqual(g:size) }:whileTrue({
                 t := g:at(j).
-                inType:and({ t:at(#1):equals('word) }):and({ isConstraintWord:value(t:at(#2)):not }):ifElse(
+                inType:and({ t:at(#1):equals('word) }):and({ sqlite:isConstraintWord(t:at(#2)):not }):ifElse(
                     { typeWords:add(t:at(#2)) },
                     { inType:and({ t:at(#1):equals('punct) }):and({ t:at(#2):notEquals(",") }):ifElse(
                           { nil },                                 ; the (n) of VARCHAR(n)
@@ -1246,15 +1239,15 @@ columnsFromSql := { sql | | tokens, i, depth, groups, current, out, name, typeWo
                             isPk := true }) }) }).
                 inType:and({ t:at(#1):equals('number) }):ifTrue({ nil }).
                 j := j:inc }).
-            out:add([name, affinityOf:value(typeWords:join(" ")), isPk]) }) }).
+            out:add([name, sqlite:affinityOf(typeWords:join(" ")), isPk]) }) }).
     out }.
 
 ; `CREATE INDEX name ON table (col, col)`. An index this reader can use is on
 ; plain column names in ascending BINARY order and over the whole table; one
 ; with DESC, COLLATE, an expression or a WHERE is left alone, since an entry
 ; in it is not in the order the walk assumes. Answers the column names, or nil.
-indexColumnsFromSql := { sql | | tokens, i, out, plain, t |
-    tokens := tokenize:value(sql).
+sqlite:indexColumnsFromSql := { sql | | tokens, i, out, plain, t |
+    tokens := sqlite:tokenize(sql).
     i := #1.
     { i:lessOrEqual(tokens:size):and({ (tokens:at(i):at(#1):equals('punct):and({ tokens:at(i):at(#2):equals("(") })):not }) }:whileTrue({ i := i:inc }).
     i := i:inc.
@@ -1272,8 +1265,8 @@ indexColumnsFromSql := { sql | | tokens, i, out, plain, t |
     i:lessThan(tokens:size):ifTrue({ plain := false }).
     plain:and({ out:size:greaterThan(#0) }):ifElse({ out }, { nil }) }.
 
-schemaTable := { | t |
-    t := table:new.
+sqlite:schemaTable := { | t |
+    t := sqlite:table:new.
     t:name := "sqlite_schema".
     t:root := #1.
     t:columns := [["type", 'text, false], ["name", 'text, false], ["tbl_name", 'text, false],
@@ -1281,143 +1274,35 @@ schemaTable := { | t |
     t }.
 
 ; The tables in a database, by lower-cased name.
-loadSchema := { d | | out, t |
+sqlite:loadSchema := { d | | out, t |
     out := dictionary:new.
-    out:atPut("sqlite_schema", schemaTable:value).
+    out:atPut("sqlite_schema", sqlite:schemaTable).
     out:atPut("sqlite_master", out:at("sqlite_schema")).
-    eachRow:value(d, #1, { rowid, p | | r |
-        r := decodeRecord:value(p).
+    sqlite:eachRow(d, #1, { rowid, p | | r |
+        r := sqlite:decodeRecord(p).
         r:at(#1):equals("table"):ifTrue({
-            t := table:new.
+            t := sqlite:table:new.
             t:name := r:at(#2).
             t:root := r:at(#4).
-            t:columns := columnsFromSql:value(r:at(#5)).
+            t:columns := sqlite:columnsFromSql(r:at(#5)).
             t:indexes := [].
             out:atPut(t:name:asLowercase, t) }) }).
     ; Indexes second, since one may precede its table in the schema. An
     ; automatic index has no SQL and is skipped: its columns are in the
     ; table's constraints, which this reader does not follow.
-    eachRow:value(d, #1, { rowid, p | | r, cols |
-        r := decodeRecord:value(p).
+    sqlite:eachRow(d, #1, { rowid, p | | r, cols |
+        r := sqlite:decodeRecord(p).
         (r:at(#1):equals("index"):and({ r:at(#5):notNil })):ifTrue({
-            cols := indexColumnsFromSql:value(r:at(#5)).
+            cols := sqlite:indexColumnsFromSql(r:at(#5)).
             (cols:notNil:and({ out:includes(r:at(#3):asLowercase) })):ifTrue({
                 out:at(r:at(#3):asLowercase):indexes:add([r:at(#2), r:at(#4), cols]) }) }) }).
     out }.
 
-; ---------------------------------------------------------------------------
-; SELECT
-;
-; Parsed into: the columns wanted (each a name, or `*`), the table, the
-; WHERE as [column, value] or nil, and the ORDER BY as a list of columns.
-; The parser is a cursor over the statement's tokens, and past the end it
-; reads an 'end token rather than falling off the array.
 
-tok := { tokens, i | i:greaterThan(tokens:size):ifElse({ ['end, ""] }, { tokens:at(i) }) }.
-
-; Punctuation is matched by kind as well as text: a blob of the one byte
-; `)` or the text `','` is a value, and the first sweep of the writer found
-; a value list ending at one.
-isPunct := { tokens, i, ch | | t | t := tok:value(tokens, i). t:at(#1):equals('punct):and({ t:at(#2):equals(ch) }) }.
-
-expect := { tokens, i, text |
-    (i:greaterThan(tokens:size):or({ tok:value(tokens, i):at(#2):asUppercase:notEquals(text:asUppercase) })):ifTrue({
-        error:raise("expected ":concat(text):concat(i:greaterThan(tokens:size):ifElse({ " at the end" },
-            { " and found ":concat(tokens:at(i):at(#2)) }))) }).
-    i:inc }.
-
-isWord := { tokens, i, text |
-    i:lessOrEqual(tokens:size):and({ tok:value(tokens, i):at(#1):equals('word) })
-        :and({ tok:value(tokens, i):at(#2):asUppercase:equals(text) }) }.
-
-; A literal: a number with an optional sign, text, a blob, or NULL. Answers
-; the value and the index after it.
-numberLiteral := { text, negative | | signed |
-    ; The sign goes on before the digits are read, so that -9223372036854775808
-    ; is the integer it is rather than an overflow negated: SQLite reads the
-    ; minimum the same way, and a corpus row found the difference.
-    signed := negative:ifElse({ "-":concat(text) }, { text }).
-    (text:indexOf("."):isNil:and({ text:asUppercase:indexOf("E"):isNil })):ifElse(
-        { { signed:asInteger }:onError({ e |
-              ; Too large for an integer: SQLite reads it as a real.
-              real:of(floatParts:value(signed:asFloat)) }) },
-        { real:of(floatParts:value(signed:asFloat)) }) }.
-
-literal := { tokens, i | | t, negative |
-    t := tok:value(tokens, i).
-    t:at(#1):equals('end):ifTrue({ error:raise("a value is missing at the end") }).
-    negative := false.
-    (t:at(#1):equals('punct):and({ t:at(#2):equals("-") })):ifTrue({
-        negative := true. i := i:inc. t := tok:value(tokens, i) }).
-    t:at(#1):equals('number):ifElse({ [numberLiteral:value(t:at(#2), negative), i:inc] },
-        { t:at(#1):equals('text):ifElse({ [t:at(#2), i:inc] },
-            { t:at(#1):equals('blob):ifElse({ [blob:of(t:at(#2)), i:inc] },
-                { (t:at(#1):equals('word):and({ t:at(#2):asUppercase:equals("NULL") })):ifElse(
-                    { [nil, i:inc] },
-                    { error:raise("not a literal: ":concat(t:at(#2))) }) }) }) }) }.
-
-; A column reference: a name, optionally qualified by the table.
-columnRef := { tokens, i | | name |
-    name := tok:value(tokens, i):at(#2).
-    i := i:inc.
-    (i:lessOrEqual(tokens:size):and({ tok:value(tokens, i):at(#1):equals('punct) }):and({ tok:value(tokens, i):at(#2):equals(".") })):ifTrue({
-        name := tok:value(tokens, i:inc):at(#2). i := i:add(#2) }).
-    [name, i] }.
-
-; WHERE: comparisons on columns joined by AND, each [column, op, literal]
-; with op one of = < > <= >=. Answers the terms and the index after them.
-parseWhere := { tokens, i | | terms, r, op, done |
-    terms := []. done := false.
-    { done:not }:whileTrue({
-        r := columnRef:value(tokens, i). i := r:at(#2).
-        op := tok:value(tokens, i):at(#2).
-        tok:value(tokens, i):at(#1):equals('punct):ifFalse({ error:raise("expected a comparison and found ":concat(op)) }).
-        i := i:inc.
-        (op:equals("<"):or({ op:equals(">") })):and({ isPunct:value(tokens, i, "=") }):ifTrue({
-            op := op:concat("="). i := i:inc }).
-        (["=", "<", ">", "<=", ">="]:indexOf(op)):isNil:ifTrue({
-            error:raise("only = < > <= and >= are understood, not ":concat(op)) }).
-        terms:add([r:at(#1), op, nil]).
-        r := literal:value(tokens, i). i := r:at(#2).
-        terms:at(terms:size):atPut(#3, r:at(#1)).
-        isWord:value(tokens, i, "AND"):ifElse({ i := i:inc }, { done := true }) }).
-    [terms, i] }.
-
-parseSelect := { tokens | | i, columns, tableName, where, order, r, done |
-    i := expect:value(tokens, #1, "SELECT").
-    columns := []. done := false.
-    { done:not }:whileTrue({
-        (tok:value(tokens, i):at(#1):equals('punct):and({ tok:value(tokens, i):at(#2):equals("*") })):ifElse(
-            { columns:add("*"). i := i:inc },
-            { r := columnRef:value(tokens, i). columns:add(r:at(#1)). i := r:at(#2) }).
-        isPunct:value(tokens, i, ","):ifElse(
-            { i := i:inc }, { done := true }) }).
-    i := expect:value(tokens, i, "FROM").
-    tableName := tok:value(tokens, i):at(#2). i := i:inc.
-    where := []. order := [].
-    isWord:value(tokens, i, "WHERE"):ifTrue({
-        i := i:inc.
-        r := parseWhere:value(tokens, i). where := r:at(#1). i := r:at(#2) }).
-    isWord:value(tokens, i, "ORDER"):ifTrue({
-        i := i:inc.
-        i := expect:value(tokens, i, "BY").
-        done := false.
-        { done:not }:whileTrue({
-            r := columnRef:value(tokens, i). i := r:at(#2).
-            order:add(r:at(#1)).
-            isWord:value(tokens, i, "ASC"):ifTrue({ i := i:inc }).
-            isPunct:value(tokens, i, ","):ifElse(
-                { i := i:inc }, { done := true }) }) }).
-    i:lessOrEqual(tokens:size):ifTrue({
-        error:raise("this SELECT goes on past what is understood, at: ":concat(tok:value(tokens, i):at(#2))) }).
-    [columns, tableName, where, order] }.
-
-; ---------------------------------------------------------------------------
-; Running a SELECT
 
 ; Which column a name is: an index into the record, or 'rowid. `rowid` and
 ; its aliases, and an INTEGER PRIMARY KEY column, are the rowid.
-resolve := { t, name | | found, i, lower |
+sqlite:resolve := { t, name | | found, i, lower |
     lower := name:asLowercase.
     found := nil. i := #1.
     { found:isNil:and({ i:lessOrEqual(t:columns:size) }) }:whileTrue({
@@ -1431,42 +1316,38 @@ resolve := { t, name | | found, i, lower |
     found }.
 
 ; The affinity of a column reference, for the comparison rules.
-affinityAt := { t, which |
+sqlite:affinityAt := { t, which |
     which:equals('rowid):ifElse({ 'integer }, { t:columns:at(which):at(#2) }) }.
 
 ; A row's value at a resolved column.
-valueAt := { rowid, values, which |
+sqlite:valueAt := { rowid, values, which |
     which:equals('rowid):ifElse({ rowid },
         { which:greaterThan(values:size):ifElse({ nil }, { values:at(which) }) }) }.
 
 ; Text that is a well-formed number, as a number; else nil. SQLite's rule for
 ; NUMERIC affinity: an integer literal if it is one and fits, else a real.
-numberFromText := { s | | t |
+sqlite:numberFromText := { s | | t |
     t := s:trim.
     t:equals(""):ifElse({ nil }, {
         { | n | n := t:asInteger. n }:onError({ e |
-            { | f | f := t:asFloat. real:of(floatParts:value(f)) }:onError({ e2 | nil }) }) }) }.
+            { | f | f := t:asFloat. sqlite:real:of(sqlite:floatParts(f)) }:onError({ e2 | nil }) }) }) }.
 
 ; Applying an affinity to a literal before a comparison: a column with
 ; numeric affinity makes a numeric-looking text a number, a column with text
 ; affinity makes a number text, and nothing happens to a blob or a NULL.
-applyAffinity := { v, affinity | | n |
-    v:isNil:or({ v:isKindOf(blob) }):ifElse({ v }, {
+sqlite:applyAffinity := { v, affinity | | n |
+    v:isNil:or({ v:isKindOf(sqlite:blob) }):ifElse({ v }, {
         (affinity:equals('integer):or({ affinity:equals('real) }):or({ affinity:equals('numeric) })):ifElse(
-            { v:isKindOf(string):ifElse({ n := numberFromText:value(v). n:isNil:ifElse({ v }, { n }) }, { v }) },
+            { v:isKindOf(string):ifElse({ n := sqlite:numberFromText(v). n:isNil:ifElse({ v }, { n }) }, { v }) },
             { affinity:equals('text):ifElse(
-                { isNumber:value(v):ifElse({ render:value(v) }, { v }) },
+                { sqlite:isNumber(v):ifElse({ sqlite:render(v) }, { v }) },
                 { v }) }) }) }.
-
-; Where the output goes: gathered and written once.
-out := [].
-emit := { line | out:add(line):add("\n") }.
 
 ; One comparison, SQLite's way: NULL on either side is no match, otherwise
 ; the order compare gives.
-holds := { a, op, b | | c |
+sqlite:holds := { a, op, b | | c |
     a:isNil:or({ b:isNil }):ifElse({ false }, {
-        c := compare:value(a, b).
+        c := sqlite:compare(a, b).
         op:equals("="):ifElse({ c:equals(#0) },
         { op:equals("<"):ifElse({ c:lessThan(#0) },
         { op:equals(">"):ifElse({ c:greaterThan(#0) },
@@ -1476,11 +1357,11 @@ holds := { a, op, b | | c |
 ; columns turned back into reals. By rowid when a term names it with =;
 ; through an index when a term is = on its first column; else every row. The
 ; three answer the same rows, and differ in pages read.
-matchingRows := { d, t, where | | terms, realColumns, rows, keep, index, rowidTerm, eqTerm |
+sqlite:matchingRows := { d, t, where | | terms, realColumns, rows, keep, index, rowidTerm, eqTerm |
     ; Terms resolved: [column, op, value with the column's affinity applied].
     terms := where:collect({ w | | which |
-        which := resolve:value(t, w:at(#1)).
-        [which, w:at(#2), applyAffinity:value(w:at(#3), affinityAt:value(t, which))] }).
+        which := sqlite:resolve(t, w:at(#1)).
+        [which, w:at(#2), sqlite:applyAffinity(w:at(#3), sqlite:affinityAt(t, which))] }).
     ; A REAL column stores a whole number as an integer to save the bytes, and
     ; it is a real again on the way out: the one place a column's declared
     ; type changes what a record says.
@@ -1491,9 +1372,9 @@ matchingRows := { d, t, where | | terms, realColumns, rows, keep, index, rowidTe
     keep := { rowid, values | | ok |
         realColumns:do({ i |
             (i:lessOrEqual(values:size):and({ values:at(i):isKindOf(integer) })):ifTrue({
-                values:atPut(i, real:of(floatParts:value(values:at(i):asFloat))) }) }).
+                values:atPut(i, sqlite:real:of(sqlite:floatParts(values:at(i):asFloat))) }) }).
         ok := true.
-        terms:do({ term | ok := ok:and({ holds:value(valueAt:value(rowid, values, term:at(#1)), term:at(#2), term:at(#3)) }) }).
+        terms:do({ term | ok := ok:and({ sqlite:holds(sqlite:valueAt(rowid, values, term:at(#1)), term:at(#2), term:at(#3)) }) }).
         ok:ifTrue({ rows:add([rowid, values]) }) }.
 
     rowidTerm := nil. eqTerm := nil. index := nil.
@@ -1502,72 +1383,36 @@ matchingRows := { d, t, where | | terms, realColumns, rows, keep, index, rowidTe
             term:at(#1):equals('rowid):ifTrue({ rowidTerm := term }).
             (term:at(#1):notEquals('rowid):and({ term:at(#3):notNil }):and({ eqTerm:isNil })):ifTrue({
                 t:indexes:do({ ix |
-                    index:isNil:and({ resolve:value(t, ix:at(#3):at(#1)):equals(term:at(#1)) }):ifTrue({
+                    index:isNil:and({ sqlite:resolve(t, ix:at(#3):at(#1)):equals(term:at(#1)) }):ifTrue({
                         index := ix. eqTerm := term }) }) }) }) }).
 
     rowidTerm:notNil:ifElse(
         { | v |
           v := rowidTerm:at(#3).
           v:isKindOf(integer):ifTrue({ | p |
-              p := findRow:value(d, t:root, v).
-              p:notNil:ifTrue({ keep:value(v, decodeRecord:value(p)) }) }).
-          v:isKindOf(real):ifTrue({ | f, n |
+              p := sqlite:findRow(d, t:root, v).
+              p:notNil:ifTrue({ keep:value(v, sqlite:decodeRecord(p)) }) }).
+          v:isKindOf(sqlite:real):ifTrue({ | f, n |
               ; A real equal to an integer finds that rowid; any other finds none.
               f := v:value.
               f:equals(f:floor:asFloat):ifTrue({ | p |
                   n := f:floor.
-                  p := findRow:value(d, t:root, n).
-                  p:notNil:ifTrue({ keep:value(n, decodeRecord:value(p)) }) }) }) },
+                  p := sqlite:findRow(d, t:root, n).
+                  p:notNil:ifTrue({ keep:value(n, sqlite:decodeRecord(p)) }) }) }) },
         { index:notNil:ifElse(
-            { eachIndexMatch:value(d, index:at(#2), eqTerm:at(#3), { entry | | rowid, p |
+            { sqlite:eachIndexMatch(d, index:at(#2), eqTerm:at(#3), { entry | | rowid, p |
                   rowid := entry:at(entry:size).
-                  p := findRow:value(d, t:root, rowid).
+                  p := sqlite:findRow(d, t:root, rowid).
                   p:isNil:ifTrue({ error:raise("index ":concat(index:at(#1)):concat(" names rowid ")
                       :concat(rowid:asString):concat(" and the table has no such row")) }).
-                  keep:value(rowid, decodeRecord:value(p)) }) },
-            { eachRow:value(d, t:root, { rowid, p | keep:value(rowid, decodeRecord:value(p)) }) }) }).
+                  keep:value(rowid, sqlite:decodeRecord(p)) }) },
+            { sqlite:eachRow(d, t:root, { rowid, p | keep:value(rowid, sqlite:decodeRecord(p)) }) }) }).
     rows }.
-
-runSelect := { d, tables, parsed | | t, wanted, orderCols, rows |
-    t := tables:at(parsed:at(#2):asLowercase, nil).
-    t:isNil:ifTrue({ error:raise("no such table: ":concat(parsed:at(#2))) }).
-    ; The columns to print, resolved; `*` is every column of the table.
-    wanted := [].
-    parsed:at(#1):do({ c |
-        c:equals("*"):ifElse(
-            { [#1, t:columns:size]:loop({ i |
-                  wanted:add(t:columns:at(i):at(#3):ifElse({ 'rowid }, { i })) }) },
-            { wanted:add(resolve:value(t, c)) }) }).
-    orderCols := parsed:at(#4):collect({ c | resolve:value(t, c) }).
-    rows := matchingRows:value(d, t, parsed:at(#3)).
-
-    orderCols:size:greaterThan(#0):ifTrue({
-        rows := rows:sorted({ a, b | | c, i |
-            c := #0. i := #1.
-            { c:equals(#0):and({ i:lessOrEqual(orderCols:size) }) }:whileTrue({
-                c := compare:value(valueAt:value(a:at(#1), a:at(#2), orderCols:at(i)),
-                                   valueAt:value(b:at(#1), b:at(#2), orderCols:at(i))).
-                i := i:inc }).
-            c:equals(#0):ifTrue({ c := compare:value(a:at(#1), b:at(#1)) }).
-            c:lessThan(#0) }) }).
-
-    rows:do({ row |
-        emit:value(wanted:collect({ w | render:value(valueAt:value(row:at(#1), row:at(#2), w)) }):join("|")) }) }.
-
-; ---------------------------------------------------------------------------
-; CREATE TABLE, CREATE INDEX, INSERT, and PRAGMA page_size
-;
-; Step 3 of the plan: the writer, from nothing. Each statement changes pages
-; in memory and the file is written whole at the end, which is enough for a
-; fresh file and is what step 4 measures against on a file that exists.
-
-; A statement's text as written, from its first token to its last.
-statementText := { text, st | text:copyFrom(st:at(#1):at(#3), st:at(st:size):at(#4)) }.
 
 ; A real that is a whole number and fits is stored as the integer; SQLite
 ; does the same, for NUMERIC affinity as the rule and for REAL as the disk
 ; trick the reader undoes.
-integralOf := { v | | f |
+sqlite:integralOf := { v | | f |
     f := v:value.
     ; Strictly inside the integers, both ends: SQLite keeps -2^63 itself a
     ; real. A bound of 9.2e18 here left 9206812213021190144.0 a real that
@@ -1578,30 +1423,30 @@ integralOf := { v | | f |
 ; The affinity applied to a value on its way into a column: text that reads
 ; as a number becomes one under a numeric affinity, a number becomes text
 ; under TEXT, and a blob or a NULL is left alone.
-storeAffinity := { v, affinity | | n |
-    v:isNil:or({ v:isKindOf(blob) }):ifElse({ v }, {
+sqlite:storeAffinity := { v, affinity | | n |
+    v:isNil:or({ v:isKindOf(sqlite:blob) }):ifElse({ v }, {
         affinity:equals('text):ifElse(
-            { isNumber:value(v):ifElse({ render:value(v) }, { v }) },
+            { sqlite:isNumber(v):ifElse({ sqlite:render(v) }, { v }) },
         { affinity:equals('blob):ifElse({ v }, {
             ; INTEGER, NUMERIC and REAL: a numeric text is read, and a whole real
             ; becomes the integer.
-            n := v:isKindOf(string):ifElse({ numberFromText:value(v) }, { v }).
+            n := v:isKindOf(string):ifElse({ sqlite:numberFromText(v) }, { v }).
             n:isNil:ifElse({ v },
-                { n:isKindOf(real):ifElse({ integralOf:value(n) }, { n }) }) }) }) }) }.
+                { n:isKindOf(sqlite:real):ifElse({ sqlite:integralOf(n) }, { n }) }) }) }) }) }.
 
 ; What a value written to the INTEGER PRIMARY KEY column means as a rowid.
-rowidOf := { v | | n |
+sqlite:rowidOf := { v | | n |
     v:isKindOf(integer):ifElse({ v }, {
-        n := v:isKindOf(string):ifElse({ numberFromText:value(v) }, { v }).
-        n:isKindOf(real):ifTrue({ n := integralOf:value(n) }).
+        n := v:isKindOf(string):ifElse({ sqlite:numberFromText(v) }, { v }).
+        n:isKindOf(sqlite:real):ifTrue({ n := sqlite:integralOf(n) }).
         n:isKindOf(integer):ifElse({ n }, { error:raise("datatype mismatch") }) }) }.
 
 ; One row into a table and each of its indexes. `values` is one per column,
 ; affinities applied; the rowid is given or is one past the largest.
-insertRow := { d, t, values, rowidGiven | | rowid, record, payload, raw, maxLocal |
+sqlite:insertRow := { d, t, values, rowidGiven | | rowid, record, payload, raw, maxLocal |
     rowid := rowidGiven.
     rowid:isNil:ifTrue({
-        t:maxRowid:isNil:ifTrue({ t:maxRowid := lastRowid:value(d, t:root) }).
+        t:maxRowid:isNil:ifTrue({ t:maxRowid := sqlite:lastRowid(d, t:root) }).
         rowid := t:maxRowid:isNil:ifElse({ #1 }, {
             t:maxRowid:equals(#9223372036854775807):ifTrue({
                 error:raise("database or disk is full: no rowid is left to assign") }).
@@ -1610,261 +1455,45 @@ insertRow := { d, t, values, rowidGiven | | rowid, record, payload, raw, maxLoca
     record := [].
     [#1, t:columns:size]:loop({ i |
         record:add(t:columns:at(i):at(#3):ifElse({ nil }, { i:lessOrEqual(values:size):ifElse({ values:at(i) }, { nil }) })) }).
-    payload := recordBytes:value(record).
+    payload := sqlite:recordBytes(record).
     maxLocal := d:usable:sub(#35).
     payload:size:greaterThan(maxLocal):ifTrue({
         error:raise("a row of ":concat(payload:size:asString):concat(" bytes needs an overflow page, and this program does not write those (")
             :concat(maxLocal:asString):concat(" fit)")) }).
-    raw := varintBytes:value(payload:size):concat(varintBytes:value(rowid)):concat(payload).
-    treeInsert:value(d, t:root, raw, rowid, false).
+    raw := sqlite:varintBytes(payload:size):concat(sqlite:varintBytes(rowid)):concat(payload).
+    sqlite:treeInsert(d, t:root, raw, rowid, false).
     (t:maxRowid:isNil:or({ rowid:greaterThan(t:maxRowid) })):ifTrue({ t:maxRowid := rowid }).
     t:indexes:do({ ix | | entry |
         entry := ix:at(#3):collect({ name | | which |
-            which := resolve:value(t, name).
+            which := sqlite:resolve(t, name).
             which:equals('rowid):ifElse({ rowid }, { values:at(which) }) }).
         entry:add(rowid).
-        payload := recordBytes:value(entry).
+        payload := sqlite:recordBytes(entry).
         maxLocal := d:usable:sub(#12):mul(#64):div(#255):sub(#23).
         payload:size:greaterThan(maxLocal):ifTrue({
             error:raise("an index entry of ":concat(payload:size:asString):concat(" bytes needs an overflow page, and this program does not write those")) }).
-        raw := varintBytes:value(payload:size):concat(payload).
-        treeInsert:value(d, ix:at(#2), raw, entry, true) }).
+        raw := sqlite:varintBytes(payload:size):concat(payload).
+        sqlite:treeInsert(d, ix:at(#2), raw, entry, true) }).
     rowid }.
 
 ; A row of sqlite_schema, which is a table like any other with page 1 as
 ; its root and no rowid column of its own.
-schemaRow := { d, tables, kind, name, tblName, root, sql |
-    insertRow:value(d, tables:at("sqlite_schema"), [kind, name, tblName, root, sql], nil).
+sqlite:schemaRow := { d, tables, kind, name, tblName, root, sql |
+    sqlite:insertRow(d, tables:at("sqlite_schema"), [kind, name, tblName, root, sql], nil).
     d:cookie := d:cookie:inc }.
-
-; `text` is the whole source, since the tokens' positions are into it.
-createTable := { d, tables, st, text | | name, t, sql |
-    st:size:lessThan(#4):ifTrue({ error:raise("CREATE TABLE needs a name and columns") }).
-    name := tok:value(st, #3):at(#2).
-    tables:includes(name:asLowercase):ifTrue({ error:raise("table ":concat(name):concat(" already exists")) }).
-    t := table:new.
-    t:name := name.
-    t:columns := columnsFromSql:value(statementText:value(text, st)).
-    t:columns:size:equals(#0):ifTrue({ error:raise("CREATE TABLE ":concat(name):concat(" has no columns")) }).
-    t:indexes := []. t:maxRowid := nil.
-    t:root := d:newPage(#13).
-    ; Stored as written, after the two words SQLite spells for itself.
-    sql := "CREATE TABLE ":concat(text:copyFrom(st:at(#3):at(#3), st:at(st:size):at(#4))).
-    schemaRow:value(d, tables, "table", name, name, t:root, sql).
-    tables:atPut(name:asLowercase, t) }.
-
-createIndex := { d, tables, st, text | | name, tblName, t, cols, root, sql, ix |
-    st:size:lessThan(#7):ifTrue({ error:raise("CREATE INDEX needs a name, a table and columns") }).
-    name := tok:value(st, #3):at(#2).
-    isWord:value(st, #4, "ON"):ifFalse({ error:raise("expected ON in CREATE INDEX") }).
-    tblName := tok:value(st, #5):at(#2).
-    t := tables:at(tblName:asLowercase, nil).
-    t:isNil:ifTrue({ error:raise("no such table: ":concat(tblName)) }).
-    cols := indexColumnsFromSql:value(statementText:value(text, st)).
-    cols:isNil:ifTrue({ error:raise("an index with DESC, COLLATE, an expression or a WHERE is not written here") }).
-    cols:do({ c | resolve:value(t, c) }).
-    root := d:newPage(#10).
-    sql := "CREATE INDEX ":concat(text:copyFrom(st:at(#3):at(#3), st:at(st:size):at(#4))).
-    schemaRow:value(d, tables, "index", name, t:name, root, sql).
-    ix := [name, root, cols].
-    t:indexes:add(ix).
-    ; A table that already has rows is indexed now.
-    eachRow:value(d, t:root, { rowid, p | | values, entry, payload, raw |
-        values := decodeRecord:value(p).
-        entry := cols:collect({ c | | which |
-            which := resolve:value(t, c).
-            which:equals('rowid):ifElse({ rowid }, { which:greaterThan(values:size):ifElse({ nil }, { values:at(which) }) }) }).
-        entry:add(rowid).
-        payload := recordBytes:value(entry).
-        raw := varintBytes:value(payload:size):concat(payload).
-        treeInsert:value(d, root, raw, entry, true) }) }.
-
-; INSERT INTO t [(cols)] VALUES (v, ...), (v, ...)
-insertStatement := { d, tables, st | | i, name, t, which, r, rowValues, values, rowidGiven, done, v, count |
-    i := expect:value(st, #1, "INSERT").
-    i := expect:value(st, i, "INTO").
-    name := tok:value(st, i):at(#2). i := i:inc.
-    t := tables:at(name:asLowercase, nil).
-    t:isNil:ifTrue({ error:raise("no such table: ":concat(name)) }).
-    ; The columns named, resolved; none named is every column in order.
-    which := nil.
-    isPunct:value(st, i, "("):ifTrue({
-        i := i:inc. which := [].
-        { isPunct:value(st, i, ")"):not:and({ i:lessOrEqual(st:size) }) }:whileTrue({
-            r := columnRef:value(st, i). i := r:at(#2).
-            which:add(resolve:value(t, r:at(#1))).
-            isPunct:value(st, i, ","):ifTrue({ i := i:inc }) }).
-        i := i:inc }).
-    which:isNil:ifTrue({
-        which := [].
-        [#1, t:columns:size]:loop({ k | which:add(t:columns:at(k):at(#3):ifElse({ 'rowid }, { k })) }) }).
-    i := expect:value(st, i, "VALUES").
-    count := #0.
-    done := false.
-    { done:not }:whileTrue({
-        i := expect:value(st, i, "(").
-        rowValues := [].
-        { isPunct:value(st, i, ")"):not:and({ i:lessOrEqual(st:size) }) }:whileTrue({
-            r := literal:value(st, i). i := r:at(#2).
-            rowValues:add(r:at(#1)).
-            isPunct:value(st, i, ","):ifTrue({ i := i:inc }) }).
-        i := i:inc.
-        rowValues:size:notEquals(which:size):ifTrue({
-            error:raise("table ":concat(t:name):concat(" has "):concat(which:size:asString)
-                :concat(" columns but "):concat(rowValues:size:asString):concat(" values were supplied")) }).
-        values := []. rowidGiven := nil.
-        [#1, t:columns:size]:loop({ k | values:add(nil) }).
-        [#1, which:size]:loop({ k |
-            v := rowValues:at(k).
-            which:at(k):equals('rowid):ifElse(
-                { v:isNil:ifFalse({ rowidGiven := rowidOf:value(v) }) },
-                { values:atPut(which:at(k), storeAffinity:value(v, t:columns:at(which:at(k)):at(#2))) }) }).
-        insertRow:value(d, t, values, rowidGiven).
-        count := count:inc.
-        isPunct:value(st, i, ","):ifElse(
-            { i := i:inc }, { done := true }) }).
-    i:lessOrEqual(st:size):ifTrue({
-        error:raise("this INSERT goes on past what is understood, at: ":concat(tok:value(st, i):at(#2))) }).
-    count }.
 
 ; One row out of a table and each of its indexes. The index entries are
 ; rebuilt from the row's values as they were put in, which is why the values
 ; come along; `values` here are as stored, REAL columns included, since a
 ; stored integer and a real that equals it compare as equal anyway.
-deleteRow := { d, t, rowid, values |
+sqlite:deleteRow := { d, t, rowid, values |
     t:indexes:do({ ix | | entry |
         entry := ix:at(#3):collect({ name | | which |
-            which := resolve:value(t, name).
-            which:equals('rowid):ifElse({ rowid }, { valueAt:value(rowid, values, which) }) }).
+            which := sqlite:resolve(t, name).
+            which:equals('rowid):ifElse({ rowid }, { sqlite:valueAt(rowid, values, which) }) }).
         entry:add(rowid).
-        treeDelete:value(d, ix:at(#2), entry, true) }).
-    treeDelete:value(d, t:root, rowid, false).
+        sqlite:treeDelete(d, ix:at(#2), entry, true) }).
+    sqlite:treeDelete(d, t:root, rowid, false).
     ; The next rowid assigned is one past the largest that remains, as
     ; SQLite assigns it, so the largest is looked for again.
     t:maxRowid := nil }.
-
-; DELETE FROM t [WHERE ...]: the rows are found first and removed after,
-; since removing while walking would move the walk's ground.
-deleteStatement := { d, tables, st | | i, name, t, where, r, rows |
-    i := expect:value(st, #1, "DELETE").
-    i := expect:value(st, i, "FROM").
-    name := tok:value(st, i):at(#2). i := i:inc.
-    t := tables:at(name:asLowercase, nil).
-    t:isNil:ifTrue({ error:raise("no such table: ":concat(name)) }).
-    where := [].
-    isWord:value(st, i, "WHERE"):ifTrue({
-        i := i:inc.
-        r := parseWhere:value(st, i). where := r:at(#1). i := r:at(#2) }).
-    i:lessOrEqual(st:size):ifTrue({
-        error:raise("this DELETE goes on past what is understood, at: ":concat(tok:value(st, i):at(#2))) }).
-    rows := matchingRows:value(d, t, where).
-    rows:do({ row | deleteRow:value(d, t, row:at(#1), row:at(#2)) }).
-    rows:size }.
-
-; PRAGMA page_size = N sets the size of a database that is still empty, and
-; is ignored on one that is not, as SQLite ignores it. Any other pragma is
-; not understood, and says so rather than answering nothing.
-pragmaStatement := { d, st | | n |
-    (isWord:value(st, #2, "PAGE_SIZE"):and({ isPunct:value(st, #3, "=") })):ifFalse({
-        error:raise("only PRAGMA page_size = N is understood") }).
-    n := tok:value(st, #4):at(#2):asInteger.
-    ([#512, #1024, #2048, #4096, #8192, #16384, #32768, #65536]:indexOf(n)):isNil:ifTrue({
-        error:raise("page_size must be a power of two from 512 to 65536") }).
-    d:isEmpty:ifTrue({ d:pageSize := n. d:usable := n }) }.
-
-; One statement of any kind this program has.
-execute := { d, tables, st, text | | first |
-    first := st:at(#1):at(#2):asUppercase.
-    first:equals("SELECT"):ifElse({ runSelect:value(d, tables, parseSelect:value(st)) },
-    { first:equals("INSERT"):ifElse({ insertStatement:value(d, tables, st) },
-    { first:equals("DELETE"):ifElse({ deleteStatement:value(d, tables, st) },
-    { first:equals("PRAGMA"):ifElse({ pragmaStatement:value(d, st) },
-    { (first:equals("CREATE"):and({ isWord:value(st, #2, "TABLE") })):ifElse({ createTable:value(d, tables, st, text) },
-    { (first:equals("CREATE"):and({ isWord:value(st, #2, "INDEX") })):ifElse({ createIndex:value(d, tables, st, text) },
-    { (first:equals("CREATE"):and({ isWord:value(st, #2, "UNIQUE") })):ifElse(
-        { error:raise("a UNIQUE index is not written here; the constraint is not checked") },
-        { error:raise("only SELECT, CREATE TABLE, CREATE INDEX, INSERT, DELETE and PRAGMA page_size are understood; this begins with ":concat(st:at(#1):at(#2))) }) }) }) }) }) }) }) }.
-
-; ---------------------------------------------------------------------------
-; The demonstration
-;
-; Every program here runs with no arguments on input it supplies itself. This
-; one writes a small database under build/, reads it back, and if the sqlite3
-; on the machine is there, asks it whether the file is well formed and what
-; it reads, since that is the judge the sweep uses. Until step 3 the file
-; was made by sqlite3; now it is made here.
-
-demonstrate := { | path, run, verdict |
-    system:makeDirectory("build").
-    path := "build/sqlite-demo.db".
-    system:fileExists(path):ifTrue({ system:remove(path) }).
-    demoDb := db:open(path).
-    demoTables := loadSchema:value(demoDb).
-    run := { sql |
-        "-- ":concat(sql):display.
-        statements:value(tokenize:value(sql)):do({ st |
-            execute:value(demoDb, demoTables, st, sql) }).
-        out:size:greaterThan(#0):ifTrue({ system:write(out:join("")). out := []. "":display }) }.
-    run:value("CREATE TABLE fruit (name TEXT, count INTEGER, price REAL)").
-    run:value("CREATE INDEX fruit_name ON fruit (name)").
-    run:value("INSERT INTO fruit VALUES ('pear', 3, 0.5), ('apple', 10, 0.25), ('fig', 1, 2.0)").
-    run:value("INSERT INTO fruit VALUES ('banana', 2, 0.3), ('apple', 7, 0.25), (NULL, 0, 1e20)").
-    "":display.
-    run:value("SELECT * FROM fruit").
-    run:value("SELECT rowid, name FROM fruit WHERE name = 'apple'").
-    run:value("SELECT name, price FROM fruit ORDER BY price, rowid").
-    run:value("SELECT count FROM fruit WHERE rowid = 3").
-    run:value("SELECT type, name, rootpage FROM sqlite_schema").
-    demoDb:flush.
-    "-- ":concat(demoDb:pageCount:asString):concat(" pages of "):concat(demoDb:pageSize:asString)
-        :concat(" bytes written to "):concat(path):display.
-    verdict := system:capture(["sqlite3", path, "PRAGMA integrity_check; SELECT name, count FROM fruit WHERE name = 'apple'"],
-                              ["stderr", 'discard]).
-    verdict:at("status"):equals(#0):ifElse(
-        { "-- sqlite3 on this machine says: ":concat(verdict:at("output"):trim:split("\n"):join(" / ")):display },
-        { "-- no sqlite3 on this machine to judge it":display }) }.
-
-demoDb := nil.
-demoTables := nil.
-
-; ---------------------------------------------------------------------------
-; Main
-
-main := { | args, d, tables, text, tokens, status |
-    args := system:arguments.
-    args:size:lessThan(#1):ifTrue({
-        { demonstrate:value }:onError({ e |
-            system:writeError("sqlite: ":concat(e:message):concat("\n")).
-            system:exit(#2) }).
-        system:exit(#0) }).
-    status := #0.
-    { d := db:open(args:at(#1)).
-      tables := loadSchema:value(d) }:onError({ e |
-        system:writeError("Error: ":concat(e:message):concat("\n")).
-        system:exit(#1) }).
-    text := args:size:greaterOrEqual(#2):ifElse({ args:at(#2) }, { system:readFile("/dev/stdin") }).
-    statements:value(tokenize:value(text)):do({ st |
-        { execute:value(d, tables, st, text) }
-        :onError({ e |
-            system:write(out:join("")). out := [].
-            system:writeError("Error: ":concat(e:message):concat("\n")).
-            status := #1 }) }).
-    system:write(out:join("")).
-    ; What changed is written now, whole, as the statements that finished left
-    ; it; there is no journal, so a statement that failed half way is in the
-    ; file half way, and the sweep judges only files whose script finished.
-    { d:flush }:onError({ e |
-        system:writeError("Error: ":concat(e:message):concat("\n")).
-        status := #1 }).
-    ; The numbers to watch, on request: pages read, and for a run that wrote,
-    ; pages changed and bytes written, which is the measurement step 4 of the
-    ; plan exists for and 3.27 was closed on.
-    system:environment("SQLITE_PAGES"):notNil:ifTrue({
-        d:written:equals(#0):ifElse(
-            { system:writeError(d:reads:asString:concat(" pages read of "):concat(d:pageCount:asString):concat("\n")) },
-            { system:writeError(d:reads:asString:concat(" pages read, "):concat(d:changed:asString)
-                  :concat(" changed and written of "):concat(d:pageCount:asString):concat(", ")
-                  :concat(d:written:asString):concat(" bytes\n")) }) }).
-    system:exit(status) }.
-
-main:value.

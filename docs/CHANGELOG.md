@@ -16,7 +16,7 @@ its writable mode and `cases/deletes.sql` is the author's hand at it. 629 of
 [ideas.md](ideas.md#an-sqlite-file-read-and-then-written-scoped-2026-09-15)
 is scored prediction by prediction, and the account of what
 `integrity_check` named on the way is in
-[programs.md](programs.md#sqlite-reads-and-writes-an-sqlite-file).
+[programs.md](programs.md#sql-and-sqlite-an-sql-shell-and-the-library-that-reads-and-writes-the-file).
 
 ### `writeFile(path, from, text)`: a range of a file, written — `7b24b44`, 2026-09-15
 
@@ -48,10 +48,10 @@ index are refused by name.
 
 ### `sqlite`, the twenty-third program: SQLite's file format, read — `4b0654d`, 2026-09-15
 
-[programs/sqlite.sol](../programs/sqlite.sol) reads the database file
+[programs/sqlite.sol](../lib/sqlite.sol) reads the database file
 `sqlite3` writes and answers SELECT over it in the shell's list mode, so the
 two compare to the byte; by rowid, through a plain index, or by a scan.
-[programs/sqlite/sweep.sh](../programs/sqlite/sweep.sh) has `sqlite3` build
+[programs/sqlite/sweep.sh](../programs/sql/sweep.sh) has `sqlite3` build
 every database in the corpus from a script and say what is in it: 852 of 852
 over four seeds. The first of the directions
 [design.md](design.md#the-directions-intended-stated-2026-08-31) lists to be

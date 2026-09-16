@@ -61,7 +61,7 @@ from them goes under `build/programs/`, never here.
 | [diff](../programs/diff.sol) | the shortest set of changes that turns one file into another | `solvm diff.sob [-u] [-q] old new` |
 | [sort](../programs/sort.sol) | lines in order, spilling to disk when they do not fit | `solvm sort.sob [-rnufbs] [-k F,F] [file...]` |
 | [gzip](../programs/gzip.sol) | inflates a gzip stream back into the bytes it was made from | `solvm gzip.sob [-dcktl] [file...]` |
-| [sqlite](../programs/sqlite.sol) | reads and writes an SQLite database file: CREATE, INSERT, SELECT | `solvm sqlite.sob [file.db] [SQL]` |
+| [sql](../programs/sql.sol) | an SQL shell over [lib/sqlite.sol](../lib/sqlite.sol), which reads and writes an SQLite database file | `solvm sql.sob [file.db] [SQL]` |
 
 Every one runs with no arguments at all, on input it supplies itself. That is
 deliberate — a program you have to feed before it will say anything is a program
@@ -2544,7 +2544,7 @@ merely non-zero, since 124 is what the deadline leaves and it means *did not
 stop*.
 
 
-## sqlite reads and writes an SQLite file
+## sql and sqlite: an SQL shell, and the library that reads and writes the file
 
 The file format `sqlite3` uses, read and written from its description: the
 header, the B-tree pages, varints, records, overflow chains, and
@@ -2555,10 +2555,10 @@ byte; CREATE TABLE, CREATE INDEX and INSERT into a fresh file, which `sqlite3`
 then opens.
 
 ```sh
-./bin/solvm programs/sqlite.sob                              # it demonstrates itself
-./bin/solvm programs/sqlite.sob notes.db 'SELECT * FROM t'
-./bin/solvm programs/sqlite.sob notes.db < statements.sql    # a statement per `;`
-./bin/solvm programs/sqlite.sob new.db 'CREATE TABLE t (a, b); INSERT INTO t VALUES (1, 2)'
+./bin/solvm programs/sql.sob                              # it demonstrates itself
+./bin/solvm programs/sql.sob notes.db 'SELECT * FROM t'
+./bin/solvm programs/sql.sob notes.db < statements.sql    # a statement per `;`
+./bin/solvm programs/sql.sob new.db 'CREATE TABLE t (a, b); INSERT INTO t VALUES (1, 2)'
 ```
 
 ```
@@ -2575,7 +2575,7 @@ fig|2.0
 [design.md](design.md#the-directions-intended-stated-2026-08-31) lists to be
 reached, and the second whose oracle produces every input: `sqlite3` builds
 each database in the corpus from a SQL script, and `sqlite3` says what is in
-it. [programs/sqlite/sweep.sh](../programs/sqlite/sweep.sh) runs thirteen
+it. [programs/sql/sweep.sh](../programs/sql/sweep.sh) runs thirteen
 chosen shapes and two hundred generated ones a seed; on the day the reader
 landed, four seeds agreed in every case, 852 of 852, after the third seed had
 found one defect, below. The plan is in

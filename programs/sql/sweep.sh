@@ -1,11 +1,11 @@
 #!/bin/sh
 #
-# sweep.sh -- sqlite.sol against the sqlite3 on the machine, over files it made,
-#             and then over files sqlite.sol made.
+# sweep.sh -- sql.sol, the shell over lib/sqlite.sol, against the sqlite3 on
+#             the machine, over files it made, and then over files sql.sol made.
 #
-#     sh programs/sqlite/sweep.sh              # author cases, and 200 generated
-#     sh programs/sqlite/sweep.sh 1000         # more generated
-#     sh programs/sqlite/sweep.sh keep DIR     # build the corpus into DIR and stop
+#     sh programs/sql/sweep.sh              # author cases, and 200 generated
+#     sh programs/sql/sweep.sh 1000         # more generated
+#     sh programs/sql/sweep.sh keep DIR     # build the corpus into DIR and stop
 #
 # **The oracle produces every input.** Each case is a SQL script: the
 # statements above `-- queries` are given to sqlite3, which builds the
@@ -88,15 +88,15 @@ if [ "${1:-}" = "keep" ]; then
     work=$keep
 else
     count=${1:-200}
-    if [ ! -f bin/solvm ] || [ ! -f programs/sqlite.sob ]; then
-        echo "build first:  make && ./bin/solas programs/sqlite.sol"
+    if [ ! -f bin/solvm ] || [ ! -f programs/sql.sob ]; then
+        echo "build first:  make && ./bin/solas programs/sql.sol"
         exit 2
     fi
     work=$(mktemp -d "${TMPDIR:-/tmp}/sqlite-sweep.XXXXXX")
     trap 'rm -rf "$work"' EXIT INT TERM
 fi
 
-ours="./bin/solvm programs/sqlite.sob"
+ours="./bin/solvm programs/sql.sob"
 cases=0
 bad=0
 
@@ -144,7 +144,7 @@ echo
 if [ -n "$keep" ]; then
     echo "building the corpus into $keep"
 else
-    echo "$SQLITE against programs/sqlite.sob, LC_ALL=C"
+    echo "$SQLITE against programs/sql.sob, LC_ALL=C"
 fi
 echo
 
@@ -152,7 +152,7 @@ echo
 # Author
 
 n=0
-for f in programs/sqlite/cases/*.sql; do
+for f in programs/sql/cases/*.sql; do
     n=$((n + 1))
     run_case "$f" "$(basename "$f" .sql)"
 done
@@ -166,7 +166,7 @@ echo "  author:    $n cases"
 # subshell exits. sort/sweep.sh shipped that once and says so.
 
 seed=${SQLITE_SEED:-1}
-python3 programs/sqlite/generate.py "$work" "$seed" "$count" || exit 2
+python3 programs/sql/generate.py "$work" "$seed" "$count" || exit 2
 while IFS= read -r f; do
     run_case "$f" "$(basename "$f" .sql)"
 done <<GEN
@@ -267,14 +267,14 @@ if [ -z "$keep" ]; then
     echo "the writer, judged by $SQLITE"
     echo
     n=0
-    for f in programs/sqlite/cases/*.sql; do
+    for f in programs/sql/cases/*.sql; do
         grep -q '^-- writer: skip' "$f" && continue
         n=$((n + 1))
         write_case "$(basename "$f" .sql)"
         existing_case "$(basename "$f" .sql)"
     done
     echo "  author:    $n cases, from nothing and into a file sqlite3 began"
-    python3 programs/sqlite/generate.py "$work" "$seed" "$count" writable || exit 2
+    python3 programs/sql/generate.py "$work" "$seed" "$count" writable || exit 2
     while IFS= read -r f; do
         name=$(basename "$f" .sql)
         prepare "$f" "$name" || { bad=$((bad + 1)); continue; }

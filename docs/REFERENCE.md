@@ -1692,7 +1692,7 @@ nothing open between two writes and no question of what a write after a close
 should do, and it costs what the read costs: an open, a seek and a close each
 time, about 30 microseconds, whatever the size. A program that changes three
 pages of a large file pays for three pages. Before this existed it paid for
-the file: [sqlite.sol](../programs/sqlite.sol) changes a leaf, the page above
+the file: [lib/sqlite.sol](../lib/sqlite.sol) changes a leaf, the page above
 it and the header to insert one row, and rewriting a 100 MB file to put 12 KB
 back took 1.16 seconds where the same tool in C takes 0.04, which is the
 measurement [3.27](COMPLETED.md#327-a-file-is-written-whole-or-appended-to-and-nothing-in-between--done)
