@@ -5,6 +5,39 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### The database as objects: `lib/sqlite.sol`, a table, a query and a row whose columns are slots — `817edb7`, 2026-09-15
+
+`@include "sqlite.sol"`, then `sqlite:open(path)`; `create` and `table` on
+the database; `insert`, `find`, `where`, `filter`, `orderBy`, `all`, `each`,
+`count` and `delete` on a table and on the query each answers, a new one each
+time; a row an object under its table's prototype, its columns as slots,
+`rowid`, `table`, `save` and `delete` beside them. The SQL shell is a client
+of the objects, so the sweep judges both fronts at once: 632 of 632 on seed
+1, rows as dictionaries and then as objects. UPDATE is in the shell and the
+generator so that `update` can be judged, and its first author case found a
+defect the writer had carried since DELETE: a rowid put back after being
+taken out descended past the divider equal to it. [The plan](ideas.md#the-database-as-objects-and-the-first-slot-made-from-a-run-time-name-scoped-2026-09-15)
+is scored under its predictions; [REFERENCE.md](REFERENCE.md#sqlitesol) has
+the library, [programs.md](programs.md#the-objects-over-it-and-the-defect-update-found-the-same-evening)
+the defect, and [examples/database.sol](../examples/database.sol) runs it.
+
+### `object:new(dictionary)`: a slot per pair, from names held in a value — `268ecaf`, 2026-09-15
+
+A fresh object delegating to the receiver, with a slot for each pair of the
+dictionary, the key a symbol or a string. The one place a slot is made from a
+run-time name, asked for by a database row whose columns come out of a file,
+and built after the rows had run as dictionaries. Construction only: no
+`slotAtPut`, and [2.14](ROADMAP.md#214-loose-ends-from-the-decided-items)
+stays open, narrowed. No GC root, and the test says why one is not needed.
+[REFERENCE.md](REFERENCE.md#object) has the form.
+
+### The engine is `lib/sqlite.sol` and the shell is `programs/sql.sol` — `9836029`, 2026-09-15
+
+Step 0 of the objects plan, scoped in `a238cf8`: the engine moved whole
+under one global, the SQL shell is what was left, and the sweep was 629 of
+629 before a line was added. The program could not keep its name, since
+`@include` looks beside the includer first; the corpus is `programs/sql/`.
+
 ### `sqlite` deletes, and the plan that made it is done — `1036d10`, 2026-09-15
 
 `DELETE FROM t [WHERE ...]`, with a WHERE that is comparisons joined by AND

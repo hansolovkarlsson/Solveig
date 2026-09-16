@@ -238,6 +238,77 @@ Six steps, five commits, and the sixth step is the paragraph that says so.
 The design page's table of directions now says the database direction was
 reached and what it found.
 
+**The evening began with what the database was actually for.** Hans said
+the SQL statements were a neat thing he had not expected, and that the idea
+had been ActiveRecord's shape: the database an object, each table an
+object, methods to search, insert, update and delete, and the values of a
+record reached as properties. The answer took the shape of a scoping. SQL
+had come in because the oracle speaks it, the engine under the parser was
+already functions over a database and a table, and an object front was a
+second front on the same engine. The one wall was the property spelling,
+which meets 2.14, reflection cannot write; three ways through were weighed
+and the narrow one recommended, `object:new(dictionary)`, built after a
+version with rows as dictionaries had run, so that a program would ask and
+not a page. Hans took it, calling it a fair compromise, and said to plan it
+out and write an example on the way. One question was asked before the
+plan was written, because the plan's paths depended on it: `@include` looks
+beside the includer first, so `programs/sqlite.sol` asking for `sqlite.sol`
+would find itself, and one of the two had to change its name. The library
+took it and the shell became `programs/sql.sol`.
+
+**Step 0 was the move, and the sweep said it changed nothing.** A script
+turned every top-level name into a slot on `sqlite` and every
+`f:value(...)` into `sqlite:f(...)`, skipping comments and strings; four
+things it could not do by rule were done by hand, and a local named `page`
+was renamed so the prototype's name could be rewritten around it. 629 of
+629 on seed 1, the same number as the day before, run before a line was
+added, which is the check against the unfixed code. The corpus directory
+moved with the program, and the two historical links in the changelog point
+at where the files live now, as `pattern.sol`'s does. `make test` then
+found what the sweep could not: the checker requires every linked path to
+exist, and it was those two links.
+
+**Step 1 was the objects with rows as dictionaries, and UPDATE found a
+defect in the writer on its first author case.** The shell's INSERT,
+DELETE and SELECT became clients of the table and the query, so the sweep
+judges both fronts at once; UPDATE went into the shell and the generator
+because `sqlite3` could not judge the library's `update` without a
+statement to reach it by. A block has one arity, so the comparison could
+not share `where`'s name and is `filter(column, op, value)`. Then
+`updates.sql`: *Rowid 30 out of order*. A rowid put back after being taken
+out descended past the interior divider equal to it, because the descent
+used the leaf's rule, which steps past an equal rowid to refuse it as a
+duplicate, and landed on the leaf after. The step-5 writer had carried it
+since it was written, and no generated script had met it: it takes a
+DELETE of exactly a divider's rowid and an INSERT with that rowid given.
+`childFor` descends now and `positionFor` places. 632 of 632 on seed 1,
+with the twenty-one generated cases that update.
+
+**Steps 2 and 3 were the primitive and the rows on it.** Thirty-eight
+lines of `builtins.c`: keys checked before a slot is made, a string
+interned by its length, no root, because defining a slot mallocs it and
+interns its name in the permanent table and neither goes through the
+collector; the stress case makes two hundred rows and a wide one without
+one, and the comment says why there is none. The rows became objects under
+a prototype a table, the shell changed `row:at(w)` to `row:slotAt(w)` and
+nothing else in its cases, and the sweep was 632 of 632 again. The
+measurement 6.15 asked for: a column as a send is twice as fast as the
+dictionary read it replaced, `slotAt` a fifth slower, and at twenty-five
+columns the same, because an object past twelve slots has a hash index
+that 6.15's *walked linearly* predates. Two predictions wrong in a detail,
+the root and the walk, and both recorded under the prediction.
+
+**Step 4 was the example and the pages, and the counts moved.**
+`examples/database.sol` runs the whole surface under `expect`, the
+reference has the library and the primitive, the cheatsheet has both rows,
+`programs.md` has the split and the defect, and the roadmap's 2.14 says
+the narrow form arrived and from which shape. Twenty-five claims and one
+example moved eight counts across four documents. The plan said the
+primitive would become a COMPLETED entry; it did not, since it closes
+nothing: 2.14 stays open, narrowed, and the case is in `ideas.md`. Four
+commits, the scoping first, and a second seed of the sweep running as the
+records were written.
+
 ---
 
 ## 2026-09-14, evening: Parasol runs solas, one version is decided, and the Makefile is one

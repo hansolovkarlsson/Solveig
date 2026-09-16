@@ -6525,6 +6525,16 @@ the prediction's first half held, within 2× either way at five columns, and
 its second half, the walk losing past twenty, was wrong about the machine
 it was measuring.
 
+##### Steps 4 and 5, and the entry the primitive did not become
+
+**The example, the pages and the records**, and one thing step 5's row
+predicted wrongly: the primitive became no COMPLETED entry, since it closes
+nothing. 2.14 stays open with a paragraph saying the narrow form arrived
+and from which shape, and the case is this entry. The four commits are
+`a238cf8` (the scoping), `9836029` (the move), `268ecaf` (the primitive)
+and `817edb7` (the objects, the shell, the example and the pages); the
+journal has the evening and the changelog the three that landed.
+
 ##### The calls only you can make
 
 1. **The names.** The library `lib/sqlite.sol` binding `sqlite`, the program
