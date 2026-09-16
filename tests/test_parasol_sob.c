@@ -10,6 +10,7 @@
  * The binaries are looked for in `bin/`, which is where `make` puts them when
  * this runs from the root as the suite does; `PARASOL_BIN` names another
  * directory. */
+#include <dirent.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -38,6 +39,37 @@ static void remove_file(const char *name)
     char path[512];
     snprintf(path, sizeof path, "%s/%s", directory, name);
     unlink(path);
+}
+
+/* Everything in the directory and the two below it, read from the directory
+   rather than from a list here: the list this used to be would have left the
+   directory behind on any check that failed by writing a file it should not
+   have, and the `cp` failure path did not reach it at all. test_parasol_use
+   had the same list and lost fifty-five directories to it. */
+static void remove_directory(const char *path)
+{
+    DIR *listing = opendir(path);
+    if (listing != NULL) {
+        struct dirent *entry;
+        while ((entry = readdir(listing)) != NULL) {
+            if (entry->d_name[0] == '.') continue;
+            char child[768];
+            snprintf(child, sizeof child, "%s/%s", path, entry->d_name);
+            if (unlink(child) != 0) rmdir(child);
+        }
+        closedir(listing);
+    }
+    rmdir(path);
+}
+
+static void clean_up(void)
+{
+    char path[512];
+    snprintf(path, sizeof path, "%s/out", directory);
+    remove_directory(path);
+    snprintf(path, sizeof path, "%s/lib", directory);
+    remove_directory(path);
+    remove_directory(directory);
 }
 
 static bool exists(const char *name)
@@ -208,7 +240,7 @@ int main(void)
     {
         char line[1024];
         snprintf(line, sizeof line, "cp '%s/parasol' '%s/p'", bin, directory);
-        if (system(line) != 0) { perror("cp"); return 1; }
+        if (system(line) != 0) { perror("cp"); clean_up(); return 1; }
     }
     status = run("PATH=/nonexistent ./p --sob v.psol", out, sizeof out);
     check("no solas anywhere is 127", status == 127, out);
@@ -219,20 +251,7 @@ int main(void)
 
     printf("%d checks, %d failed\n", checks, failures);
 
-    const char *files[] = { "v.psol", "v.sol", "v.sob", "two.sob", "out/w.sob",
-                            "out/w.sol", "out/w.sol.map", "lib/ops.psol",
-                            "lib/seven.sol", "both.psol", "both.sol", "both.sob",
-                            "bad.psol", "inc.psol", "inc.sol", "p" };
-    for (size_t i = 0; i < sizeof files / sizeof *files; i++)
-        remove_file(files[i]);
-    {
-        char path[512];
-        snprintf(path, sizeof path, "%s/out", directory);
-        rmdir(path);
-        snprintf(path, sizeof path, "%s/lib", directory);
-        rmdir(path);
-    }
-    rmdir(directory);
+    clean_up();
 
     return failures == 0 ? 0 : 1;
 }
