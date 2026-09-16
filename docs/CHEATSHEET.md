@@ -352,6 +352,7 @@ cleaned:print.                                              ; true
 | Message | Answers |
 | --- | --- |
 | `new` | a fresh object delegating to the receiver |
+| `new(dictionary)` | the same with a slot per pair, the keys symbols or strings; the one slot made from a run-time name |
 | `via(ancestor)` | a delegating view: lookup starts there, `self` stays |
 | `parent` | the prototype, or nil at the root; read-only |
 | `error:raise(text)` | never — it unwinds to the nearest `onError` |

@@ -232,6 +232,18 @@ own.
   interpreter with an environment, a debugger handed a name, a serialiser. See
   [design.md](design.md#why-binding-is-syntax-and-not-a-message) for why binding
   is syntax in the first place.
+
+  **The narrow form arrived on 2026-09-15, from a fourth shape the list above
+  did not name: a database row.** `object:new(dictionary)` makes a fresh object
+  with a slot per pair, the names from the dictionary's keys, at construction
+  and never after; [the entry](ideas.md#the-database-as-objects-and-the-first-slot-made-from-a-run-time-name-scoped-2026-09-15)
+  weighed it against a full `slotAtPut` and against rows as dictionaries, and
+  built it after the dictionary version had run so that the program asked and
+  not the page. 6.15's two arguments were weighed again: the name leak is
+  bounded by a schema where it was not by a file of keys, and the linear walk
+  is what a slot index already answers past twelve slots. What this entry says
+  still holds for everything after construction: no `slotAtPut`, no removal, no
+  re-parenting, and no global by computed name.
 - **`via` refuses a value receiver** (2.9). Override on a value class a message
   that `object` defines and the override cannot reach the one it displaced:
   `self:via(object)` answers *'via' expects an object, got integer*. The check

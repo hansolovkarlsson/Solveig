@@ -3746,18 +3746,75 @@ static SolValue prim_block_ensure(SolVM *vm, SolValue self, SolValue *args, int 
     return SOL_NIL_VAL;
 }
 
+/* `object:new`, and since 2026-09-15 `object:new(dictionary)`: the same fresh
+   object, with one slot per pair, the key a symbol or a string naming the slot
+   and the value what it holds. This is the one place a slot is made from a name
+   decided at run time -- there is still no `slotAtPut`, and the roadmap's 2.14
+   says why -- and it exists because a database row wants its columns as slots
+   and the column names come out of a file. The keys are checked before any slot
+   is made, so a refusal leaves nothing half built; a string may carry a NUL, so
+   the name is interned by length rather than read to one. A name that is not an
+   identifier makes a slot that only `slotAt` and `perform` reach, which is
+   stated rather than refused: the dictionary is the caller's, and the names in
+   it are the caller's business.
+
+   No temporary root. `sol_object_define_interned` mallocs the slot and interns
+   the name in the permanent table; neither goes through the collector, so
+   nothing can run between the child being made and its return. Adding a root
+   here and removing it again under SOLUM_GC_STRESS changed nothing, which is
+   the test that decides. */
 static SolValue prim_object_new(SolVM *vm, SolValue self, SolValue *args, int argc)
 {
-    (void)args;
-    if (!check_argc(vm, "new", argc, 0)) return SOL_NIL_VAL;
+    if (argc > 1) {
+        sol_vm_runtime_error(vm, "'new' expects nothing, or a dictionary of slots, not %d arguments",
+                             argc);
+        return SOL_NIL_VAL;
+    }
     if (!SOL_IS_OBJ(self)) {
         sol_vm_runtime_error(vm, "'new' expects an object, got %s",
                              sol_type_name(self));
         return SOL_NIL_VAL;
     }
+    if (argc == 1) {
+        if (!SOL_IS_DICT(args[0])) {
+            sol_vm_runtime_error(vm, "'new' expects a dictionary of slots, got %s",
+                                 sol_type_name(args[0]));
+            return SOL_NIL_VAL;
+        }
+        const SolDict *dict = SOL_AS_DICT(args[0]);
+        for (int i = 0; i < dict->capacity; i++) {
+            if (dict->entries[i].state != SOL_DICT_LIVE) continue;
+            SolValue key = dict->entries[i].key;
+            if (!SOL_IS_SYMBOL(key) && !SOL_IS_STRING(key)) {
+                sol_vm_runtime_error(vm, "'new' names a slot by a symbol or a string, not %s",
+                                     sol_type_name(key));
+                return SOL_NIL_VAL;
+            }
+            int length = SOL_IS_SYMBOL(key) ? SOL_AS_SYMBOL(key)->length
+                                            : SOL_AS_STRING(key)->length;
+            if (length == 0) {
+                sol_vm_runtime_error(vm, "'new' cannot make a slot with no name");
+                return SOL_NIL_VAL;
+            }
+        }
+    }
     /* `self` is on the value stack for the duration of this call, so it stays
        rooted while the child is allocated. */
-    return SOL_OBJ_VAL(sol_object_new(vm, SOL_AS_OBJ(self)));
+    SolObject *child = sol_object_new(vm, SOL_AS_OBJ(self));
+    if (argc == 1) {
+        const SolDict *dict = SOL_AS_DICT(args[0]);
+        for (int i = 0; i < dict->capacity; i++) {
+            if (dict->entries[i].state != SOL_DICT_LIVE) continue;
+            SolValue key = dict->entries[i].key;
+            const char *chars = SOL_IS_SYMBOL(key) ? SOL_AS_SYMBOL(key)->chars
+                                                   : SOL_AS_STRING(key)->chars;
+            int length = SOL_IS_SYMBOL(key) ? SOL_AS_SYMBOL(key)->length
+                                            : SOL_AS_STRING(key)->length;
+            sol_object_define_interned(vm, child, sol_vm_intern_name(vm, chars, length),
+                                       dict->entries[i].value);
+        }
+    }
+    return SOL_OBJ_VAL(child);
 }
 
 /* `self:via(ancestor)` answers a delegating view: a send to it looks the message

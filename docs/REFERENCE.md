@@ -3157,6 +3157,9 @@ block is refused every time rather than only when something fails.
 
 Six messages let a program ask about itself. Names are given as symbols,
 because a symbol is what a name is and comparing one is a pointer comparison.
+None of them writes; the one message that makes a slot from a name held in a
+value is [`object:new(dictionary)`](#object), and it does so only when the
+object is made.
 
 | Message | Answers |
 | --- | --- |
@@ -4125,11 +4128,33 @@ rather than identity.
 | Message | Answers |
 | --- | --- |
 | `new` | a fresh object delegating to the receiver |
+| `new(dictionary)` | the same, with a slot per pair: the key, a symbol or a string, names the slot and the value is what it holds |
 | `via(ancestor)` | a delegating view: lookup starts there, `self` stays |
 | `parent` | the prototype, or nil at the root; read-only — assigning it shadows the message rather than re-parenting |
 
 `slots` and `slotAt` are listed under [Reflection](#reflection); they are on
 every type but answer only for objects.
+
+**`new(dictionary)` is the one place a slot is made from a name decided at run
+time.** Everywhere else a slot's name is written in the program; here it comes
+from a value, and the customer is a database row, whose columns come out of a
+file. It is construction and nothing more: there is still no `slotAtPut`, and
+[2.14](ROADMAP.md#214-loose-ends-from-the-decided-items) says why. The keys are
+checked before any slot is made, so a refused key leaves nothing half built;
+a name that is not an identifier makes a slot all the same, reached by
+`slotAt` and `perform`; and each distinct name is interned in the permanent
+name table, so the names a program makes this way should be bounded, as a
+schema's are, and not one a row.
+
+```
+row := object:new(#['title = "milk", "done" = #0]).
+row:title:display.               ; milk
+row:done := #1.                  ; an ordinary slot from here on
+row:slots:size:print.            ; #2
+proto := object:new(#['describe = { self:title:concat("!") }]).
+proto:new(#['title = "eggs"]):describe:display.   ; eggs!
+object:new(#[#1 = "one"]).       ; solvm: 'new' names a slot by a symbol or a string, not integer
+```
 
 ### system
 
@@ -4495,7 +4520,7 @@ appear in an example.
 | Strings | bytes, not characters: `size` counts bytes, `at` answers a byte, and `"café":size` is 5 |
 | Case | ASCII only, and by explicit range rather than the C locale |
 | Strings | no `\0`, no unicode escapes |
-| Symbols | read-only: `perform`, `respondsTo`, and `slotAt` take one to *name* something, but nothing takes one to *create* a slot — there is no `slotAtPut` |
+| Symbols | `perform`, `respondsTo`, and `slotAt` take one to *name* something; the one thing that takes one to *create* a slot is `object:new(dictionary)`, at construction, and there is no `slotAtPut` |
 
 Collection is mark-and-sweep and stop-the-world. `SOLUM_GC_STRESS=1` collects on
 every allocation, which is how the collector is tested.

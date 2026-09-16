@@ -555,8 +555,85 @@ static void test_is_nil_takes_no_arguments(void)
     sol_vm_free(&vm);
 }
 
+/* `new(dictionary)`: a fresh object with a slot per pair, from names decided at
+   run time. The one way a program makes a slot from a name it did not write,
+   and it exists for a database row whose columns come out of a file. */
+static void test_new_from_a_dictionary(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+
+    assert(run(&vm, &chunk,
+        "row := object:new(#['title = \"milk\", \"done\" = #0, 'weight = nil])."
+        "t := row:title. d := row:done. w := row:weight:isNil."
+        "own := row:slots:size."
+        /* an ordinary object afterwards: assignment, a method, delegation */
+        "row:done := #1. d2 := row:done."
+        "proto := object:new(#['kind = \"note\", 'describe = { self:title:concat(\"!\") }])."
+        "n := proto:new(#['title = \"eggs\"])."
+        "k := n:kind. s := n:describe."
+        "nn := n:slots:size."
+        /* an empty dictionary is `new` */
+        "e := object:new(#[]):slots:size."
+        /* a name that is not an identifier is a slot all the same, reached by
+           slotAt and perform */
+        "odd := object:new(#[\"first name\" = \"Ada\"])."
+        "o := odd:slotAt(\"first name\":asSymbol).") == SOL_OK);
+    assert(SOL_IS_STRING(global(&vm, "t")));
+    assert(SOL_AS_INT(global(&vm, "d")) == 0);
+    assert(SOL_AS_BOOL(global(&vm, "w")) == true);
+    assert(SOL_AS_INT(global(&vm, "own")) == 3);
+    assert(SOL_AS_INT(global(&vm, "d2")) == 1);
+    assert(SOL_IS_STRING(global(&vm, "k")));
+    assert(SOL_IS_STRING(global(&vm, "s")));
+    assert(strcmp(SOL_AS_STRING(global(&vm, "s"))->chars, "eggs!") == 0);
+    assert(SOL_AS_INT(global(&vm, "nn")) == 1);
+    assert(SOL_AS_INT(global(&vm, "e")) == 0);
+    assert(strcmp(SOL_AS_STRING(global(&vm, "o"))->chars, "Ada") == 0);
+
+    sol_chunk_free(&chunk); sol_vm_free(&vm);
+
+    /* Refused before any slot is made: a key that names nothing, a second
+       argument, a non-dictionary. */
+    static const char *refused[] = {
+        "object:new(#[#1 = \"one\"]).",
+        "object:new(#['a = #1, #2 = \"two\"]).",
+        "object:new(#[\"\" = #1]).",
+        "object:new([\"a\", #1]).",
+        "object:new(#['a = #1], #2).",
+    };
+    for (size_t i = 0; i < sizeof(refused) / sizeof(refused[0]); i++) {
+        SolVM v; sol_vm_init(&v);
+        SolChunk c;
+        assert(run(&v, &c, refused[i]) == SOL_RUNTIME_ERROR);
+        sol_chunk_free(&c); sol_vm_free(&v);
+    }
+
+    /* Under collection at every allocation: the dictionary's values are the
+       only things reachable through the new object, and it is not rooted
+       while they are defined into it, because defining allocates nothing the
+       collector sees. If that ever changes this is the case that says so. */
+    SolVM sv; sol_vm_init(&sv);
+    sv.gc_stress = true;
+    SolChunk sc;
+    assert(run(&sv, &sc,
+        "rows := []."
+        "#200:repeat({ rows:add(object:new(#['a = [#1, #2, #3], 'b = \"text\":concat(\"!\"), 'c = #[]])) })."
+        "big := dictionary:new."
+        "#120:repeat({ big:atPut(\"k\":concat(big:size:asString), big:size) })."
+        "wide := object:new(big)."
+        "count := wide:slots:size."
+        "sum := rows:inject(#0, { acc, r | acc:add(r:a:size):add(r:b:size) }).") == SOL_OK);
+    assert(SOL_AS_INT(global(&sv, "count")) == 120);
+    assert(SOL_AS_INT(global(&sv, "sum")) == 200 * 8);
+    sol_chunk_free(&sc); sol_vm_free(&sv);
+
+    printf("  new(dictionary) makes the slots, refuses a bad key first, and survives GC stress\n");
+}
+
 int main(void)
 {
+    test_new_from_a_dictionary();
     test_via_keeps_the_receiver();
     test_via_chains();
     test_via_passes_arguments_and_reads_slots();
