@@ -5,6 +5,19 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### A roadmap number given twice is a finding — `50c285a`, 2026-09-16
+
+`expect.sol` reads every `### N.M` on the roadmap and the completed page,
+and a number standing over two titles across the two, or one title under one
+number on both, fails `make test`. [COMPLETED.md](COMPLETED.md) had said a
+number is never reused since the day it was written, and for a day on
+2026-09-15 one was, under a green suite: two titles are two anchors, and the
+link check reads anchors. Run over the two pages as they were that day it
+names the collision; over today's it reads 103 and finds none. The fourth
+check in that program about this repository rather than the language, and
+[programs.md](programs.md#expect--the-examples-and-the-documents-checked-against-what-they-claim)
+describes it beside the other three.
+
 ### `solvm --steps` with no `=N` reports the instruction count — `de5d75c`, 2026-09-16
 
 The bare flag bounds nothing and, when the run is over, writes

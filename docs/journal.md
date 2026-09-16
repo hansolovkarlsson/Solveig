@@ -142,6 +142,18 @@ about itself, for a program that wants to know. The cheatsheet had
 `--steps N` with a space, which was never a spelling the binary took; it is
 `--steps=N` now.
 
+**Then the check that would have caught the morning's collision**, which
+Hans took first of three suggested. Nothing had read COMPLETED.md's sentence
+that a number is never reused, so `expect.sol` reads it now: every `### N.M`
+on the two pages that give numbers, and one number over two titles is a
+finding. Written, then run over the roadmap and the completed page as they
+were at `0ea0dc4`, where it named `3.23` at COMPLETED.md:1480 as already
+given at ROADMAP.md:1097; over today's pages it reads 103 and finds none.
+The first version's report line said *none given twice* on the same run
+that listed one, and was made to count. `test_documents` reads the line
+with a floor, since a check that stops finding numbers is a check that has
+stopped. The second suggestion was the push.
+
 ---
 
 ## 2026-09-15: the documents, and Parasol is a member
