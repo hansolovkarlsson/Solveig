@@ -35,6 +35,8 @@ static void usage(FILE *out)
         "  --trace      write the call tree to stderr as it runs\n"
         "  --trace=N    the same, following calls only N deep\n"
         "  --steps=N    stop the program after N instructions\n"
+        "  --steps      bound nothing, and say afterwards how many instructions the\n"
+        "               run took, on stderr; that is the N a --steps=N would need\n"
         "  --memory=N   stop it if it holds more than N bytes; K, M and G\n"
         "               may be used, so --memory=64M\n"
         "  --extension=PATH\n"
@@ -90,6 +92,7 @@ int main(int argc, char *argv[])
        terminal wants: they have a ctrl-c, and a budget chosen in advance by
        somebody who did not know what the program was going to do. */
     unsigned long long steps = 0;
+    bool count_steps = false;
     size_t memory = 0;
 
     /* Extensions are named before the machine exists and loaded after it does,
@@ -130,6 +133,11 @@ int main(int argc, char *argv[])
             }
             trace = true;
             trace_depth = (int)depth;
+            at++;
+            continue;
+        }
+        if (strcmp(argv[at], "--steps") == 0) {
+            count_steps = true;
             at++;
             continue;
         }
@@ -230,6 +238,17 @@ int main(int argc, char *argv[])
 
     SolResult result = sol_vm_run(&vm, &chunk);
     int status = vm.exit_code;              /* read before the VM goes away */
+
+    /* After whatever the run had to say, and after the program's own output,
+       which is why stdout is flushed first: the count is the last line, on
+       stderr with the rest of what solvm says, so `2>/dev/null` keeps the
+       program's output clean of it. A run that failed or was stopped by
+       --memory is counted too; what it spent is still what it spent. */
+    if (count_steps) {
+        fflush(stdout);
+        fprintf(stderr, "solvm: %llu instructions\n",
+                (unsigned long long)sol_vm_steps_run(&vm));
+    }
 
     sol_vm_free(&vm);
     sol_chunk_free(&chunk);

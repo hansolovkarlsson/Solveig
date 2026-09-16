@@ -389,6 +389,13 @@ SolResult sol_vm_call_chunk(SolVM *vm, const SolChunk *chunk);
 void sol_vm_set_step_limit(SolVM *vm, uint64_t steps);
 void sol_vm_set_memory_limit(SolVM *vm, size_t bytes);
 
+/* How many instructions the last `sol_vm_run` executed, limit or no limit. The
+ * machine was always counting, since a limit is a counter; this reads it back,
+ * and it is the same count the limit tests: a run that finished at N is the
+ * run a limit of N lets finish and a limit of N-1 stops. A stopped run answers
+ * its limit, and a failed run what it spent reaching the failure. */
+uint64_t sol_vm_steps_run(const SolVM *vm);
+
 /* Whether `sol_vm_run` writes an uncaught failure to stderr before it answers.
  * On unless a host turns it off; see `report_errors` above. Off does not lose
  * the failure -- the result still says what happened and

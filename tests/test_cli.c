@@ -449,6 +449,57 @@ static void test_output_comes_before_the_failure(void)
     printf("  what was printed comes out before the failure, down a pipe too\n");
 }
 
+/* `--steps` with no `=N` bounds nothing and says afterwards how many
+   instructions the run took, on stderr, where the program's own output is
+   not. The number is the one the limit uses: `--steps=N` lets that run
+   finish and `--steps=N-1` stops it, which is the binary search this replaces
+   done in two runs rather than twenty-eight. Roadmap 3.30. */
+static void test_a_bare_steps_reports_the_count(void)
+{
+    char out[16384];
+
+    FILE *f = fopen(DIR "/counted.sol", "w");
+    assert(f != NULL);
+    fputs("n := #0.\n"
+          "[#1,#100]:loop({ i | n := n:inc }).\n"
+          "n:print.\n", f);
+    fclose(f);
+    assert(system("bin/solas " DIR "/counted.sol -o " DIR "/counted.sob") == 0);
+
+    /* The count is on stderr, the program's output is not. */
+    assert(run("bin/solvm --steps " DIR "/counted.sob 2>&1 >/dev/null",
+               out, sizeof out) == 0);
+    unsigned long long count = 0;
+    assert(sscanf(out, "solvm: %llu instructions", &count) == 1);
+    assert(count > 100);
+    assert(run("bin/solvm --steps " DIR "/counted.sob 2>/dev/null",
+               out, sizeof out) == 0);
+    assert(strcmp(out, "#100\n") == 0);
+
+    /* And it is the number the limit uses. */
+    char command[256];
+    snprintf(command, sizeof command,
+             "bin/solvm --steps=%llu " DIR "/counted.sob >/dev/null 2>&1", count);
+    assert(run(command, out, sizeof out) == 0);
+    snprintf(command, sizeof command,
+             "bin/solvm --steps=%llu " DIR "/counted.sob >/dev/null 2>&1", count - 1);
+    assert(run(command, out, sizeof out) == 124);
+
+    /* A run that fails is still counted, after the failure is reported, and
+       the status is the failure's. */
+    assert(run("bin/solvm --steps " DIR "/printed.sob 2>&1", out, sizeof out) == 70);
+    assert(strncmp(out, "printed first\n", 14) == 0);
+    assert(strstr(out, "notAMessage") != NULL);
+    assert(strstr(out, " instructions") != NULL);
+    assert(strstr(out, "notAMessage") < strstr(out, " instructions"));
+
+    /* `--steps=` with nothing after it is still a mistake, not a bare flag. */
+    assert(run("bin/solvm --steps= " DIR "/counted.sob 2>&1 >/dev/null",
+               out, sizeof out) == 64);
+
+    printf("  --steps alone reports the count, and it is the count the limit uses\n");
+}
+
 /* Holding is what is measured, not allocating. The two programs below do the
    same amount of work under the same ceiling and only one of them is holding
    it when the collector looks. */
@@ -1878,6 +1929,7 @@ int main(void)
     test_the_other_options_still_work();
     test_a_step_limit_stops_a_program();
     test_output_comes_before_the_failure();
+    test_a_bare_steps_reports_the_count();
     test_a_memory_limit_measures_what_is_held();
     test_the_limits_are_off_and_are_checked();
     test_a_pipe_is_read_whole();

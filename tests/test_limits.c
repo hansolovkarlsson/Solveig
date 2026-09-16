@@ -263,6 +263,48 @@ static void test_no_message_reaches_the_limits(void)
     sol_vm_free(&vm);
 }
 
+/* The machine was always counting, since a limit is a counter; this is the
+   count read back. It is the same number the limit tests: a run that finishes
+   at N instructions is exactly the run that `--steps=N` lets finish and
+   `--steps=N-1` stops. Roadmap 3.30, which was 28 full runs to learn a
+   number the machine had after the first. */
+static void test_the_count_is_the_one_the_limit_uses(void)
+{
+    SolVM vm; sol_vm_init(&vm);
+    SolChunk chunk;
+    const char *program = "n := #0. [#1,#100]:loop({ i | n := n:inc }).";
+
+    /* Counted with no limit set: the counter starts from the top and the
+       count is what it came down by. */
+    assert(run(&vm, &chunk, program) == SOL_OK);
+    uint64_t count = sol_vm_steps_run(&vm);
+    assert(count > 100);                /* a hundred iterations of several each */
+    assert(count < 100000);
+    sol_chunk_free(&chunk);
+
+    /* Exactly that many is enough, and one fewer is not. */
+    sol_vm_set_step_limit(&vm, count);
+    assert(run(&vm, &chunk, program) == SOL_OK);
+    assert(sol_vm_steps_run(&vm) == count);
+    sol_chunk_free(&chunk);
+
+    sol_vm_set_step_limit(&vm, count - 1);
+    assert(run(&vm, &chunk, program) == SOL_STOPPED);
+    assert(sol_vm_steps_run(&vm) == count - 1);   /* a stopped run ran its limit */
+    sol_chunk_free(&chunk);
+
+    /* A failing run has a count too: what it spent getting to the failure. */
+    sol_vm_set_step_limit(&vm, 0);
+    sol_vm_set_error_reporting(&vm, false);
+    assert(run(&vm, &chunk, "a := #1. b := a:add(#2). nil:frobnicate.")
+           == SOL_RUNTIME_ERROR);
+    assert(sol_vm_steps_run(&vm) > 0);
+    assert(sol_vm_steps_run(&vm) < count);
+    sol_chunk_free(&chunk);
+
+    sol_vm_free(&vm);
+}
+
 int main(void)
 {
     test_an_inlined_loop_is_stopped();
@@ -277,6 +319,7 @@ int main(void)
     test_allocating_without_holding_is_not_stopped();
     test_a_stop_reports_which_limit_and_where();
     test_no_message_reaches_the_limits();
+    test_the_count_is_the_one_the_limit_uses();
     printf("test_limits: ok\n");
     return 0;
 }

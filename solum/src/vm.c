@@ -1372,6 +1372,18 @@ void sol_vm_set_memory_limit(SolVM *vm, size_t bytes)
     vm->memory_limit = bytes;
 }
 
+uint64_t sol_vm_steps_run(const SolVM *vm)
+{
+    /* The counter starts where `sol_vm_run` set it and comes down one per
+       instruction, so the count is the distance it came. A stop is the one
+       case where it went past: the test that stops is a post-decrement of
+       zero, which leaves the counter wrapped, and the run had then executed
+       exactly its limit. */
+    uint64_t start = vm->step_limit > 0 ? vm->step_limit : UINT64_MAX;
+    if (vm->steps_remaining > start) return start;
+    return start - vm->steps_remaining;
+}
+
 void sol_vm_set_error_reporting(SolVM *vm, bool on)
 {
     vm->report_errors = on;
