@@ -5,6 +5,20 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### The two out-of-memory exits flush stdout first — `cfec870`, 2026-09-16
+
+The two `solvm: out of memory` writes in `vm.c`, after a failed `realloc`
+of the loaded-names table and a failed `malloc` of a chunk's interned
+names, go to stderr and then `exit(1)`, which flushes stdout only after
+the message; down a pipe the program's output landed below the report.
+`fflush(stdout)` before each, the flush 3.28 gave the failure report at
+`66f142f`. The trigger was not met: nobody has met an allocation failure
+down a pipe, and
+[3.28](COMPLETED.md#328-program-output-and-a-run-time-error-come-out-in-the-wrong-order--done)
+had noted the two sites and left them. Done so that every `solvm:` line
+the machine writes comes after what the program printed, on inspection
+only: the suite does not make `realloc` fail.
+
 ### A roadmap number given twice is a finding — `50c285a`, 2026-09-16
 
 `expect.sol` reads every `### N.M` on the roadmap and the completed page,

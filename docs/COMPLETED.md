@@ -454,10 +454,13 @@ It failed on the unfixed tree at the first of its assertions, the order one,
 and passes now.
 
 **What it is not.** The two `solvm: out of memory` writes in `vm.c` that
-`exit(1)` after a failed `realloc` are not flushed first; `exit` flushes
-stdout on its way out, so what was printed still arrives, after the message
+`exit(1)` after a failed `realloc` were not flushed first; `exit` flushes
+stdout on its way out, so what was printed still arrived, after the message
 rather than before it, and a host that cannot grow a table of loaded names
-has a larger problem than the order of two lines. `--trace` interleaves with
+has a larger problem than the order of two lines. They were flushed the
+same afternoon, `cfec870`, with the trigger not met, so that the rule is
+without exception: every `solvm:` line comes after what the program
+printed. `--trace` interleaves with
 the program's output on a terminal and not down a pipe, for the same reason,
 and is not this entry: a trace is read beside the output rather than as part
 of it, and nothing has asked.

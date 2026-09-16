@@ -177,6 +177,17 @@ the wrong line being worse than the wrong file on the right one. Deferred:
 both occasions so far were exercises about the map, and the trigger is a
 failure met while doing something else. Four calls are Hans's, in the entry.
 
+**The evening was the cheapest thing on the standup, with its trigger not
+met.** Hans asked what was easiest, and it was the two `solvm: out of
+memory` writes that 3.28's entry had noted and left: each goes to stderr
+and then `exit(1)`, which flushes stdout only after the message, so down a
+pipe the program's output landed below the report, the order 3.28 fixed at
+the failure report. Two `fflush(stdout)` calls, `cfec870`. Nobody has met
+an allocation failure down a pipe, and the suite does not make `realloc`
+fail, so it shipped on inspection, and it is recorded as done without its
+trigger, for consistency: every `solvm:` line the machine writes now comes
+after what the program printed, with no site excepted.
+
 ---
 
 ## 2026-09-15: the documents, and Parasol is a member
