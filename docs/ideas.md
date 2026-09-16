@@ -6513,7 +6513,7 @@ hazard that is not there.
 shell did not change its cases: `row:at(w)` became `row:slotAt(w)` and
 UPDATE builds its new values through `asDictionary`, since there is no way
 to set a slot by a name in a value, which is the boundary the entry drew.
-The sweep is the same 632 of 632 on seed 1 over the object rows. **The
+The sweep is the same 632 of 632 on seed 1 over the object rows, and 629 of 629 on seed 2, run after the records were written. **The
 measurement, 6.15's second half put to a number**, 400,000 reads:
 `o:c5` as a send 0.036 s against `d:at('c5)` 0.069 s, so the property is
 twice as fast as the dictionary it replaced, and `slotAt` by a symbol held
