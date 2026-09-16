@@ -5,6 +5,14 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### `make test` assembles ember's output only where the assembler can — `b7cccd1`, 2026-09-16
+
+The build workflow's Linux runners were red from 2026-09-14, when Parasol
+joined, on `cc fizzbuzz.s`: the assembly is ARM64 in Apple's spelling and the
+runners are x86-64. Nothing local could see it. `make test` now runs `.em` to
+`.s` everywhere and assembles and diffs on `Darwin arm64`, printing a line
+where it does not; `make test HOST="Linux x86_64"` shows the other branch.
+
 ### The database as objects: `lib/sqlite.sol`, a table, a query and a row whose columns are slots — `817edb7`, 2026-09-15
 
 `@include "sqlite.sol"`, then `sqlite:open(path)`; `create` and `table` on
