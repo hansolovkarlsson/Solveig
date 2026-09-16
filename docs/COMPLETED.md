@@ -375,6 +375,67 @@ The limitations themselves are still live and are in
 [ROADMAP.md](ROADMAP.md#3-known-limitations). These were limitations until they
 stopped being ones.
 
+### 3.28 Program output and a run-time error come out in the wrong order — **done**
+
+`fflush(stdout)` before the report of a failure is written to stderr, at the
+one place that writes it, the end of `sol_vm_run`. Built on 2026-09-16, the
+day after the entry was numbered and sixteen days after it was found, and
+it is the line the entry said it would be.
+
+**What it was.** Down a pipe, a program that printed and then failed showed
+the failure *before* what it printed: standard output is block-buffered when
+it is not a terminal and standard error is never buffered, so the report
+overtook everything printed and not yet written. At a terminal stdout is
+line-buffered and the order came out right by accident, which is why nothing
+here had seen it in the months the machine had been reporting failures.
+Parasol's `make test` captured both streams of every example on 2026-08-31
+and read a print that had happened as one that had not, and wrote it down as
+the first thing it found in Solveig.
+[PARASOL-SOLVEIG-NOTES.md](PARASOL-SOLVEIG-NOTES.md#1-program-output-and-a-runtime-error-come-out-in-the-wrong-order)
+1 has the repro as it was found.
+
+**Three shapes, one write.** The entry said *probably also* a stop by
+`--steps` or `--memory`, and all three were reproduced before anything was
+changed: a program that prints and then sends a message nothing understands,
+one that prints and then loops until the step limit, and one that prints and
+then holds memory until that limit. Each came out with its report first. A
+stop travels the same flag a failure does and is reported by the same
+`fprintf`, so one flush covers the three, and the test in
+`tests/test_cli.c` runs all three through one pipe, `2>&1`, which is the
+shape that shows it, and asks that the printed line be the first bytes out.
+It failed on the unfixed tree at the first of its assertions, the order one,
+and passes now.
+
+**What it is not.** The two `solvm: out of memory` writes in `vm.c` that
+`exit(1)` after a failed `realloc` are not flushed first; `exit` flushes
+stdout on its way out, so what was printed still arrives, after the message
+rather than before it, and a host that cannot grow a table of loaded names
+has a larger problem than the order of two lines. `--trace` interleaves with
+the program's output on a terminal and not down a pipe, for the same reason,
+and is not this entry: a trace is read beside the output rather than as part
+of it, and nothing has asked.
+
+**What the fix found.** `make test` went red on the first run after it, at
+one claim of the reference: a block under *Fetching a method* that documented
+an error on its second line and `#7` on its third, a `print` no program
+reaches, since the error stops it. It had passed for as long as it stood
+because [expect.sol](../programs/expect.sol) carried a workaround for this
+very defect, taking a `solvm:` line as the block's *wherever it landed*, and
+with the complaint at the front of the merged output the context's line count
+skipped the complaint and one context line short, and the context's last
+line, `#7` from `p:perform('sum):print` further up the page, leaked into the
+block's tail and matched. Put the complaint where it belongs and the leak
+stops and the claim fails, correctly. The page has the send before the
+failure now, so both lines run; the checker's two comments say what was true
+until today and what the rule they explain was hiding. A workaround for a
+defect in the thing under test is a check that agrees with the defect, and
+the claim it let through is exactly the kind the checker exists to stop.
+
+**The machine.** One call, no allocation, no root, no GC proof owed. The
+conformance harness cannot see the defect and cannot see the fix, since it
+captures the two streams to two files, which is right for what it scores and
+is why the check is in `test_cli.c` and not there.
+
 ### 3.27 A file is written whole, or appended to, and nothing in between — **done**
 
 `system:writeFile(path, from, text)` replaces the bytes from the one-based

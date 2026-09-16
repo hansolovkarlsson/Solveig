@@ -8,7 +8,7 @@ the four findings still open became [3.28 to 3.31](ROADMAP.md#3-known-limitation
 on the roadmap, each pointing back here for the account, and a finding after
 this date is Solveig's own and goes to the roadmap directly. They were 3.23
 to 3.26 for a day, until the count was found to have reused a number; the
-roadmap says so.*
+roadmap says so. 3.28 closed on 2026-09-16.*
 
 **This is what a second customer is for.** solveig-sdl's README says the same
 thing about `sol_symbol_intern` — reachable and not promised, promised now
@@ -16,14 +16,15 @@ because a second binding wanted it. Parasol is a customer of a different part:
 not the extension ABI but the compiler and the machine as *programs*, driven
 from a command line by something that generated their input.
 
-Entries 1 to 4 are open, and numbered on the roadmap; 5 is an inventory and
-was never a request. Nothing here is a blocker.
+Entries 1 to 4 are numbered on the roadmap, and 2 to 4 are open; 5 is an
+inventory and was never a request. Nothing here is a blocker.
 
 ---
 
 ## 1. Program output and a runtime error come out in the wrong order
 
-*Roadmap 3.28.*
+*Roadmap 3.28, [done](COMPLETED.md#328-program-output-and-a-run-time-error-come-out-in-the-wrong-order--done)
+on 2026-09-16, as the one line below.*
 
 **Kind:** defect, small, one line.
 

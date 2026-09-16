@@ -74,6 +74,51 @@ and downloading. The build workflow green on all five jobs at `c6421ef`,
 saying 0.47.0. The release is what it says it is, and the plan that made
 Parasol a member of the toolkit has nothing open.
 
+**The afternoon started on the four findings Parasol had raised, and the
+first thing it found was that their numbers were wrong.** Hans asked what
+was next and the answer was the entries whose triggers had already fired:
+the four from yesterday, each found by a real program, against section 7 and
+the standing holds still waiting on theirs. He took the recommendation, the
+one-liner first and then the step count in its smallest shape. The one-liner
+was reproduced in three shapes before anything was touched, a failure, a
+step stop and a memory stop, each with its report ahead of what the program
+printed, and the fix was where the entry said, one `fflush(stdout)` at the
+end of `sol_vm_run`, the one place that writes the report and the place a
+stop goes through as well. The check went into `test_cli.c` first, three
+runs through one pipe with `2>&1`, and failed on the unfixed tree at the
+order assertion; the conformance harness could not have held it, since it
+captures the two streams to two files, which is right for what it scores.
+Then, looking for every page that named 3.23 to move the entry, the grep
+turned up a `### 3.23` already in COMPLETED.md: the check on the published
+pages, given the number on 2026-09-01 and closed the same day, in the
+section whose preamble said so. Yesterday's count had started from 3.22 as
+the last number given, while 3.27 the same afternoon was counted right.
+COMPLETED.md's own head says a number is never reused because the changelog
+cites them, so the four are 3.28 to 3.31, renumbered with all four still
+open, in a commit of their own before the fix went in under the new number.
+Every page that named them was repointed, yesterday's journal paragraph
+included, the way three changelog links to moved entries had been; Parasol's
+frozen roadmap keeps its sentence, since it was true on the day and the
+freeze note says nothing is added below it. The suite had not seen the
+collision and could not have: the two headings have different titles, so the
+anchors differ, and nothing counts numbers.
+
+**And the flush found a claim.** The suite went red on the records, one
+claim short of 1129: in the reference, under *Fetching a method*, a block
+that documents `m:value` failing on its second line and `#7` from
+`p:perform('sum):print` on its third. The third line never runs. It had
+passed for as long as it stood because `expect.sol` carries a workaround for
+exactly the defect just fixed, reading a `solvm:` line as the block's
+wherever it lands, and with the complaint at the front of the merged output
+the context's line count skipped one context line short: the last line the
+context printed, which was `#7` from the same send further up the page,
+leaked into the block's tail and matched the claim. With the complaint at
+the end the leak stops and the claim fails, which is right. The page has the
+send before the failure now, both lines run, and the checker's two comments
+say what was true until today and what the rule was hiding. It is the
+method's shape again from a new side: a workaround in a check for a defect
+in the thing it checks is a check that agrees with the defect.
+
 ---
 
 ## 2026-09-15: the documents, and Parasol is a member

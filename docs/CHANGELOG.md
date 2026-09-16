@@ -5,6 +5,23 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### What a program printed comes out before the report that it failed, down a pipe too — `66f142f`, 2026-09-16
+
+`fflush(stdout)` before the failure is written to stderr, at the one place
+that writes it. Off a terminal stdout is block-buffered and stderr never is,
+so the report had overtaken everything printed and not yet written, and a
+`make test` capturing both streams read a print that had happened as one
+that had not. A stop by `--steps` or `--memory` is the same write, so the
+one flush covers the three, and `test_cli` runs all three through one pipe.
+[3.28](COMPLETED.md#328-program-output-and-a-run-time-error-come-out-in-the-wrong-order--done),
+the first of Parasol's four findings, sixteen days after it was found. The
+four were 3.23 to 3.26 for a day: 3.23 had been given on 2026-09-01, and
+`af54fd6` renumbered them to 3.28 to 3.31 before the first closed. The
+flush found one claim in the reference that a `print` after a documented
+error, which never runs, had been passing on a line leaked from the context
+by the checker's workaround for the interleave; the page runs the send
+before the failure now, `43ab08b`, and the entry says how it got through.
+
 ## 0.47.0 — 2026-09-16
 
 **Parasol is a member of the toolkit, and a database is a file the language

@@ -339,6 +339,12 @@ changelog cites them, so the four were renumbered on 2026-09-16 with all four
 still open, and every page that named them was repointed but Parasol's frozen
 roadmap, where the sentence was true on the day it was written.
 
+**3.28 left on 2026-09-16**, the one-liner: `fflush(stdout)` before the
+report that a program failed, so that what it printed comes out first down a
+pipe as it did at a terminal, and a stop by `--steps` or `--memory` goes the
+same way because it is the same write. It is in
+[COMPLETED.md](COMPLETED.md#328-program-output-and-a-run-time-error-come-out-in-the-wrong-order--done).
+
 **The last three before those arrived together**, from writing
 [the embedding interface](embedding.md) down. Stating what a host may rely on
 means stating what it may not, and three of those turned out to be real
@@ -1103,19 +1109,6 @@ this urgent is a loop whose body must *skip its remainder* once the flag is set:
 today every site either sets it at the tail of a branch or wants the rest to
 run, and the moment one does not, the flag has to be threaded through the body
 as `done:not:ifTrue({ ... })` and the workaround starts nesting.
-
-### 3.28 Program output and a run-time error come out in the wrong order
-
-Down a pipe, a program that prints and then fails shows the error *before*
-its output: standard output is block-buffered when it is not a terminal and
-standard error is not buffered at all, so the complaint overtakes everything
-printed and not yet flushed. Interactively stdout is line-buffered and the
-order happens to be right, which is why nothing here had seen it. The fix is
-an `fflush(stdout)` before a run-time error is written, and probably before
-the machine stops for `--steps` or `--memory`, which fail the same way.
-[PARASOL-SOLVEIG-NOTES.md](PARASOL-SOLVEIG-NOTES.md#1-program-output-and-a-runtime-error-come-out-in-the-wrong-order)
-1 has the repro. Found on 2026-08-31 by a `make test` that captured both
-streams and read a print that had happened as one that had not.
 
 ### 3.29 A generated file cannot say where it came from
 
