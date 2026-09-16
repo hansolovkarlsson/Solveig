@@ -307,7 +307,26 @@ example moved eight counts across four documents. The plan said the
 primitive would become a COMPLETED entry; it did not, since it closes
 nothing: 2.14 stays open, narrowed, and the case is in `ideas.md`. Four
 commits, the scoping first, and a second seed of the sweep running as the
-records were written.
+records were written. It came in at 629 of 629.
+
+**Then the push, and the site check found nothing, and the push found what
+the site check could not.** `site.sh` after the deploy: 39 pages, 2074
+headings, 1536 internal links, nothing to look at. But `gh run list` beside
+it showed the build workflow red, and not once: every run since Parasol
+joined on 2026-09-14. The Linux runners are x86-64 and `make test`
+assembles `ember`'s output, which is ARM64 in Apple's spelling, `_main` and
+`ldp x29, x30, [sp]`, so `cc fizzbuzz.s` failed on three of the five jobs
+for two days while every local `make test` passed and two site checks said
+the pages were fine. Nothing on this machine could have seen it; only the
+workflow's own verdict, which nobody had read. Hans said fix it now.
+`make test` runs `.em` to `.s` everywhere and assembles and diffs only on
+`Darwin arm64`, saying so on a line where it does not; `HOST` is
+overridable, so the other branch was run here before it was pushed. The
+next run was green on all five jobs, the first green build since the
+fourteenth. The lesson is the one `site.sh` was built on, one step further
+out: every check here reads the file, `site.sh` reads the page, and the
+workflow's verdict is a third thing that neither reads, so a push is not
+done until somebody has looked at it.
 
 ---
 
