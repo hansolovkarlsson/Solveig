@@ -1431,9 +1431,19 @@ SolResult sol_vm_run(SolVM *vm, const SolChunk *chunk)
 
        Unless a host asked for the failure to be its own. The text is kept
        either way -- what `report_errors` decides is whether this function also
-       puts it somewhere the host did not choose. */
+       puts it somewhere the host did not choose.
+
+       What the program printed goes out first. Standard output is
+       block-buffered when it is not a terminal and standard error is never
+       buffered, so without the flush the report overtakes everything printed
+       and not yet written, and a `make test` capturing both streams reads a
+       print that happened as one that did not. At a terminal stdout is
+       line-buffered and the order came out right by accident, which is why
+       nothing here saw it until a program driven from a pipe did. A stop is
+       reported by this same write, so it is covered by the same flush. */
     if (vm->report_errors && vm->had_error && !vm->exiting &&
         vm->error_message.length > 0) {
+        fflush(stdout);
         fprintf(stderr, "solvm: %s\n", vm->error_message.chars);
         if (vm->error_trace.length > 0) fputs(vm->error_trace.chars, stderr);
     }

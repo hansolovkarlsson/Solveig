@@ -402,6 +402,53 @@ static void test_a_step_limit_stops_a_program(void)
     printf("  --steps stops a loop that enters no frames, with 124\n");
 }
 
+/* What the program printed comes out before the report that it failed, down
+   a pipe as at a terminal. Standard output is block-buffered when it is not a
+   terminal and standard error is not buffered at all, so without a flush the
+   report overtakes everything printed and not yet written, and a `make test`
+   capturing both streams reads a print that happened as one that did not.
+   Interactively stdout is line-buffered and the order comes out right by
+   accident, which is why nothing here had seen it: roadmap 3.28, found by
+   Parasol on 2026-08-31. The same check on a stop, since a stop is reported
+   by the same write. */
+static void test_output_comes_before_the_failure(void)
+{
+    char out[16384];
+
+    FILE *f = fopen(DIR "/printed.sol", "w");
+    assert(f != NULL);
+    fputs("\"printed first\":display.\n"
+          "nil:notAMessage.\n", f);
+    fclose(f);
+    assert(system("bin/solas " DIR "/printed.sol -o " DIR "/printed.sob") == 0);
+
+    /* One pipe for both streams, which is the shape that shows it. */
+    assert(run("bin/solvm " DIR "/printed.sob 2>&1", out, sizeof out) == 70);
+    assert(strncmp(out, "printed first\n", 14) == 0);
+    assert(strstr(out, "notAMessage") != NULL);
+
+    f = fopen(DIR "/printed-then-looped.sol", "w");
+    assert(f != NULL);
+    fputs("\"printed first\":display.\n"
+          "held := array:new.\n"
+          "{ true }:whileTrue({ held:add(\"kept\") }).\n", f);
+    fclose(f);
+    assert(system("bin/solas " DIR "/printed-then-looped.sol -o "
+                  DIR "/printed-then-looped.sob") == 0);
+
+    assert(run("bin/solvm --steps=1000 " DIR "/printed-then-looped.sob 2>&1",
+               out, sizeof out) == 124);
+    assert(strncmp(out, "printed first\n", 14) == 0);
+    assert(strstr(out, "step limit") != NULL);
+
+    assert(run("bin/solvm --memory=1M " DIR "/printed-then-looped.sob 2>&1",
+               out, sizeof out) == 124);
+    assert(strncmp(out, "printed first\n", 14) == 0);
+    assert(strstr(out, "memory limit") != NULL);
+
+    printf("  what was printed comes out before the failure, down a pipe too\n");
+}
+
 /* Holding is what is measured, not allocating. The two programs below do the
    same amount of work under the same ceiling and only one of them is holding
    it when the collector looks. */
@@ -1830,6 +1877,7 @@ int main(void)
     test_interactive_can_call_what_the_program_defined();
     test_the_other_options_still_work();
     test_a_step_limit_stops_a_program();
+    test_output_comes_before_the_failure();
     test_a_memory_limit_measures_what_is_held();
     test_the_limits_are_off_and_are_checked();
     test_a_pipe_is_read_whole();
