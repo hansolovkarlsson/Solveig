@@ -5306,6 +5306,36 @@ it finished before that day are on its own
 [COMPLETED.md](parasol/COMPLETED.md), with the numbers they had there; an
 entry that closes after it closes here.
 
+### 7.1 One version for the tree, at the next release — **done**
+
+**The first step of the plan that made Parasol a member of the toolkit, and
+the last to close**, on 2026-09-16, in the release the entry had named. The
+entry as it stood: Parasol was `0.17.0` inside a tree that was `0.44.0`,
+with its own changelog and its own `dist` tarball, because it arrived as a
+subproject with its history and nothing about that was decided at the time
+beyond *not now*. Decided on the evening of 2026-09-14: one version. The
+Makefile merge that was to wait on it did not wait, being step 2 of the plan
+and going in the same evening, and the changelog and `dist` went with the
+records on 2026-09-15, so what was left for the release was the number
+itself: `parasol --version` reporting the tree's, and
+`PARASOL_SOLVEIG_MINIMUM` going, since the parent is the version by
+construction.
+
+**How the number reaches Parasol.** Not by including `solum/common.h`, which
+is the one thing nothing under `parasol/` may do and the arrangement the
+whole build tests. The Makefile already wrote a generated `config.h` for
+Parasol, carrying `PARASOL_LIB_DIR` from the one `PREFIX`; it writes
+`PARASOL_VERSION` into the same file now, from the same `SOLUM_VERSION` it
+reads to name the tarball. Parasol's `common.h` includes that file where it
+used to define the number, so the version arrives the way the library path
+does, written by the Makefile from a header it read, and the boundary check
+on the linked binary, that it exports no `sol_` symbol, still passes.
+`--version` says `parasol 0.47.0 (emits Solveig source)`, without the
+*needs solas 0.40.0 or later* it used to add, and the banner on every
+generated `.sol` names the tree's number. The frozen changelog under
+[docs/parasol/](parasol/CHANGELOG.md) stays at 0.17.0, which is the last
+number that was Parasol's own.
+
 ### 7.2 What is left in `parasol/` — **done**
 
 **The last sub-step of the plan that made Parasol a member of the toolkit**,

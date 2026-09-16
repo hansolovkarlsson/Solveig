@@ -1242,37 +1242,9 @@ as written; a refusal reopened is argued again here or in
 toolkit is on that page too, under *A member of the toolkit*, with four of its
 five steps and three of the fifth's five sub-steps marked done; the fourth
 and fifth sub-steps were done the day it froze, the fifth being
-[7.2](COMPLETED.md#72-what-is-left-in-parasol--done), and what is left of the
-plan is 7.1.
-
-### 7.1 One version for the tree, at the next release
-
-**Parasol's version is its own, and so is its Makefile, and the second waits
-on the first.** *Decided on 2026-09-14, in the evening: one version. And the
-Makefile did not wait after all: the merge was step 2 of the plan and went in
-the same evening, the version half being all that is left of this entry. From the
-next Solveig release `parasol --version` reports the tree's number, this
-changelog's entries carry it, `PARASOL_SOLVEIG_MINIMUM` goes since the parent
-is the version by construction, and Parasol's `dist` goes with it. The entry
-stays open until that release does it, and is step 1 of the plan under* A
-member of the toolkit *below.* Parasol is `0.17.0` inside a tree that is `0.44.0`, with its
-own changelog and its own `dist` tarball, because it arrived as a
-subproject with its history and nothing about that was decided at the time
-beyond *not now*. Since 2026-09-13 its compiler is built into Solveig's
-`bin/` beside the four, which is as far as the build has been folded. The
-next Parasol release is what forces the question: one version and one release
-for the whole tree, or two as today. Folding the Makefile into Solveig's was
-asked about the same day and declined for the same reason, since a merge
-before that answer would settle the version by the back door. What holds it
-apart today is also what the separate file enforces: every one of Parasol's
-`test`, `clean`, `install` and `dist` collides with the root's, `dist` cuts
-a tarball under Parasol's own number, and the Makefile's opening claim, that
-the build needs no Solveig and reaches it only through `bin/`, is a claim a
-separate file keeps mechanical where one file would keep it by discipline.
-What would have to be true: one version for the tree. Then `dist` and
-`install` are one thing, the collision list empties, and the Makefiles
-merge in the same move, keeping the claim as a comment on the Parasol rules
-and a check that no Parasol object is built with a solum include path.
+[7.2](COMPLETED.md#72-what-is-left-in-parasol--done), and the version,
+[7.1](COMPLETED.md#71-one-version-for-the-tree-at-the-next-release--done),
+went with the release after them. Nothing of that plan is open.
 
 ### 7.3 Grouping `programs/` into kinds
 

@@ -6,18 +6,16 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#define PARASOL_VERSION "0.17.0"
-
-/* The Solveig language level this speaks to. Nothing checks it at build
- * time, and since Parasol moved into Solveig's tree nothing checks it at test
- * time either: the parent is the version by construction. It is kept because
- * `parasol --version` reports it and because a reader building against some
- * other Solveig should be told which one the output was written for.
+/* PARASOL_VERSION is the tree's, since 0.47.0: the Makefile writes it into
+ * the generated config.h from SOLUM_VERSION, beside PARASOL_LIB_DIR, so this
+ * file still includes nothing of Solveig's. Until then Parasol carried its own
+ * number, 0.17.0 at the last, and a PARASOL_SOLVEIG_MINIMUM naming the Solveig
+ * its output was written for; the parent is that version by construction now.
  *
  * Parasol compiles without Solveig present: it emits Solveig *source*, and
  * source is text. That is on purpose -- see "What Parasol is allowed to know
  * about Solveig" in the README. */
-#define PARASOL_SOLVEIG_MINIMUM "0.40.0"
+#include "config.h"
 
 /* Allocation that stops rather than returning NULL.
  *

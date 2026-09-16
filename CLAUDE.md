@@ -18,21 +18,21 @@ VM (SolVM), REPL (Solis) and debugger (Solid). Prototype-based, everything is a
 message send. ~20k lines of C11, no dependencies. Docs are published at
 <https://hansolovkarlsson.github.io/Solveig/>.
 
-`parasol/` is Parasol, a second compiler that emits Solveig source, brought in as a
-subproject on 2026-09-12 with its history and a member of the toolkit since
-2026-09-15 (the plan was `A member of the toolkit` on its roadmap, now frozen;
-what is left of it is `docs/ROADMAP.md` 7.1 and 7.2). Its pages are
+`parasol/` is Parasol, a second compiler that emits Solveig source, brought in
+as a subproject on 2026-09-12 with its history and a member of the toolkit
+since 2026-09-15 (the plan was `A member of the toolkit` on its roadmap, now
+frozen; nothing of it is open since 0.47.0 closed 7.1). Its pages are
 `docs/PARASOL*.md`, its records to the day it joined are frozen under
 `docs/parasol/`, its open roadmap entries are section 7 of `docs/ROADMAP.md`,
-and its house rules are in `docs/method.md`. Until the next release it has
-its own version, and nothing else of its own: `parasol/` is `cmd`, `include`
-and `src`, as `solas/` is. The root Makefile builds it since 2026-09-14, in a
-section that must include no Solveig header and link no Solveig library, and
-`make test` runs its suite; nothing under `parasol/` includes a Solveig
-header, and that is the arrangement being tested. Its examples are in
-`examples/`, its dialects in `lib/` and its seven programs are directories
-under `programs/`, none of them counted by `docs/programs.md`, and everything
-`parasol` generates goes under `build/`.
+and its house rules are in `docs/method.md`. It has nothing of its own: the
+version is the tree's, written into the generated `config.h` by the Makefile,
+and `parasol/` is `cmd`, `include` and `src`, as `solas/` is. The root Makefile
+builds it since 2026-09-14, in a section that must include no Solveig header
+and link no Solveig library, and `make test` runs its suite; nothing under
+`parasol/` includes a Solveig header, and that is the arrangement being tested.
+Its examples are in `examples/`, its dialects in `lib/` and its seven programs
+are directories under `programs/`, none of them counted by `docs/programs.md`,
+and everything `parasol` generates goes under `build/`.
 
 ## Commands
 

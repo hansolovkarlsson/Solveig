@@ -32,8 +32,7 @@
 
 static void version(void)
 {
-    printf("%s " PARASOL_VERSION " (emits Solveig source; needs solas "
-           PARASOL_SOLVEIG_MINIMUM " or later to compile it)\n", NAME);
+    printf("%s " PARASOL_VERSION " (emits Solveig source)\n", NAME);
 }
 
 static void usage(FILE *out)
