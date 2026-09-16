@@ -5,6 +5,23 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### `solvm --steps` with no `=N` reports the instruction count — `de5d75c`, 2026-09-16
+
+The bare flag bounds nothing and, when the run is over, writes
+`solvm: 14693 instructions` to stderr after the program's output and after
+whatever else the run had to say; `sol_vm_steps_run` answers the same number
+to a host. It is the number the limit uses, and the tests say so by running
+the same program under `--steps=N` and `--steps=N-1` for a finish and a
+stop. The binary search [performance.md](performance.md) described, 28 runs
+a number, is one run; `sha256sum` re-read that way is 22 above the
+2026-08-31 table on every row, the program having changed since, and the
+per-block figure stands.
+[3.30](COMPLETED.md#330-the-machine-counts-instructions-and-will-not-say-how-many--done),
+the third of Parasol's findings, in the smallest of the three shapes it
+listed; the entry says why the other two were not built. Six pages describe
+it, and the cheatsheet's `--steps N` is spelt `--steps=N` now, which it
+always had to be.
+
 ### What a program printed comes out before the report that it failed, down a pipe too — `66f142f`, 2026-09-16
 
 `fflush(stdout)` before the failure is written to stderr, at the one place

@@ -666,9 +666,10 @@ saves 2.03 instructions per use and spends 2.00 on a constant nothing folds,
 and no amount of reasoning about expansion would have produced that number.
 The method is the binary search on `solvm --steps=N` that
 [performance.md](performance.md) describes, exact and one run per bit, and it
-turned a roadmap claim into a roadmap entry with a figure attached. It is 28
-runs to learn a number the machine had after the first, which is
-[3.30](ROADMAP.md#330-the-machine-counts-instructions-and-will-not-say-how-many).
+turned a roadmap claim into a roadmap entry with a figure attached. It was 28
+runs to learn a number the machine had after the first, which was
+[3.30](COMPLETED.md#330-the-machine-counts-instructions-and-will-not-say-how-many--done)
+until 2026-09-16, when `solvm --steps` with no `=N` began to say it in one.
 
 ## Every text replacement asserts its match
 

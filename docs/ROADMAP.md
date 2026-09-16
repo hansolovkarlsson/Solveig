@@ -345,6 +345,16 @@ pipe as it did at a terminal, and a stop by `--steps` or `--memory` goes the
 same way because it is the same write. It is in
 [COMPLETED.md](COMPLETED.md#328-program-output-and-a-run-time-error-come-out-in-the-wrong-order--done).
 
+**3.30 left the same afternoon, in the smallest of its three shapes**:
+`solvm --steps` with no `=N` bounds nothing and writes the instruction count
+to stderr when the run is over, one run for the number a binary search on
+`--steps=N` took twenty-eight to find, and `sol_vm_steps_run` reads the same
+counter for a host. The other two shapes were not built: a count in the stop
+message would repeat the limit, since a stopped run ran exactly its limit,
+and `system:steps` changes what a program can observe about itself and waits
+for a program to want that. It is in
+[COMPLETED.md](COMPLETED.md#330-the-machine-counts-instructions-and-will-not-say-how-many--done).
+
 **The last three before those arrived together**, from writing
 [the embedding interface](embedding.md) down. Stating what a host may rely on
 means stating what it may not, and three of those turned out to be real
@@ -1127,22 +1137,6 @@ a way to set what goes into it.
 2. Since 2026-09-14 `parasol --sob` holds `solas` on a pipe, which is the
 other route to the same end and asks nothing of this side; Parasol's roadmap
 holds that one.
-
-### 3.30 The machine counts instructions and will not say how many
-
-`--steps=N` stops a program after N instructions, so the machine is counting,
-and nothing reports the count: a run that finishes says nothing, and one that
-is stopped names the limit rather than the position. The workaround is the
-one [programs.md](programs.md) describes, a binary search on N for the
-smallest that lets the run finish, which is exact and is 28 full runs of the
-program to learn a number the machine had after the first. Smallest fix
-first: `--steps` with no `=N`, run to completion and write the count to
-stderr; a count in the stop message; `system:steps` from inside, which
-changes what a program can observe about itself and is a decision rather
-than a flag.
-[PARASOL-SOLVEIG-NOTES.md](PARASOL-SOLVEIG-NOTES.md#3-the-machine-counts-instructions-and-will-not-say-how-many)
-3. What wanted it was a measurement of 5% found by running two programs 56
-times.
 
 ### 3.31 A run-time trace carries a line and no column
 

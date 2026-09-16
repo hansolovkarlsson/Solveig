@@ -961,6 +961,10 @@ solvm: stopped: the step limit of 100000 was reached
   [loop.sol:3] in script
 ```
 
+The same flag with no number counts instead of bounding: `solvm --steps
+prog.sob` runs the program to its end and then says on stderr how many
+instructions it took, which is the N a `--steps=N` would need.
+
 **A stop cannot be caught.** `onError` does not see it and `ensure` does not run
 its cleanup, because both of those are ways of running more code and the
 allowance for running code is what ran out. There is no message that reads or

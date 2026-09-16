@@ -518,7 +518,8 @@ solas --expr prog.sol       # with the @expr region on; solis and solid take it 
 solvm prog.sob              # run it
 solvm prog.sob a b          # with arguments, seen as system:arguments
 solvm --trace prog.sob      # write the call tree
-solvm --steps N --memory N  # bound it
+solvm --steps=N --memory=N  # bound it
+solvm --steps prog.sob      # count it: the instructions, on stderr, afterwards
 solis                       # the REPL
 solid prog.sob              # the debugger: step, next, break, print
 solid --exports lib.sob     # what it binds, and what may be sent to it

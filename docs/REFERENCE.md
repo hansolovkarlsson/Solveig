@@ -4413,6 +4413,12 @@ solvm: stopped: the step limit of 100000 was reached
   [loop.sol:3] in script
 ```
 
+`solvm --steps` with no `=N` bounds nothing and, when the run is over, writes
+how many instructions it took to stderr, `solvm: 14693 instructions`, after
+whatever else the run had to say. It is the number the limit uses: that N lets
+the same run finish and N-1 stops it. A program embedding the machine reads
+the same count with `sol_vm_steps_run`.
+
 Neither limit is set unless somebody asks for one, so a program run from a
 terminal is not affected. **A stop cannot be caught.** `onError` does not see
 it and `ensure` does not run its cleanup, because both of those are ways of

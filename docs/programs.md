@@ -1904,7 +1904,8 @@ arithmetic operation when there is nothing else going on*.
 
 **208 bytecode instructions per byte, at 4.3 nanoseconds each.** Measured with
 `--steps=N`, which stops a program after N instructions — so the smallest N that
-lets a run finish is that run's exact count, and a binary search finds it. It is
+lets a run finish is that run's exact count, and a binary search found it; since
+2026-09-16 `solvm --steps` alone reports the count and the search is one run. It is
 13,302 instructions per 64-byte block, flat from ten blocks to a hundred, and a
 ten megabytes take 9.30 s at `-O2`: **234 million instructions a second**. The cost
 of *one instruction* had never been stated here — [performance.md](performance.md)

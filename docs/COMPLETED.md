@@ -375,6 +375,53 @@ The limitations themselves are still live and are in
 [ROADMAP.md](ROADMAP.md#3-known-limitations). These were limitations until they
 stopped being ones.
 
+### 3.30 The machine counts instructions and will not say how many — **done**
+
+`solvm --steps` with no `=N` bounds nothing and, when the run is over, writes
+`solvm: 14693 instructions` to stderr after whatever else the run had to say;
+`sol_vm_steps_run(vm)` answers the same number to a host. Built on
+2026-09-16, the afternoon 3.28 closed, in the smallest of the three shapes
+the entry listed.
+
+**What it was.** `--steps=N` stops a program after N instructions, so the
+machine was counting, and nothing reported the count: a run that finished
+said nothing and a stopped one named the limit. The workaround was the binary
+search [performance.md](performance.md) describes, exact, and 28 full runs of
+the program to learn a number the machine had after the first. What wanted
+it was `programs/digest`, whose whole point is a 5% difference between a
+template and a method that took 56 runs to find.
+[PARASOL-SOLVEIG-NOTES.md](PARASOL-SOLVEIG-NOTES.md#3-the-machine-counts-instructions-and-will-not-say-how-many)
+3 has the account as it was written.
+
+**The count is the one the limit uses, and that is the check.** The counter
+starts where `sol_vm_run` sets it, the limit or `UINT64_MAX`, and comes down
+one per instruction, so the count is the distance it came; a stop is the one
+case where it went past, a post-decrement of zero leaving it wrapped, and
+that run executed exactly its limit. The test in `test_limits.c` reads the
+count of a run with no limit, then runs the same program under a limit of
+exactly that and of one fewer, and asks for `SOL_OK` and `SOL_STOPPED`; the
+one in `test_cli.c` does the same through the binary, with the count parsed
+off stderr and the program's output shown clean of it. And against a number
+printed before the flag existed: `sha256sum.sol` on 0, 64 and 640 bytes
+reads 14,693, 28,071 and 147,789, each 22 above the 2026-08-31 table, the
+program having been edited twice since, and `--steps=14693` finishes where
+`--steps=14692` stops. The per-block figure is unchanged.
+
+**The two shapes not built.** A count in the stop message would repeat the
+limit, since a stopped run ran exactly its limit; the entry's table said as
+much and it was confirmed rather than assumed. `system:steps` changes what a
+program can observe about itself, which the guide's *a program cannot
+find out what it was given* states as a property, and is a decision for a
+program that wants it. `--steps=N` on a run that finishes still says
+nothing, so a host parsing its stderr sees what it saw; whether a bounded
+run should also report waits for somebody bounding and counting at once.
+`sol_vm_steps_run` is in `vm.h` and not in `embed.h`'s list of what a host
+is promised, for the same reason.
+
+**The machine.** One accessor and one flag. Nothing allocates, no root, no
+GC proof owed. The count goes out after `fflush(stdout)`, the lesson of the
+morning applied on the afternoon it was learnt.
+
 ### 3.28 Program output and a run-time error come out in the wrong order — **done**
 
 `fflush(stdout)` before the report of a failure is written to stderr, at the

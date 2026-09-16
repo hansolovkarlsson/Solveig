@@ -170,10 +170,15 @@ program here with no I/O in its inner loop — sixty-four rounds of shifts, mask
 and additions per sixty-four bytes and nothing else — so its running time is the
 dispatch loop and nothing is hiding in a syscall or a `split`.
 
-The instruction count is **measured rather than counted**, using a flag that was
-not put there for this. `solvm --steps=N` stops a program after N instructions
-and exits 124, so the smallest N that lets a run finish is that run's exact
-count, and a binary search finds it:
+The instruction count was **measured rather than counted**, using a flag that
+was not put there for this. `solvm --steps=N` stops a program after N
+instructions and exits 124, so the smallest N that lets a run finish is that
+run's exact count, and a binary search found it, 28 runs a number. Since
+2026-09-16 `solvm --steps` with no `=N` bounds nothing and writes the count to
+stderr when the run is over, one run a number, and it is the same number: the
+count it reports is exactly the N a `--steps=N` lets finish and `N-1` stops.
+Re-read that way the three rows below are each 22 higher, `sha256sum.sol`
+having been edited twice since, and the per-block figure is unchanged.
 
 | bytes hashed | instructions | blocks | per block |
 | ---: | ---: | ---: | ---: |

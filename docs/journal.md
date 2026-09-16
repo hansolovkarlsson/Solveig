@@ -119,6 +119,29 @@ say what was true until today and what the rule was hiding. It is the
 method's shape again from a new side: a workaround in a check for a defect
 in the thing it checks is a check that agrees with the defect.
 
+**Then 3.30, in its smallest shape, and the check was a number somebody had
+printed.** The machine counts instructions, since a limit is a counter, and
+the count is the distance the counter came down, with one wrinkle: a stop is
+a post-decrement of zero, which leaves the counter wrapped, and that run
+executed exactly its limit. So `sol_vm_steps_run` is nine lines, and
+`solvm --steps` with no `=N` is a flag spelling and one `fprintf` after an
+`fflush(stdout)`, the morning's lesson applied the same afternoon. The test
+that could fail is the one that says the count is the limit's count: run
+the program once for N, then under `--steps=N` for a finish and `--steps=N-1`
+for a stop, in `test_limits.c` against the library and in `test_cli.c`
+through the binary. Then against the table `performance.md` has carried
+since 2026-08-31, which was found by twenty-eight runs a row: `sha256sum` on
+0, 64 and 640 bytes reads 14,693, 28,071 and 147,789, each exactly 22 above
+the table, and the search brackets 14,693 today. The 22 is the program's
+own two edits since, `isTerminal` and the ranged read, and the per-block
+figure the page rests on has not moved; the page says so now rather than
+carrying numbers a reader would find off by 22. The other two shapes were
+not built and the entry says why: a count in the stop message would repeat
+the limit, and `system:steps` is a decision about what a program may know
+about itself, for a program that wants to know. The cheatsheet had
+`--steps N` with a space, which was never a spelling the binary took; it is
+`--steps=N` now.
+
 ---
 
 ## 2026-09-15: the documents, and Parasol is a member
