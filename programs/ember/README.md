@@ -10,7 +10,10 @@ examples/fizzbuzz.em        --solvm---->  build/programs/ember/examples/fizzbuzz
 ```
 
 Everything generated goes under `build/`, as it does for every program here
-since 2026-09-14; `make ember` builds and runs the lot.
+since 2026-09-14; `make ember` builds and runs the lot. The assembly is ARM64 in
+Apple's spelling, so `make test` assembles and diffs it on a `Darwin arm64` host
+and elsewhere stops at the `.s`, saying so: the build workflow's Linux runners
+were red on exactly this from the day it joined until 2026-09-16.
 
 **This is not a Parasol feature.** It is a program written in Parasol, and it
 exists for the reason [docs/targets.md](../../docs/PARASOL-TARGETS.md) gives:

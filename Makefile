@@ -279,6 +279,19 @@ EMBER_SRCS = $(wildcard $(EMBER)/examples/*.em)
 EMBER_ASM  = $(EMBER_SRCS:$(EMBER)/examples/%.em=$(EMBER_OUT)/examples/%.s)
 EMBER_BINS = $(EMBER_ASM:.s=.out)
 
+# The assembly is ARM64 in Apple's spelling, `_main` and `ldp x29, x30, [sp]`,
+# so `cc` accepts it on one kind of machine. Everywhere else the compiler
+# still runs, .em to .s, and the assembling and the diff against .expected are
+# the part left to the machine that can: the build workflow's Linux runners
+# are x86-64, and from 2026-09-14 to 2026-09-16 every run of it was red on
+# exactly this, with nothing local able to see it.
+HOST = $(shell uname -sm)
+ifeq ($(HOST),Darwin arm64)
+EMBER_TESTED = $(EMBER_BINS)
+else
+EMBER_TESTED =
+endif
+
 # grammar -- a second customer, and a different domain: notation for something
 # recursive, where ember's was notation for something flat.
 GRAMMAR       = programs/grammar
@@ -524,7 +537,7 @@ comparisons/%.sob: comparisons/%.sol $(BIN)/solas
 # rejects, or accepts and reads differently -- and the only witness is the real
 # compiler. The unit tests are among the others, as tests/test_parasol_*.
 test: $(BINARIES) $(TEST_BINS) $(EXAMPLE_SOBS) $(COMPARISON_SOBS) $(EXT_PROBE) $(EXTENSIONS) \
-      $(PARASOL_EXAMPLE_SOBS) $(PARASOL_PROGRAM_SOBS) $(EMBER_BINS)
+      $(PARASOL_EXAMPLE_SOBS) $(PARASOL_PROGRAM_SOBS) $(EMBER_ASM) $(EMBER_TESTED)
 	@echo "-- conformance"
 	@sh conformance/run.sh
 	@for t in $(TEST_BINS); do echo "-- $$t"; $$t || exit 1; done
@@ -532,8 +545,10 @@ test: $(BINARIES) $(TEST_BINS) $(EXAMPLE_SOBS) $(COMPARISON_SOBS) $(EXT_PROBE) $
 	@$(PARASOL_BOUNDARY)
 	@for e in $(PARASOL_EXAMPLE_SOBS); do echo "-- $$e"; \
 	    $(BIN)/solvm $$e > /dev/null || exit 1; done
-	@for b in $(EMBER_BINS); do echo "-- $$b"; e=$${b#$(BUILD)/}; \
+	@for b in $(EMBER_TESTED); do echo "-- $$b"; e=$${b#$(BUILD)/}; \
 	    $$b | diff -u $${e%.out}.expected - || exit 1; done
+	@if [ -z "$(EMBER_TESTED)" ]; then \
+	    echo "-- ember: $(HOST) cannot assemble ARM64 in Apple's spelling; .em to .s was run and the binaries were not"; fi
 	@for g in $(GRAMMAR_SOBS); do echo "-- $$g"; e=$${g#$(BUILD)/}; \
 	    $(BIN)/solvm $$g | diff -u $${e%.sob}.expected - || exit 1; done
 	@echo "-- $(DIGEST_OUT)/sha256.sob"
