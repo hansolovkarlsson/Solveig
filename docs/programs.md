@@ -608,6 +608,15 @@ turned into the anchor GitHub would give it, and every link carrying a `#` is
 either in that set or it is a finding. A link with no fragment is counted and
 not checked, because a missing file is a different question.
 
+**And the entry numbers, since 2026-09-16.** [COMPLETED.md](COMPLETED.md)
+says a number is the original one and never reused, because the changelog
+cites numbers; for a day on 2026-09-15 one was, `3.23` standing over two
+titles, one on each page, and the suite was green because two titles are two
+anchors. Every `### N.M` on the roadmap and the completed page is read, and
+a number over two titles across the two, or the same title under one number
+on both, is a finding. It was 103 numbers on the day it went in, and the
+check read the two pages of 2026-09-15 and named the collision before it did.
+
 **And [site.sh](../programs/site.sh) asks the same questions of the pages that
 are actually published**, which is a different thing and is not in `make test`:
 the suite is offline and dependency-free, and a check that fails on a train is

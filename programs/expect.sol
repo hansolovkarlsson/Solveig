@@ -1960,6 +1960,81 @@ linkSubjects:sorted:do({ path | | n |
                         "'{}' is not a file":fill([where]), ""]) }) }) }) }) }).
 
 ; ---------------------------------------------------------------------------
+; An entry number given twice
+;
+; **The fourth check here about this repository rather than about the
+; language**, and the same shape as the three before it: a cross-reference
+; written by hand that nothing read. COMPLETED.md's head says an entry's
+; number is the original one and is never reused, because the changelog
+; cites numbers and a number that meant two things at two times would make
+; every citation ambiguous. Nothing read that sentence back. On 2026-09-15
+; four entries were numbered from 3.22 as the last number given, and 3.23
+; had been given on 2026-09-01 to an entry closed the same day; for a day
+; `3.23` stood over two titles, one on each page, and the suite was green,
+; because the two titles made two anchors and the link check asks whether an
+; anchor is there and not what number it was filed under. Found on
+; 2026-09-16 by grepping for the number to move the entry.
+;
+; So: every `### N.M` heading on the roadmap and the completed page, and a
+; number that stands over two different titles across the two is a failure,
+; wherever the two are. The same title under the same number on both pages
+; would be an entry in two places at once, and is reported too. A heading
+; inside a fence is not one, by the rule `anchorsOf` keeps. The check reads
+; the two pages that number entries and no other: the changelog cites the
+; numbers and ideas.md never numbers, so those are the two places a number
+; is given.
+entryNumbers := #0.
+entryClashes := #0.
+entryTitles := dictionary:new.
+entryPlaces := dictionary:new.
+
+["docs/ROADMAP.md", "docs/COMPLETED.md"]:do({ path | | n, inFence, bare |
+    n := #0. inFence := false. bare := false.
+    system:readFile(path):split("\n"):do({ line | | t, rest, at, number, title, ok, i, c, seen, here |
+        n := n:add(#1).
+        t := line:trim.
+        t:startsWith("```"):ifElse(
+            { inFence:ifElse(
+                { t:equals("```"):ifTrue({ inFence := false }) },
+                { inFence := true. bare := t:equals("```") }) },
+            { inFence:not:and({ line:startsWith("### ") }):ifTrue({
+                rest := line:copyFrom(#5, line:size).
+                at := rest:indexOf(" ").
+                at:notNil:ifTrue({
+                    number := rest:copyFrom(#1, at:sub(#1)).
+                    ; A number is digits, one dot, digits: `3.28`. `#### What
+                    ; it found` is not a heading at this level, and `### The
+                    ; three crashes` has no dot.
+                    ok := number:indexOf("."):notNil. i := #1.
+                    { ok:and({ i:lessOrEqual(number:size) }) }:whileTrue({
+                        c := number:at(i).
+                        "0123456789.":indexOf(c):isNil:ifTrue({ ok := false }).
+                        i := i:add(#1) }).
+                    ok:ifTrue({
+                        ; The title without the closing ` -- **done**` the
+                        ; completed page appends, so a moved entry keeps its
+                        ; title across the move.
+                        title := rest:copyFrom(at:add(#1), rest:size):trim.
+                        title:endsWith("**done**"):ifTrue({ | cut |
+                            cut := lastIndexOf:value(title, entryMark).
+                            cut:notNil:ifTrue({
+                                title := title:copyFrom(#1, cut:sub(#1)):trim }) }).
+                        here := "{}:{}":fill([path, n]).
+                        entryNumbers := entryNumbers:add(#1).
+                        seen := entryTitles:at(number, nil).
+                        seen:isNil:ifElse(
+                            { entryTitles:atPut(number, title).
+                              entryPlaces:atPut(number, here) },
+                            { entryClashes := entryClashes:add(#1).
+                              failures:add([here, #0,
+                                  seen:equals(title):ifElse(
+                                      { "{} is filed twice under one title, and at {}"
+                                            :fill([number, entryPlaces:at(number)]) },
+                                      { "{} was already given at {} to '{}', and a number is never reused"
+                                            :fill([number, entryPlaces:at(number), seen]) }),
+                                  ""]) }) }) }) }) }) }) }).
+
+; ---------------------------------------------------------------------------
 ; The report
 
 "":display.
@@ -2047,6 +2122,11 @@ recounted:add(deferred):greaterThan(#0):ifTrue({
                    { "; {} more want the whole set to be checked"
                          :fill([deferred]) },
                    { "" })]):display }).
+entryNumbers:greaterThan(#0):ifTrue({
+    "{} entry numbers on the roadmap and the completed page, {} given twice"
+        :fill([entryNumbers,
+               entryClashes:equals(#0):ifElse({ "none" }, { entryClashes })])
+        :display }).
 stopped:greaterThan(#0):ifTrue({
     "{} run{} ended with a non-zero status, which is what a documented error "
         :concat("does")

@@ -199,6 +199,20 @@ static void test_everything_written_down_is_true(void)
     assert(sscanf(at, "%d changelog entr", &hashes) == 1);
     assert(hashes >= 240);
 
+    /* Every `### N.M` on the roadmap and the completed page, and no number
+       over two titles. COMPLETED.md says a number is never reused, and for a
+       day on 2026-09-15 one was: 3.23 stood over two entries, one on each
+       page, under a green suite, because two titles are two anchors and the
+       link check reads anchors. A clash fails the run above; the floor here
+       is what says the check still reads the pages. */
+    int numbers = 0;
+    at = strstr(out, "entry numbers on the roadmap");
+    assert(at != NULL);
+    while (at > out && at[-1] != '\n') at--;
+    assert(sscanf(at, "%d entry numbers", &numbers) == 1);
+    assert(numbers >= 100);
+    assert(strstr(at, "none given twice") != NULL);
+
     /* Every markdown link that names a heading, held against the headings that
        are there -- the one cross-reference nothing read, in a repository whose
        filing system is moving a heading between files when an entry closes. The
@@ -231,9 +245,10 @@ static void test_everything_written_down_is_true(void)
 
     printf("  everything written down is true (%d claims, %d counts, %d "
            "positions, %d of %d SolaBasic blocks, %d of %d Parasol blocks, "
-           "%d productions, %d commit hashes, %d of %d links)\n",
+           "%d productions, %d commit hashes, %d entry numbers, %d of %d "
+           "links)\n",
            claims, counts, placed, basicChecked, basic, parasolChecked,
-           parasol, agree, hashes, named, links);
+           parasol, agree, hashes, numbers, named, links);
 }
 
 /* The grammar against the compiler, one construct at a time.
