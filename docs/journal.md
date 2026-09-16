@@ -11,6 +11,71 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-09-16: 0.47.0 cut, and Parasol's version is the tree's
+
+**The morning was the two cheapest things on the standup, and a question.**
+The journal paragraph from last night went in as it was, and
+`test_parasol_sob` got the fix its sibling had on the fourteenth: it swept
+its temporary directory from a sixteen-name hand list, which would have
+left the directory behind on any check that failed by writing a file it
+should not have, and its `cp` failure path returned without reaching the
+list at all. It reads the directory now, one level down for `out/` and
+`lib/`, and the failure path sweeps before it returns; run with
+`PARASOL_BIN=/nonexistent` it exits 1 and leaves nothing. Then Hans asked
+what was next, and the answer was that one item on the list had its trigger
+already met: fifty-six commits since `v0.46.0`, all in the changelog under
+their hashes, and 7.1 waiting on nothing but the cut. He said push, then
+cut. The push was read this time, five jobs and the site, before anything
+else was done, which is the lesson of last night applied on the first
+morning it could be.
+
+**7.1 was one question: how does the number reach Parasol without Parasol
+including a Solveig header?** The way the library path already did. The
+Makefile writes a `config.h` for Parasol carrying `PARASOL_LIB_DIR` from
+`PREFIX`, and it reads `SOLUM_VERSION` out of `solum/common.h` to name the
+tarball, so it writes `PARASOL_VERSION` into the same file from the same
+read, and Parasol's `common.h` includes that file where it used to define
+`0.17.0`. The boundary is exactly what it was: no Solveig header under
+`parasol/`, the objects built with Parasol's include path only, and `nm`
+on the binary finding no `sol_` export. `PARASOL_SOLVEIG_MINIMUM` went, and
+`--version` says `parasol 0.47.0 (emits Solveig source)`. It landed as its
+own commit ahead of the release, so that the changelog entry has a hash of
+its own and the release commit is the four files [releasing.md](releasing.md)
+names and nothing else. One historical link in the changelog, `d6cf91d`'s
+entry pointing at 7.1 on the roadmap, was repointed to COMPLETED by hand,
+as the two sqlite links were last night; the checker still has no notion of
+a link that was right when written and moved from under.
+
+**The compatibility check was three wrong turns before it was a result, and
+every one of them looked like a finding.** 0.46.0 was built from `git
+archive` and its `solas` copied to `bin/prev/`: six examples, the six with
+an `@include`, failed on the old compiler with *cannot read the included
+file*, because `bin/prev/../lib` is `bin/lib`. Beside means in `bin/`
+itself, as `solas-prev`. Then the same six differed by a few bytes, and the
+bytes were `./bin/../lib/control.sol` against `bin/../lib/control.sol`: the
+path an `@include` records is spelt from argv[0], and one compiler had been
+run as `./bin/solas` and the other as `bin/solas-prev`. Same spelling for
+both, and it was 36 of 36 byte-identical. Then the crosswise run reported
+36 of 36 equal on the first pass, which was too good, and it was: the loop
+had wrapped each run in `timeout`, which macOS does not have, so every run
+was exit 127 on both sides and identical for it. Without it, 34 of 36, and
+the two are the two that should be: `system.sol` prints its timings, and
+`database.sol` is the one example that needs this machine, since 0.46.0's
+`new` takes no argument. `builtins.c` had changed and `extensions/` had
+not, which releasing.md does not quite cover, so the ABI was checked as if
+it had: 0.46.0's `net.so` loaded on the new VM and the counter ran, client
+and server. The releasing page gained the three turns, since that is what
+it collects.
+
+**The page.** Six paragraphs, no `<br>`, three links absolutised at the tag
+and each answering 200, the tarball attached from the commit the tag names
+and downloading. The build workflow green on all five jobs at `c6421ef`,
+`site.sh` finding nothing to look at across 39 pages, and the front page
+saying 0.47.0. The release is what it says it is, and the plan that made
+Parasol a member of the toolkit has nothing open.
+
+---
+
 ## 2026-09-15: the documents, and Parasol is a member
 
 **The two calls came first, and the answer was neither of the shapes the

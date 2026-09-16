@@ -66,6 +66,16 @@ than running it where it was unpacked.
 **`examples/system.sol` always differs**, because it prints how long things
 took. That one is read, not compared.
 
+**Three more from 0.47.0, each of which looked like a finding.** Beside the
+new one means *in `bin/`*, as `bin/solas-prev`: a `bin/prev/solas` resolves
+`lib/` to `bin/lib` and fails every `@include`. Invoke both compilers by
+the same spelling, `bin/solas` and `bin/solas-prev` and not `./bin/solas`
+for one of them, because the path an `@include` records is spelt from
+argv[0] and the two differ by two bytes per include. And there is no
+`timeout` on macOS: a loop that wraps each run in one reports every pair
+equal, at exit 127 on both sides. Read the outputs before believing a
+count.
+
 **When extensions were touched, load the previous release's bundle on the new
 build.** That is the ABI question and it is not the bytecode question — the two
 can disagree, and 0.39.0 is the release where they did.
