@@ -3398,8 +3398,8 @@ send rather than carried by the block:
 
 ```
 m := point:slotAt('sum).
-m:value.                 ; solvm: nil does not understand 'x'
 p:perform('sum):print.   ; #7 -- the receiver comes from the send
+m:value.                 ; solvm: nil does not understand 'x'
 ```
 
 `boundTo` chooses one. It answers a **second block** over the same code with

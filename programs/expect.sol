@@ -631,11 +631,14 @@ runSource := { source, tag, mergeErrors, suffix | | sol |
 ; A line the block says the program writes, checked for presence and not for
 ; position.
 ;
-; **Order is not assertable here.** With stderr merged into stdout the two
-; interleave by buffering rather than by source: a `solvm:` complaint is
-; unbuffered and arrives before a `print` that ran earlier. Requiring these in
+; **Order was not assertable here.** With stderr merged into stdout the two
+; interleaved by buffering rather than by source: a `solvm:` complaint was
+; unbuffered and arrived before a `print` that ran earlier. Requiring these in
 ; sequence with the claims reported a message that was word for word correct,
-; which is how this was found.
+; which is how this was found. Since 2026-09-16 the machine flushes stdout
+; before it writes the complaint (roadmap 3.28), so the order down a pipe is
+; the order at a terminal; presence is still the right check for a documented
+; error, which stops the program and is the last thing it says.
 matchAnywhere := { expected, output, subject | | ok |
     ok := #0.
     expected:do({ want | | seen |
@@ -796,15 +799,23 @@ sentinel := "\"":concat(reachedTheEnd):concat("\":display.\n").
 ; The block's own output: everything after the context's line count, plus any
 ; complaint found in front of it.
 ;
-; The second half is not a hedge. With stderr merged the two streams interleave
-; by buffering rather than by source, so a `solvm:` line the block produced can
-; land ahead of output the context printed before it. Taking the context's line
-; *count* off the front therefore does not reliably take the context's *lines*
-; off the front: it left `solvm: undefined name 'animal'` sitting in the part
-; being skipped, and the block was accepted as having run -- then reported for
-; every claim it did not make. The context always runs clean, which is what puts
-; it in the context at all, so a complaint anywhere in the combined run is the
-; block's, wherever it landed.
+; The second half was not a hedge. With stderr merged the two streams
+; interleaved by buffering rather than by source, so a `solvm:` line the block
+; produced could land ahead of output the context printed before it. Taking
+; the context's line *count* off the front therefore did not reliably take the
+; context's *lines* off the front: it left `solvm: undefined name 'animal'`
+; sitting in the part being skipped, and the block was accepted as having run
+; -- then reported for every claim it did not make. The context always runs
+; clean, which is what puts it in the context at all, so a complaint anywhere
+; in the combined run is the block's, wherever it landed.
+;
+; Since 2026-09-16 the machine flushes stdout before the complaint (roadmap
+; 3.28) and it lands where it was raised. The day that went in, one claim of
+; the reference stopped passing: a `print` written *after* a documented error,
+; which never runs, had been matched against the last line of the context,
+; pushed into the tail here by the complaint sitting at the front. The rule
+; above is kept because it is right either way; what it was hiding was a claim
+; on a line no program reaches.
 theirsAlone := { lines, before | | out, i |
     out := array:new.
     i := #1.
