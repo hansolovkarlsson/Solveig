@@ -154,6 +154,29 @@ that listed one, and was made to count. `test_documents` reads the line
 with a floor, since a check that stops finding numbers is a check that has
 stopped. The second suggestion was the push.
 
+**The push was read, and then 3.29 was scoped on paper.** Nine commits,
+five build jobs and the site green, `site.sh` with nothing to look at. Then
+the third suggestion, and it was a scoping and not a build, since a generated
+file naming its source is a change with three shapes and a call in each.
+The counting came first: the fourteen maps under `build/`, 945 mapped lines
+and 7,988 entries, 125 generated lines that are spans of their own module,
+198 whose first piece is a template's, 49 with no piece of their own,
+`bignum.sol` at 16 of 103 agreeing with the 7.10 table. A `#line`-style
+directive emitted wherever the origin breaks step is 508 directives on 945
+lines, which is the number that decided against it: a file Parasol says is
+for `less` and `git diff` with a directive on every other line. What the
+count also showed is that the entry's third shape, the chunk carrying a map,
+is not needed for the thing wanted, because the chunk already carries a file
+and a line per byte and the compiler writes them at one site; anything that
+changes what goes in at compile time is seen by `solvm` and `solid` for
+free, with format 14 untouched. So the recommendation is a shape the entry
+did not list, `solas --map=<path>` reading the map Parasol already writes,
+per piece, which resolves the spans on its own and takes the line half of
+3.31 with it. `--source-name` is argued against outright, the right file on
+the wrong line being worse than the wrong file on the right one. Deferred:
+both occasions so far were exercises about the map, and the trigger is a
+failure met while doing something else. Four calls are Hans's, in the entry.
+
 ---
 
 ## 2026-09-15: the documents, and Parasol is a member

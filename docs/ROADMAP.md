@@ -1138,6 +1138,18 @@ a way to set what goes into it.
 other route to the same end and asks nothing of this side; Parasol's roadmap
 holds that one.
 
+**Scoped on 2026-09-16**, in
+[ideas.md](ideas.md#a-generated-file-that-says-where-it-came-from-scoped-2026-09-16),
+against the fourteen maps in the tree: 945 mapped lines, 7,988 entries, 125
+lines that are spans. The recommendation is a fourth shape the entry did not
+list, `solas --map=<path>` reading the map Parasol already writes, per piece
+rather than per line, so the generated file carries nothing, the `.sob`
+format stays, and the span half of 3.31 goes with it; a `@line` directive
+would be 508 directives on those 945 lines, and `--source-name` would put
+the right file on the wrong line. Deferred behind the trigger named there,
+the first run-time failure in a Parasol program met while doing something
+else, since both occasions so far were exercises about the map.
+
 ### 3.31 A run-time trace carries a line and no column
 
 A compile error is reported with a column, `[prog.sol:1:7]`, and a run-time

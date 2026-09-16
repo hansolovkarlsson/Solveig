@@ -59,6 +59,7 @@ marked as a sketch.
 | Taking `@expr` out of solas, now that Parasol is in-tree | **Scoped as a removal on 2026-09-14 and built the same morning as a flag**, [the third answer](#built-the-same-morning-as-a-third-answer-the-entry-had-not-weighed): bare `solas`, `solis` and `solid` refuse `@expr`, `--expr` turns it on, and a program outside the tree written to the region adds one word to its build line. Parasol already refused `@expr` because *supporting both would be supporting two*; three files used it and none was a program; a `.psol` header reproduces the region instruction for instruction, checked. The entry's *one real cost*, the REPL, was not one: `solis -e` |
 | Phoenix — a second language whose output Solum uses | **Defer** — the machinery is proven three times over; [the unexplored half](#programs-that-would-press-on-something) is whether a hosted language can publish a *library* rather than a program |
 | A conformance suite for a second implementation | **Built, both halves, on 2026-09-03** — [conformance/](../conformance/README.md), **89 cases** scored on their bytes with both tools taken from `SOL_COMPILE` and `SOL_RUN`, and in `make test`. Three kinds and not two: a refusal is compile-time and a **trap is run-time**, which the scoping had run together — 13 of the 15 demonstrations in `examples/` turn out to be the machine's business, not the front end's. Every answer written from the documentation before it was run. **Two findings, both in the documentation**: a REFERENCE.md paragraph wrong about `onError` in both halves, and a **self-including file that PRODUCING.md filed as a refusal when it is a warning** — it compiles, leaves with 0, and runs. [The scoping](#a-conformance-suite--a-corpus-a-second-implementation-can-score-itself-against) has the shape; what is left is the five 65,535 limits, which are a generator's business |
+| A generated file that says where it came from | **Scoped 2026-09-16, deferred behind a trigger**: [three shapes counted against the fourteen maps in the tree](#a-generated-file-that-says-where-it-came-from-scoped-2026-09-16): `solas --map` reading the map Parasol writes is recommended, per piece rather than per line, so the `.sol` stays clean, the `.sob` format stays and the span half of 3.31 goes with it; a `@line` directive would be 508 directives on 945 lines; `--source-name` would put the right file on the wrong line and is argued against outright |
 | Programs that would press on something — Pascal, predicate logic, a parser toolkit, `tail`, and [which Unix tool next](#which-unix-tool-next-and-what-each-would-press-on--surveyed-2026-08-31) | **Defer, and none needs permission** — each is [predicted to find one thing](#programs-that-would-press-on-something), written down before it is written. **The editor was written**, and found what this page said it would. **So was `sha256sum`, on 2026-08-31**, the first off the Unix survey and the first program here with no I/O in its inner loop: [the prediction held in both halves](#it-was-written-on-2026-08-31-and-the-prediction-held-in-both-halves) and produced the number it was written for — **208 bytecode instructions a byte, 4.3 ns each, 234M a second**. **And `diff` on 2026-09-02**, where [one prediction of four held](#it-was-written-on-2026-09-02-and-one-of-the-four-predictions-held) — the output format, which was the whole difficulty — and the three that did not are more useful than the one that did. **And `gzip -d` on 2026-09-04**, the last of the three the survey named and [the one whose prediction measured the wrong thing](#it-was-written-on-2026-09-04-and-the-prediction-measured-the-wrong-thing): it asked for the cost of a 32 KB window as boxed values, and the window is 4.8% of the program. **And `sort` the same day**, which had been filed among the also-rans and is [promoted to an entry of its own](#sort--filed-below-as-pressing-on-less-and-written-anyway): the gap it was predicted to find was not there, because a write is not the reverse of a read — a producer knows what comes next — and what its merge wanted was the ranged read, already built |
 | An SQLite file, read and then written, as the twenty-third program | **Scoped on 2026-09-15, chosen over a format of our own for the oracle; all six steps were built the same day, and [the positioned write was wanted at step 4 and not before](#step-4-the-same-night-and-the-first-prediction-fired-where-it-said), as predicted; [the reader pressed on nothing](#steps-0-and-1-were-built-the-same-day-and-the-reader-pressed-on-nothing), as predicted**: [the entry](#an-sqlite-file-read-and-then-written-scoped-2026-09-15) predicted the positioned write is wanted at step 4 and not before, and it was, raised and closed the same day as [3.27](COMPLETED.md#327-a-file-is-written-whole-or-appended-to-and-nothing-in-between--done), `writeFile(path, from, text)`; that a page as strings is bearable, and it is so far at 0.36 ms a row; and that locking, flushing and a truncate are not found at all. Six steps, each held against `sqlite3` and `PRAGMA integrity_check` |
 | The database as objects, and `object:new(dictionary)` | **Scoped on 2026-09-15, the evening the SQL front was done, and built the same night**: [the entry](#the-database-as-objects-and-the-first-slot-made-from-a-run-time-name-scoped-2026-09-15) moved the engine into `lib/sqlite.sol`, put a table, a query and a row over it, and asked for one slot-creating message at construction, `object:new(dictionary)`, built after a version with rows as dictionaries had run through the sweep, so that the program asked and not the page. The shell became a client of the objects and `sqlite3` judged both fronts at once, 632 of 632; UPDATE, added so that `update` could be judged, [found a defect the writer had carried since step 5](#step-1-the-same-evening-and-update-found-a-defect-in-the-writer). Two predictions wrong in a detail: the primitive needs no GC root, and a slot walk past twenty columns loses nothing, since an object has a hash index past twelve |
@@ -7327,6 +7328,175 @@ that runs to the end, and a case claiming a diagnosis that says nothing.
 chunk, and the distance a conditional or a loop jumps over — and a case at N
 would be a file of that many lines. They stay a generator's business rather than
 a corpus's, which is what PRODUCING.md already says of them.
+
+### A generated file that says where it came from: scoped 2026-09-16
+
+**Asked by Parasol on 2026-09-01, while it was a repository of its own**, and
+numbered here on 2026-09-15 as
+[3.29](ROADMAP.md#329-a-generated-file-cannot-say-where-it-came-from).
+`solas`, `solvm` and `solid` report positions in the file they were handed.
+Parasol compiles `calc.psol` to `calc.sol` and writes `calc.sol.map` beside
+it, every generated position against the `.psol` position that caused it, so
+the information exists and nobody but a person reads it: a failure says
+`[calc.sol:3]` and the person opens the map. The entry lists three shapes in
+order of how little each asks of this side. This scoping counts what each
+would cost and do, and recommends one of them, under a trigger that has not
+quite fired.
+
+#### What the machine already carries
+
+A chunk records, per emitted byte, a line and an index into a table of file
+names; `@include` is why the table exists, since a library's code lands in
+the same chunk as the file including it. The compiler writes both at one
+place, `emit` in [compiler.c](../solas/src/compiler.c), from the previous
+token's line and the path it was given, and the parser prints a compile
+error's position at two. Three sites read a position. `solvm` prints
+`[file:line]` from the table, and `solid` opens the file the table names
+and shows the line. So anything that changes what goes *into* the table at
+compile time is seen by every tool afterwards with no change to any of them,
+and the `.sob` format does not move. That is the observation the entry ends
+on, and it decides most of what follows.
+
+#### What the map carries, counted
+
+The fourteen generated files under `build/` on 2026-09-16, the five examples
+and the nine from the seven programs, with their maps:
+
+| | |
+| --- | ---: |
+| generated lines | 973 |
+| of them mapped, the rest blank or banner | 945 |
+| map entries, one per emitted piece | 7,988 |
+| generated lines carrying more than one line of their own module | 125 |
+| generated lines whose first piece came from a template in another file | 198 |
+| generated lines with no piece of their own module at all | 49, of which 47 in `minibasic.sol` |
+
+The 125 is the *span* problem
+[3.31](ROADMAP.md#331-a-run-time-trace-carries-a-line-and-no-column) names,
+and `bignum.sol` gives 16 of 103, which is the figure the 7.10 table found
+on 2026-09-13; the count agrees. The 198 and the 49 are the question a
+line-granular answer has to face: a generated line built from `control.psol`'s
+`while` template *and* the module's condition has two origins, and the one a
+person wants is the use site, not line 25 of the library. The map records
+both; anything coarser than the map has to choose.
+
+#### The shapes, and what each would do to `[calc.sol:3]`
+
+**A. `solas --source-name=<path>`.** One flag, one field: the file table
+records the name given instead of the one on the command line. The line stays
+the generated file's. So `[calc.sol:3]` becomes `[calc.psol:3]`, and line 3
+of `calc.psol` is a comment; the real origin is line 29. **A wrong line in
+the right file is worse than the right line in the wrong file**, because the
+second sends a person to the map and the first sends them to the wrong place
+with no reason to doubt it. Recommended against, and it is the only shape
+this scoping argues against outright.
+
+**B. A `@line` directive.** `@line 29 "programs/bignum/calc.psol".`, in the
+generated text, setting what the next statements record, which is what every
+generated-source language ends up with and is what `#line` is. Per line,
+because a directive stands alone as a statement. Counted against the maps,
+emitting one wherever the origin is not the previous line's plus one, and
+taking the use site where a line has one, it is **508 directives across 945
+generated lines**: a directive on more than every other line, in a file
+Parasol's own page says is meant to be read with `less` and diffed with
+`git`. It fixes file and line and leaves the 125 spans as they are, since a
+line can only name one origin. On this side it costs a lexer case, a compiler
+field for the running offset and the overriding path, the three read sites,
+and the tail every language-visible thing carries: `GRAMMAR.md`, `solum.bnf`,
+a `check_syntax` fixture, `conformance/refused/directives` re-read, the
+cheatsheet and the reference. Small, and visible everywhere.
+
+**C. `solas --map=<path>`, reading the map Parasol already writes.** A text
+reader for the five-column format, and a lookup at the three sites: a
+token's `line:column` in the generated file to the entry at or before it on
+that line, which is the source-map rule, answering a file and a line, and for
+a compile error a column too, since the map has one. The generated `.sol`
+carries nothing. The `.sob` format carries nothing new; the table it already
+has holds `.psol` names and `.psol` lines. And it is **per piece rather than
+per line**, so the 125 spans resolve on their own: `bignum.sol:27` is four
+`.psol` lines, and each instruction on it was emitted from one token, and
+that token has an entry. The line half of 3.31 goes with it, and the column
+half is what it was. `solid` opens `calc.psol` at line 29 and shows what the
+person wrote, since it opens whatever the table names. `parasol --sob` passes
+the flag through when `--map` was given, as it already passes `-o` and `-I`.
+What it costs is a reader of perhaps a hundred lines, a lookup, the three
+sites, and a contract: the map format, today `# parasol source map 1` and
+Parasol's, becomes a format `solas` accepts, which is a file format and a
+command line, the coupling the two tools have had since the first day. Nothing
+under `parasol/` includes a Solveig header for it, and nothing under `solas/`
+knows the map came from Parasol.
+
+**D. Parasol re-says the diagnostics.** Since 2026-09-14 `parasol --sob` holds
+`solas` on a pipe, and could read `[calc.sol:3:1]` off it against the map and
+print `[calc.psol:29:1]` in its place, asking nothing of this side. It
+answers for compile errors only. A run-time failure is `solvm`'s, hours or
+days later, with no Parasol in the process, and the run-time failure is the
+one both occasions below were. On its own it is half an answer; beside C it
+is redundant.
+
+**E. The chunk carrying the map.** A format bump, so that a frame could show
+both the generated and the source position. Nothing has asked for both, and
+with C the table already holds the one that matters. Not before something
+asks, as the entry says.
+
+#### The trigger, and where it has and has not fired
+
+Two occasions, and both were exercises about the map rather than work
+interrupted by it. On 2026-09-13 `programs/bignum` put a deliberate error in
+a copy of its library to test the map across two modules, and found the span
+problem, which is 3.31. In run 4 of the reader experiment `solvm` reported
+`undefined name 'total'` at `banner.sol:8`, the failure this project names as
+the one that kills syntax-extension systems, and no map had been written
+because the reader had been told to omit `--map`; with one the recovery was
+exact, by hand.
+
+So the mechanism has been needed twice and used by a person both times, and
+neither time was somebody stopped in the middle of something else. **The
+trigger is the first run-time failure in a Parasol-written program that is
+met while doing something else**, where reading the map by hand costs a
+wrong guess or a second run; or the reader experiment's next run with the
+published invocation, which 7.10 says is the run that settles whether a
+person reaches for the map at all. Either fires this.
+
+#### The recommendation
+
+**C, when it fires, and not before.** It is the one shape that uses what the
+map already has instead of throwing most of it away, it leaves the generated
+file readable and the `.sob` format alone, and it dissolves half of a second
+entry on the way. B is the conventional answer and is smaller by perhaps
+forty lines, and every one of those lines is paid back in 508 directives a
+reader has to see past. A is harmful. D is for the compile-time half only and
+is already possible on Parasol's side whenever it wants it.
+
+If it is built: the reader and the lookup in `solas`, with a test that
+compiles a generated file under its map and asserts the `.psol` positions in
+both a compile error and a run-time frame; `parasol --sob` handing the flag
+through; the map format's five columns written down once as what `solas`
+reads, on the page that describes `--map`; and 3.31's account amended to say
+its line half went this way and its column half stands.
+
+#### The calls
+
+1. **Does the map format become the toolkit's, or stay Parasol's?** `solas`
+   reading it makes it a contract between the two, like `.sol` and `.sob`.
+   The recommendation is to say so on the page that describes `--map` and to
+   leave the `# parasol source map 1` header as it is, so a map is still
+   recognisably Parasol's even when something else reads it.
+2. **Source position only, or both?** A compile error mapped through C would
+   say `[calc.psol:29:1]`; it could also say where in `calc.sol` that was.
+   The recommendation is source only, since the generated file is not the
+   file anybody wrote, and `solas` without `--map` still says the generated
+   position for anyone who wants it.
+3. **Wait for the trigger, or build on the two staged occasions?** The
+   recommendation is to wait: both occasions were about the map, and a
+   mechanism whose customers are its own tests has been built here before
+   and regretted. The reader experiment's next run is the cheap way to find
+   out.
+4. **B anyway, for a generator that is not Parasol?** Nothing in the tree
+   generates Solveig source but Parasol; `pascal.sol` emits bytecode. A shell
+   script writing `.sol` could use `@line` where it could not write a map.
+   The recommendation is not to build for a generator that does not exist,
+   which is the rule Parasol's optional parts were refused under three times.
 
 ## Recommended against
 
