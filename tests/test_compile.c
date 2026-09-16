@@ -239,7 +239,7 @@ static const char *shipped[] = {
     "examples/matching.sol",   "examples/load.sol",
     "examples/exports.sol",    "examples/plugins.sol",
     "examples/render-plain.sol", "examples/render-loud.sol",
-    "examples/operators.sol",
+    "examples/operators.sol",  "examples/database.sol",
 
     "programs/log.sol",        "programs/evaluator.sol",
     "programs/manifest.sol",   "programs/page.sol",

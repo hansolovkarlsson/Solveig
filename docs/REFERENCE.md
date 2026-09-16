@@ -1180,6 +1180,81 @@ that stops a recursive-descent parser at 124 levels does not apply. Measured at
 [programs/page.sol](../programs/page.sol) is a program on it — an outline, a
 link list, images without alt text, and the complaints.
 
+#### sqlite.sol
+
+An SQLite database file, read and written, as objects: the database, each
+table, a query over one, and a row whose columns are its slots.
+
+```
+@include "sqlite.sol".
+
+db := sqlite:open("notes.db").
+notes := db:create("notes", ["title TEXT", "done INTEGER"]).
+notes:insert(#['title = "milk", 'done = #0]).
+notes:where(#['done = #0]):each({ n | n:title:display }).
+n := notes:find(#1). n:title := "eggs". n:save.
+notes:filter("done", "=", #1):delete.
+db:close.
+```
+
+| Message | Answers |
+| --- | --- |
+| `sqlite:open(path)` | the database; the file is begun if it is not there |
+| `db:tableNames` | the names, in the order the tables were made |
+| `db:table(name)` | the table, or nil |
+| `db:create(name, columns)` | a new table; each column spelled as SQL spells it, `"title TEXT"` |
+| `db:close` | writes every page that changed, once; `flush` writes without closing |
+| `t:columnNames` | the column names in schema order |
+| `t:index(name, columns)` | an index on those columns, kept on every insert, update and delete |
+| `t:insert(dictionary)` | the row put in: column names to values, a column not named NULL, the rowid assigned or given under `'rowid` |
+| `t:find(rowid)` | the row, or nil |
+| `t:update(row)` `t:delete(row)` | what `row:save` and `row:delete` send |
+| `t:all` `t:where(dictionary)` `t:filter(column, op, value)` `t:orderBy(columns)` | a query |
+| `t:each(block)` `t:count` | the same over every row |
+| `q:where` `q:filter` `q:orderBy` | a new query, narrowed or ordered; the one it came from is unchanged |
+| `q:each(block)` `q:all` `q:first` `q:count` `q:collect(block)` | the rows, run |
+| `q:delete` | the rows taken out, and how many |
+| `row:title` | a column, as a slot; assignable |
+| `row:rowid` `row:table` | where it is |
+| `row:save` | put back under its rowid, index entries with it |
+| `row:delete` | taken out |
+
+**The file format is the one `sqlite3` writes**, from its own description:
+pages, B-trees, varints, records, overflow chains read, the freelist; and the
+judge is `sqlite3` itself, through [programs/sql.sol](../programs/sql.sol),
+the SQL shell that is a client of these objects, and its
+[sweep](../programs/sql/sweep.sh). A REAL comes out as a float and goes in as
+one; a blob is a `sqlite:blob:of(bytes)`, since the format keeps text and
+bytes apart; NULL is nil.
+
+**`where` is equalities and `filter` is one comparison**, `"="`, `"<"`,
+`">"`, `"<="` or `">="`, spelled as SQL spells them because that is the file's
+own language and the shell passes them through untouched. The terms of a
+query are joined by AND. A term on the rowid finds the row by descent, a term
+on the first column of an index walks the index, and anything else scans;
+the three answer the same rows and differ in pages read.
+
+**A row is an object under its table's prototype**, made with
+[`object:new(dictionary)`](#object) from the schema, which is what that
+message was built for. Its columns are its own slots, `rowid` beside them,
+and `table`, `save` and `delete` come from the prototype. A table with a
+column named for one of those four, or `asDictionary`, is refused by name
+at `table` and `create`, since a row of it could not be saved through the
+slot its column would shadow. A column whose name is a message every value
+answers, `print` say, shadows it on the row, as any slot would.
+
+**What it does not do, each a sentence rather than a surprise.** No
+transaction and no journal: `close` writes the pages that changed and
+nothing rolls one back, so a program that stops half way leaves the file
+half way. One table a query; no join. A row that would need an overflow page
+is refused by name, and UNIQUE is refused rather than unchecked. Locking is
+not there, since one process at a time is what this has been tested with.
+
+The library is [lib/sqlite.sol](../lib/sqlite.sol); the engine under the
+objects is the first two thirds of it, and the account of what writing it
+found is under [sql](programs.md#sql-and-sqlite-an-sql-shell-and-the-library-that-reads-and-writes-the-file)
+in programs.md. See [examples/database.sol](../examples/database.sol).
+
 **A file is compiled once** per compilation, however many ways it is reached,
 keyed by where it turns out to be on disk so that two spellings of one file are
 one file. C compiles it every time and leaves each file to guard itself, which

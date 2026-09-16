@@ -406,8 +406,8 @@ line prints.
 ./bin/solvm programs/expect.sob programs             # another directory
 ```
 
-Over `examples/` alone that is 35<!--count examples-files--> files and
-611<!--count examples-claims--> claims:
+Over `examples/` alone that is 36<!--count examples-files--> files and
+632<!--count examples-claims--> claims:
 
 ```text
 30 files with expectations, 588 claims checked
@@ -442,7 +442,7 @@ because somebody looked, once, at the time — the same standing the `.sob` form
 table had when [disasm](#disasm--a-sob-file-read-and-disassembled) found it
 three sections out of date. They are also the first thing a newcomer reads.
 
-**It is in `make test` now**, in `tests/test_documents.c` — **1104<!--count claims-->
+**It is in `make test` now**, in `tests/test_documents.c` — **1129<!--count claims-->
 claims on every build**, and it fails the build if one stops holding. It was in
 `test_cli.c` until 2026-09-03, with the other tests that run the binaries as a
 shell would, and it moved when the cost was broken down: **55 seconds**, which
@@ -528,7 +528,7 @@ and had nothing but a clause in the report to say so.
 
 **And it checks the documentation too.** The guide and the reference carry the
 same notation inside ``` fences, and nothing checked those either — they are the
-two documents a newcomer actually reads. 491<!--count docs-claims--> claims
+two documents a newcomer actually reads. 495<!--count docs-claims--> claims
 across forty-one<!--count docs-documents--> documents,
 and two more on `README.md` and `index.md` — the front pages, which were the
 last two things nothing checked.
@@ -570,7 +570,7 @@ no notation saying what it counts — so it is given one, which renders as nothi
 and leaves the sentence as it was:
 
 ```text
-[expect.sol](../programs/expect.sol) checks 1104<!--count claims--> claims
+[expect.sol](../programs/expect.sol) checks 1129<!--count claims--> claims
 ```
 
 Each name is recounted from the repository as it stands. A name the table does
@@ -2549,10 +2549,23 @@ stop*.
 The file format `sqlite3` uses, read and written from its description: the
 header, the B-tree pages, varints, records, overflow chains, and
 `sqlite_schema` parsed for the tables and indexes. SELECT of named columns,
-`rowid` or `*`, from one table, with a WHERE of one comparison and an ORDER
-BY, answered in the shell's list mode so that the two can be compared to the
-byte; CREATE TABLE, CREATE INDEX and INSERT into a fresh file, which `sqlite3`
-then opens.
+`rowid` or `*`, from one table, with a WHERE of comparisons joined by AND and
+an ORDER BY, answered in the shell's list mode so that the two can be
+compared to the byte; CREATE TABLE, CREATE INDEX, INSERT, UPDATE and DELETE,
+into a fresh file or one `sqlite3` made, which `sqlite3` then opens.
+
+**It was one file, `programs/sqlite.sol`, until the evening of 2026-09-15**,
+when the engine moved to [lib/sqlite.sol](../lib/sqlite.sol) and grew the
+front the database was wanted for, the database, its tables, a query and a
+row as objects, which [the reference](REFERENCE.md#sqlitesol) describes and
+[examples/database.sol](../examples/database.sol) runs. What is left here is
+the shell: tokens into statements, each parsed and run through those objects,
+which is how `sqlite3` gets to judge them. The program could not keep its
+name, since `@include` looks beside the includer first and
+`programs/sqlite.sol` asking for `sqlite.sol` would have found itself. The
+plan for the split, prediction above outcome, is
+[the second entry](ideas.md#the-database-as-objects-and-the-first-slot-made-from-a-run-time-name-scoped-2026-09-15)
+in ideas.md; the account below is of the file format, and belongs to both.
 
 ```sh
 ./bin/solvm programs/sql.sob                              # it demonstrates itself
@@ -2795,6 +2808,27 @@ complained, which says the twelve bytes are reserved and not read.
 The sweep is fourteen author cases, eight of them writable, and two hundred
 generated a seed with deletes in the writable rung now: **629 of 629 on seed
 1 and 629 of 629 on seed 5**, both ways.
+
+### The objects over it, and the defect UPDATE found the same evening
+
+**The shell became a client of the objects, and the sweep judged both fronts
+at once**: every INSERT is `t:insert(dictionary)`, every DELETE is a query's
+`delete`, every SELECT a query's `each` with the shell rendering the row.
+UPDATE was added to the shell for one reason, that `sqlite3` cannot judge
+the library's `update` without a statement to reach it by; the plan had put
+it out of scope as *a delete and an insert at the page level*, which it is,
+and that was where the defect was. **A rowid put back after being taken out
+went to the wrong leaf.** A table interior cell's key is the largest rowid
+under its left child, so a rowid equal to a divider descends left; the
+insert descended with the leaf's rule, which steps past an equal rowid to
+refuse it as a duplicate, and sent it right. `integrity_check` said *Rowid
+30 out of order* on the first author case, `updates.sql`, before a
+generated case ran. The step-5 writer had this from the day it was written,
+and nothing reached it: a divider is a copy of a rowid that was in the
+tree when a leaf split, and only a DELETE of that exact rowid followed by an
+INSERT with it given, which no generated script did, meets it. `childFor`
+descends now and `positionFor` places, and the comment beside them says
+which rule is whose.
 
 ### What it wanted from the language, so far
 

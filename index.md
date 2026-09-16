@@ -219,7 +219,7 @@ Two of them run on [lib/json.sol](lib/json.sol) and
 Solum. The last one is an interpreter for another language, and is where the
 mathematics in 0.32.0 came from.
 
-**`examples/`** — thirty-five<!--count examples--> demonstrations, one for every concept the
+**`examples/`** — thirty-six<!--count examples--> demonstrations, one for every concept the
 [guide](docs/GUIDE.md) names:
 [hello](examples/hello.sol),
 [binding](examples/binding.sol),

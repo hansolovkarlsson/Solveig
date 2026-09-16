@@ -23,7 +23,10 @@
 ; bounds: SELECT of named columns, `rowid` or `*`, from one table, with a
 ; WHERE of comparisons on columns joined by AND and an ORDER BY; CREATE
 ; TABLE with plain columns; CREATE INDEX on plain columns; INSERT of
-; literals; PRAGMA page_size; DELETE with the same WHERE. Nothing else, and
+; literals; PRAGMA page_size; DELETE with the same WHERE; and UPDATE of
+; literals with the same WHERE, which the plan had left out and the objects
+; brought in, since sqlite3 could not judge the library's `update` without
+; a statement to reach it by. Nothing else, and
 ; a statement outside that is reported as such rather than quietly meaning
 ; something else. `SQLITE_PAGES=1` in the environment reports how many
 ; pages a run read and how many bytes it wrote, which are the numbers a
@@ -146,103 +149,73 @@ parseSelect := { tokens | | i, columns, tableName, where, order, r, done |
 out := [].
 emit := { line | out:add(line):add("\n") }.
 
-runSelect := { d, tables, parsed | | t, wanted, orderCols, rows |
-    t := tables:at(parsed:at(#2):asLowercase, nil).
+runSelect := { d, parsed | | t, wanted, q |
+    t := d:table(parsed:at(#2)).
     t:isNil:ifTrue({ error:raise("no such table: ":concat(parsed:at(#2))) }).
-    ; The columns to print, resolved; `*` is every column of the table.
+    ; The columns to print, resolved to the keys a row has; `*` is every
+    ; column of the table.
     wanted := [].
     parsed:at(#1):do({ c |
         c:equals("*"):ifElse(
-            { [#1, t:columns:size]:loop({ i |
-                  wanted:add(t:columns:at(i):at(#3):ifElse({ 'rowid }, { i })) }) },
-            { wanted:add(sqlite:resolve(t, c)) }) }).
-    orderCols := parsed:at(#4):collect({ c | sqlite:resolve(t, c) }).
-    rows := sqlite:matchingRows(d, t, parsed:at(#3)).
-
-    orderCols:size:greaterThan(#0):ifTrue({
-        rows := rows:sorted({ a, b | | c, i |
-            c := #0. i := #1.
-            { c:equals(#0):and({ i:lessOrEqual(orderCols:size) }) }:whileTrue({
-                c := sqlite:compare(sqlite:valueAt(a:at(#1), a:at(#2), orderCols:at(i)),
-                                   sqlite:valueAt(b:at(#1), b:at(#2), orderCols:at(i))).
-                i := i:inc }).
-            c:equals(#0):ifTrue({ c := sqlite:compare(a:at(#1), b:at(#1)) }).
-            c:lessThan(#0) }) }).
-
-    rows:do({ row |
-        emit:value(wanted:collect({ w | sqlite:render(sqlite:valueAt(row:at(#1), row:at(#2), w)) }):join("|")) }) }.
+            { t:columns:do({ col | wanted:add(col:at(#3):ifElse({ 'rowid }, { col:at(#1):asSymbol })) }) },
+            { | which |
+              which := sqlite:resolve(t, c).
+              wanted:add(which:equals('rowid):ifElse({ 'rowid }, { t:columns:at(which):at(#1):asSymbol })) }) }).
+    q := t:all.
+    parsed:at(#3):do({ term | q := q:filter(term:at(#1), term:at(#2), term:at(#3)) }).
+    parsed:at(#4):size:greaterThan(#0):ifTrue({ q := q:orderBy(parsed:at(#4)) }).
+    q:each({ row |
+        emit:value(wanted:collect({ w | sqlite:render(row:slotAt(w)) }):join("|")) }) }.
 
 ; ---------------------------------------------------------------------------
-; CREATE TABLE, CREATE INDEX, INSERT, and PRAGMA page_size
+; CREATE TABLE, CREATE INDEX, INSERT, UPDATE, DELETE, and PRAGMA page_size
 ;
-; Step 3 of the plan: the writer, from nothing. Each statement changes pages
-; in memory and the file is written whole at the end, which is enough for a
-; fresh file and is what step 4 measures against on a file that exists.
+; Each statement is parsed here and run through the library's objects: a
+; table made or found on the database, a row put in as a dictionary of
+; column names, a query narrowed by the WHERE and then updated or deleted.
+; The shell keeps nothing of its own but the parse, which is why the sweep
+; that judges it judges the objects.
 
 ; A statement's text as written, from its first token to its last.
 statementText := { text, st | text:copyFrom(st:at(#1):at(#3), st:at(st:size):at(#4)) }.
 
 ; `text` is the whole source, since the tokens' positions are into it.
-createTable := { d, tables, st, text | | name, t, sql |
+createTable := { d, st, text | | name |
     st:size:lessThan(#4):ifTrue({ error:raise("CREATE TABLE needs a name and columns") }).
     name := tok:value(st, #3):at(#2).
-    tables:includes(name:asLowercase):ifTrue({ error:raise("table ":concat(name):concat(" already exists")) }).
-    t := sqlite:table:new.
-    t:name := name.
-    t:columns := sqlite:columnsFromSql(statementText:value(text, st)).
-    t:columns:size:equals(#0):ifTrue({ error:raise("CREATE TABLE ":concat(name):concat(" has no columns")) }).
-    t:indexes := []. t:maxRowid := nil.
-    t:root := d:newPage(#13).
     ; Stored as written, after the two words SQLite spells for itself.
-    sql := "CREATE TABLE ":concat(text:copyFrom(st:at(#3):at(#3), st:at(st:size):at(#4))).
-    sqlite:schemaRow(d, tables, "table", name, name, t:root, sql).
-    tables:atPut(name:asLowercase, t) }.
+    sqlite:createTable(d, name, "CREATE TABLE ":concat(text:copyFrom(st:at(#3):at(#3), st:at(st:size):at(#4)))) }.
 
-createIndex := { d, tables, st, text | | name, tblName, t, cols, root, sql, ix |
+createIndex := { d, st, text | | name, tblName, t, cols |
     st:size:lessThan(#7):ifTrue({ error:raise("CREATE INDEX needs a name, a table and columns") }).
     name := tok:value(st, #3):at(#2).
     isWord:value(st, #4, "ON"):ifFalse({ error:raise("expected ON in CREATE INDEX") }).
     tblName := tok:value(st, #5):at(#2).
-    t := tables:at(tblName:asLowercase, nil).
+    t := d:table(tblName).
     t:isNil:ifTrue({ error:raise("no such table: ":concat(tblName)) }).
     cols := sqlite:indexColumnsFromSql(statementText:value(text, st)).
     cols:isNil:ifTrue({ error:raise("an index with DESC, COLLATE, an expression or a WHERE is not written here") }).
-    cols:do({ c | sqlite:resolve(t, c) }).
-    root := d:newPage(#10).
-    sql := "CREATE INDEX ":concat(text:copyFrom(st:at(#3):at(#3), st:at(st:size):at(#4))).
-    sqlite:schemaRow(d, tables, "index", name, t:name, root, sql).
-    ix := [name, root, cols].
-    t:indexes:add(ix).
-    ; A table that already has rows is indexed now.
-    sqlite:eachRow(d, t:root, { rowid, p | | values, entry, payload, raw |
-        values := sqlite:decodeRecord(p).
-        entry := cols:collect({ c | | which |
-            which := sqlite:resolve(t, c).
-            which:equals('rowid):ifElse({ rowid }, { which:greaterThan(values:size):ifElse({ nil }, { values:at(which) }) }) }).
-        entry:add(rowid).
-        payload := sqlite:recordBytes(entry).
-        raw := sqlite:varintBytes(payload:size):concat(payload).
-        sqlite:treeInsert(d, root, raw, entry, true) }) }.
+    sqlite:createIndex(d, t, name, cols, "CREATE INDEX ":concat(text:copyFrom(st:at(#3):at(#3), st:at(st:size):at(#4)))) }.
 
 ; INSERT INTO t [(cols)] VALUES (v, ...), (v, ...)
-insertStatement := { d, tables, st | | i, name, t, which, r, rowValues, values, rowidGiven, done, v, count |
+insertStatement := { d, st | | i, name, t, which, r, rowValues, row, done, count |
     i := expect:value(st, #1, "INSERT").
     i := expect:value(st, i, "INTO").
     name := tok:value(st, i):at(#2). i := i:inc.
-    t := tables:at(name:asLowercase, nil).
+    t := d:table(name).
     t:isNil:ifTrue({ error:raise("no such table: ":concat(name)) }).
-    ; The columns named, resolved; none named is every column in order.
+    ; The columns named, as the schema spells them; none named is every
+    ; column in order.
     which := nil.
     isPunct:value(st, i, "("):ifTrue({
         i := i:inc. which := [].
         { isPunct:value(st, i, ")"):not:and({ i:lessOrEqual(st:size) }) }:whileTrue({
             r := columnRef:value(st, i). i := r:at(#2).
-            which:add(sqlite:resolve(t, r:at(#1))).
+            sqlite:resolve(t, r:at(#1)).
+            which:add(r:at(#1)).
             isPunct:value(st, i, ","):ifTrue({ i := i:inc }) }).
         i := i:inc }).
-    which:isNil:ifTrue({
-        which := [].
-        [#1, t:columns:size]:loop({ k | which:add(t:columns:at(k):at(#3):ifElse({ 'rowid }, { k })) }) }).
+    which:isNil:ifTrue({ which := t:columnNames }).
     i := expect:value(st, i, "VALUES").
     count := #0.
     done := false.
@@ -257,14 +230,9 @@ insertStatement := { d, tables, st | | i, name, t, which, r, rowValues, values, 
         rowValues:size:notEquals(which:size):ifTrue({
             error:raise("table ":concat(t:name):concat(" has "):concat(which:size:asString)
                 :concat(" columns but "):concat(rowValues:size:asString):concat(" values were supplied")) }).
-        values := []. rowidGiven := nil.
-        [#1, t:columns:size]:loop({ k | values:add(nil) }).
-        [#1, which:size]:loop({ k |
-            v := rowValues:at(k).
-            which:at(k):equals('rowid):ifElse(
-                { v:isNil:ifFalse({ rowidGiven := sqlite:rowidOf(v) }) },
-                { values:atPut(which:at(k), sqlite:storeAffinity(v, t:columns:at(which:at(k)):at(#2))) }) }).
-        sqlite:insertRow(d, t, values, rowidGiven).
+        row := dictionary:new.
+        [#1, which:size]:loop({ k | row:atPut(which:at(k), rowValues:at(k)) }).
+        t:insert(row).
         count := count:inc.
         isPunct:value(st, i, ","):ifElse(
             { i := i:inc }, { done := true }) }).
@@ -272,13 +240,57 @@ insertStatement := { d, tables, st | | i, name, t, which, r, rowValues, values, 
         error:raise("this INSERT goes on past what is understood, at: ":concat(tok:value(st, i):at(#2))) }).
     count }.
 
-; DELETE FROM t [WHERE ...]: the rows are found first and removed after,
-; since removing while walking would move the walk's ground.
-deleteStatement := { d, tables, st | | i, name, t, where, r, rows |
+; UPDATE t SET col = v, ... [WHERE ...]: each row the WHERE keeps, with
+; those columns changed, put back through the table's `update`. It was
+; outside the plan, being a delete and an insert at the page level, and is
+; here so that sqlite3 judges `update` the way it judges the rest.
+updateStatement := { d, st | | i, name, t, sets, r, where, q, count |
+    i := expect:value(st, #1, "UPDATE").
+    name := tok:value(st, i):at(#2). i := i:inc.
+    t := d:table(name).
+    t:isNil:ifTrue({ error:raise("no such table: ":concat(name)) }).
+    i := expect:value(st, i, "SET").
+    sets := [].
+    { isWord:value(st, i, "WHERE"):not:and({ i:lessOrEqual(st:size) }) }:whileTrue({
+        r := columnRef:value(st, i). i := r:at(#2).
+        sqlite:resolve(t, r:at(#1)).
+        i := expect:value(st, i, "=").
+        sets:add([r:at(#1), nil]).
+        r := literal:value(st, i). i := r:at(#2).
+        sets:at(sets:size):atPut(#2, r:at(#1)).
+        isPunct:value(st, i, ","):ifTrue({ i := i:inc }) }).
+    sets:size:equals(#0):ifTrue({ error:raise("UPDATE needs SET column = value") }).
+    where := [].
+    isWord:value(st, i, "WHERE"):ifTrue({
+        i := i:inc.
+        r := parseWhere:value(st, i). where := r:at(#1). i := r:at(#2) }).
+    i:lessOrEqual(st:size):ifTrue({
+        error:raise("this UPDATE goes on past what is understood, at: ":concat(tok:value(st, i):at(#2))) }).
+    q := t:all.
+    where:do({ term | q := q:filter(term:at(#1), term:at(#2), term:at(#3)) }).
+    ; Each SET as the key the row carries: the column's symbol, or 'rowid
+    ; for the rowid and its aliases. A row whose rowid moves is taken out
+    ; and put in again, since its rowid is where `update` finds it.
+    sets := sets:collect({ s | | which |
+        which := sqlite:resolve(t, s:at(#1)).
+        [which:equals('rowid):ifElse({ 'rowid }, { t:columns:at(which):at(#1):asSymbol }), s:at(#2)] }).
+    count := #0.
+    q:all:do({ row | | moved, was, pairs |
+        moved := false. was := row:rowid.
+        pairs := row:asDictionary.
+        sets:do({ s |
+            s:at(#1):equals('rowid):ifTrue({ moved := true }).
+            pairs:atPut(s:at(#1), s:at(#2)) }).
+        moved:ifElse({ t:delete(was). t:insert(pairs) }, { t:update(pairs) }).
+        count := count:inc }).
+    count }.
+
+; DELETE FROM t [WHERE ...]
+deleteStatement := { d, st | | i, name, t, where, r, q |
     i := expect:value(st, #1, "DELETE").
     i := expect:value(st, i, "FROM").
     name := tok:value(st, i):at(#2). i := i:inc.
-    t := tables:at(name:asLowercase, nil).
+    t := d:table(name).
     t:isNil:ifTrue({ error:raise("no such table: ":concat(name)) }).
     where := [].
     isWord:value(st, i, "WHERE"):ifTrue({
@@ -286,9 +298,9 @@ deleteStatement := { d, tables, st | | i, name, t, where, r, rows |
         r := parseWhere:value(st, i). where := r:at(#1). i := r:at(#2) }).
     i:lessOrEqual(st:size):ifTrue({
         error:raise("this DELETE goes on past what is understood, at: ":concat(tok:value(st, i):at(#2))) }).
-    rows := sqlite:matchingRows(d, t, where).
-    rows:do({ row | sqlite:deleteRow(d, t, row:at(#1), row:at(#2)) }).
-    rows:size }.
+    q := t:all.
+    where:do({ term | q := q:filter(term:at(#1), term:at(#2), term:at(#3)) }).
+    q:delete }.
 
 ; PRAGMA page_size = N sets the size of a database that is still empty, and
 ; is ignored on one that is not, as SQLite ignores it. Any other pragma is
@@ -302,17 +314,18 @@ pragmaStatement := { d, st | | n |
     d:isEmpty:ifTrue({ d:pageSize := n. d:usable := n }) }.
 
 ; One statement of any kind this program has.
-execute := { d, tables, st, text | | first |
+execute := { d, st, text | | first |
     first := st:at(#1):at(#2):asUppercase.
-    first:equals("SELECT"):ifElse({ runSelect:value(d, tables, parseSelect:value(st)) },
-    { first:equals("INSERT"):ifElse({ insertStatement:value(d, tables, st) },
-    { first:equals("DELETE"):ifElse({ deleteStatement:value(d, tables, st) },
+    first:equals("SELECT"):ifElse({ runSelect:value(d, parseSelect:value(st)) },
+    { first:equals("INSERT"):ifElse({ insertStatement:value(d, st) },
+    { first:equals("UPDATE"):ifElse({ updateStatement:value(d, st) },
+    { first:equals("DELETE"):ifElse({ deleteStatement:value(d, st) },
     { first:equals("PRAGMA"):ifElse({ pragmaStatement:value(d, st) },
-    { (first:equals("CREATE"):and({ isWord:value(st, #2, "TABLE") })):ifElse({ createTable:value(d, tables, st, text) },
-    { (first:equals("CREATE"):and({ isWord:value(st, #2, "INDEX") })):ifElse({ createIndex:value(d, tables, st, text) },
+    { (first:equals("CREATE"):and({ isWord:value(st, #2, "TABLE") })):ifElse({ createTable:value(d, st, text) },
+    { (first:equals("CREATE"):and({ isWord:value(st, #2, "INDEX") })):ifElse({ createIndex:value(d, st, text) },
     { (first:equals("CREATE"):and({ isWord:value(st, #2, "UNIQUE") })):ifElse(
         { error:raise("a UNIQUE index is not written here; the constraint is not checked") },
-        { error:raise("only SELECT, CREATE TABLE, CREATE INDEX, INSERT, DELETE and PRAGMA page_size are understood; this begins with ":concat(st:at(#1):at(#2))) }) }) }) }) }) }) }) }.
+        { error:raise("only SELECT, CREATE TABLE, CREATE INDEX, INSERT, UPDATE, DELETE and PRAGMA page_size are understood; this begins with ":concat(st:at(#1):at(#2))) }) }) }) }) }) }) }) }) }.
 
 ; ---------------------------------------------------------------------------
 ; The demonstration
@@ -327,12 +340,11 @@ demonstrate := { | path, run, verdict |
     system:makeDirectory("build").
     path := "build/sql-demo.db".
     system:fileExists(path):ifTrue({ system:remove(path) }).
-    demoDb := sqlite:db:open(path).
-    demoTables := sqlite:loadSchema(demoDb).
+    demoDb := sqlite:open(path).
     run := { sql |
         "-- ":concat(sql):display.
         sqlite:statements(sqlite:tokenize(sql)):do({ st |
-            execute:value(demoDb, demoTables, st, sql) }).
+            execute:value(demoDb, st, sql) }).
         out:size:greaterThan(#0):ifTrue({ system:write(out:join("")). out := []. "":display }) }.
     run:value("CREATE TABLE fruit (name TEXT, count INTEGER, price REAL)").
     run:value("CREATE INDEX fruit_name ON fruit (name)").
@@ -354,12 +366,11 @@ demonstrate := { | path, run, verdict |
         { "-- no sqlite3 on this machine to judge it":display }) }.
 
 demoDb := nil.
-demoTables := nil.
 
 ; ---------------------------------------------------------------------------
 ; Main
 
-main := { | args, d, tables, text, tokens, status |
+main := { | args, d, text, tokens, status |
     args := system:arguments.
     args:size:lessThan(#1):ifTrue({
         { demonstrate:value }:onError({ e |
@@ -367,13 +378,12 @@ main := { | args, d, tables, text, tokens, status |
             system:exit(#2) }).
         system:exit(#0) }).
     status := #0.
-    { d := sqlite:db:open(args:at(#1)).
-      tables := sqlite:loadSchema(d) }:onError({ e |
+    { d := sqlite:open(args:at(#1)) }:onError({ e |
         system:writeError("Error: ":concat(e:message):concat("\n")).
         system:exit(#1) }).
     text := args:size:greaterOrEqual(#2):ifElse({ args:at(#2) }, { system:readFile("/dev/stdin") }).
     sqlite:statements(sqlite:tokenize(text)):do({ st |
-        { execute:value(d, tables, st, text) }
+        { execute:value(d, st, text) }
         :onError({ e |
             system:write(out:join("")). out := [].
             system:writeError("Error: ":concat(e:message):concat("\n")).

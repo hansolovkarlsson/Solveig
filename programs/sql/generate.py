@@ -236,6 +236,32 @@ def case(seed, number, out, writable=False):
             else:
                 lines.append('DELETE FROM %s WHERE rowid = %d;' % (name, r.randint(1, nrows)))
 
+        # Updates, in the writable rung only, since 2026-09-15: a column
+        # changed under a key, so the index entries move; a range of rowids;
+        # and a row moved to a rowid nothing holds, which is a delete and an
+        # insert. The shell's UPDATE exists so that sqlite3 judges the
+        # library's `update` through it.
+        if writable and nrows > 5 and ncols > 1 and r.random() < 0.6:
+            how = r.random()
+            i = r.choice([c for c in range(ncols) if c != pk])
+            newval = g.key_value() if i in key_cols else g.value(page)
+            if how < 0.4 and key_cols:
+                k = r.choice(key_cols)
+                lines.append('UPDATE %s SET %s = %s WHERE %s = %s;'
+                             % (name, cols[i][0], newval, cols[k][0], g.key_value()))
+            elif how < 0.8:
+                lo = r.randint(1, nrows)
+                hi = lo + r.randint(0, nrows // 4)
+                lines.append('UPDATE %s SET %s = %s WHERE rowid > %d AND rowid < %d;'
+                             % (name, cols[i][0], newval, lo, hi))
+            else:
+                while True:
+                    rid = r.randint(1, 4 * nrows + 10)
+                    if rid not in rowids and rid > nrows:
+                        break
+                lines.append('UPDATE %s SET rowid = %d WHERE rowid = %d;'
+                             % (name, rid, r.randint(1, nrows)))
+
         tables.append((name, cols, pk, key_cols, nrows))
 
     # Queries: every table whole; a rowid that is there and one that is not;

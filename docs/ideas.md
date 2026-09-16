@@ -61,7 +61,7 @@ marked as a sketch.
 | A conformance suite for a second implementation | **Built, both halves, on 2026-09-03** — [conformance/](../conformance/README.md), **89 cases** scored on their bytes with both tools taken from `SOL_COMPILE` and `SOL_RUN`, and in `make test`. Three kinds and not two: a refusal is compile-time and a **trap is run-time**, which the scoping had run together — 13 of the 15 demonstrations in `examples/` turn out to be the machine's business, not the front end's. Every answer written from the documentation before it was run. **Two findings, both in the documentation**: a REFERENCE.md paragraph wrong about `onError` in both halves, and a **self-including file that PRODUCING.md filed as a refusal when it is a warning** — it compiles, leaves with 0, and runs. [The scoping](#a-conformance-suite--a-corpus-a-second-implementation-can-score-itself-against) has the shape; what is left is the five 65,535 limits, which are a generator's business |
 | Programs that would press on something — Pascal, predicate logic, a parser toolkit, `tail`, and [which Unix tool next](#which-unix-tool-next-and-what-each-would-press-on--surveyed-2026-08-31) | **Defer, and none needs permission** — each is [predicted to find one thing](#programs-that-would-press-on-something), written down before it is written. **The editor was written**, and found what this page said it would. **So was `sha256sum`, on 2026-08-31**, the first off the Unix survey and the first program here with no I/O in its inner loop: [the prediction held in both halves](#it-was-written-on-2026-08-31-and-the-prediction-held-in-both-halves) and produced the number it was written for — **208 bytecode instructions a byte, 4.3 ns each, 234M a second**. **And `diff` on 2026-09-02**, where [one prediction of four held](#it-was-written-on-2026-09-02-and-one-of-the-four-predictions-held) — the output format, which was the whole difficulty — and the three that did not are more useful than the one that did. **And `gzip -d` on 2026-09-04**, the last of the three the survey named and [the one whose prediction measured the wrong thing](#it-was-written-on-2026-09-04-and-the-prediction-measured-the-wrong-thing): it asked for the cost of a 32 KB window as boxed values, and the window is 4.8% of the program. **And `sort` the same day**, which had been filed among the also-rans and is [promoted to an entry of its own](#sort--filed-below-as-pressing-on-less-and-written-anyway): the gap it was predicted to find was not there, because a write is not the reverse of a read — a producer knows what comes next — and what its merge wanted was the ranged read, already built |
 | An SQLite file, read and then written, as the twenty-third program | **Scoped on 2026-09-15, chosen over a format of our own for the oracle; all six steps were built the same day, and [the positioned write was wanted at step 4 and not before](#step-4-the-same-night-and-the-first-prediction-fired-where-it-said), as predicted; [the reader pressed on nothing](#steps-0-and-1-were-built-the-same-day-and-the-reader-pressed-on-nothing), as predicted**: [the entry](#an-sqlite-file-read-and-then-written-scoped-2026-09-15) predicted the positioned write is wanted at step 4 and not before, and it was, raised and closed the same day as [3.27](COMPLETED.md#327-a-file-is-written-whole-or-appended-to-and-nothing-in-between--done), `writeFile(path, from, text)`; that a page as strings is bearable, and it is so far at 0.36 ms a row; and that locking, flushing and a truncate are not found at all. Six steps, each held against `sqlite3` and `PRAGMA integrity_check` |
-| The database as objects, and `object:new(dictionary)` | **Scoped on 2026-09-15, the evening the SQL front was done**: [the entry](#the-database-as-objects-and-the-first-slot-made-from-a-run-time-name-scoped-2026-09-15) moves the engine into `lib/sqlite.sol`, puts a table, a query and a row over it, and asks for one slot-creating message at construction, `object:new(dictionary)`, built after a version with rows as dictionaries has run, so that the program asks and not the page. Six steps, each held against the same sweep, with the SQL shell as a client of the objects so that `sqlite3` judges both fronts |
+| The database as objects, and `object:new(dictionary)` | **Scoped on 2026-09-15, the evening the SQL front was done, and built the same night**: [the entry](#the-database-as-objects-and-the-first-slot-made-from-a-run-time-name-scoped-2026-09-15) moved the engine into `lib/sqlite.sol`, put a table, a query and a row over it, and asked for one slot-creating message at construction, `object:new(dictionary)`, built after a version with rows as dictionaries had run through the sweep, so that the program asked and not the page. The shell became a client of the objects and `sqlite3` judged both fronts at once, 632 of 632; UPDATE, added so that `update` could be judged, [found a defect the writer had carried since step 5](#step-1-the-same-evening-and-update-found-a-defect-in-the-writer). Two predictions wrong in a detail: the primitive needs no GC root, and a slot walk past twenty columns loses nothing, since an object has a hash index past twelve |
 | Networking, and sending code to a running machine | **The first half is built**, on 2026-08-29 — [extensions/net](../extensions/net/README.md), five messages, and the waiting question answered with a timeout rather than a block; [the second half](#networking-and-sending-code-to-a-machine-that-is-already-running) is untouched and still needs 3.4, 6.32 and a proxy |
 | SQLite, SDL2, GTK | **One project, not three** — [extensions](#extensions-a-capability-from-a-binary-rather-than-from-the-vm); GTK and SDL2 fire that trigger and SQLite does not, and wanting *both* toolkits is what settles the mechanism |
 | A game controller, and more of the sound, in [solveig-sdl](https://github.com/hansolovkarlsson/solveig-sdl) | **Held, with a trigger**, said by Hans on 2026-09-14 after the eleventh game and written where that binding's rule for growing lives: every cabinet had a stick and the arrows stand in for it, and one `beep` has carried twelve games and a tune and would not carry a console's music. Neither is a trigger yet. The famous console games come first, and they are what will ask; the binding grows only when a program wants what it cannot have |
@@ -6459,6 +6459,72 @@ back; that is the program's stated absence and this front inherits it.
 scan; `all:select(block)` is that already, on the array, and the entry
 does not add a second spelling of it.
 
+##### Step 0 the same evening, and the move found nothing
+
+**As predicted.** Every top-level name became a slot on `sqlite`, every
+`f:value(...)` became `sqlite:f(...)` by a script that skipped comments and
+strings, and four things the script could not do by rule were done by hand:
+a constant array called as a value, a function called with no arguments, two
+blocks passed to `takeWhile` as values, which are `sqlite:slotAt('isDigit)`
+now, and a local named `page` inside the function that reads an overflow
+chain, renamed so that the prototype's name could be rewritten without it.
+The sweep over seed 1 was 629 of 629 before a line was added, the same
+number as the day before, which is what the step was for. The rename went
+further than the plan said: the corpus directory is `programs/sql/` too,
+and the two historical links in the changelog point at where the files
+live now, as `pattern.sol`'s does.
+
+##### Step 1 the same evening, and UPDATE found a defect in the writer
+
+**Rows as dictionaries, the shell a client, UPDATE in the shell and the
+generator.** The objects went in as sketched, with one change the sketch
+could not have known: a block has one arity, so `where(dictionary)` and
+`where(column, op, value)` cannot both be `where`, and the comparison is
+`filter(column, op, value)`. The SQL spelling of the operator was taken, as
+call 2 recommended. `update` is the delete and the insert the plan said it
+was, and **the first author case of UPDATE found a defect the step-5 writer
+had from the day it was written**: a rowid put back after being taken out
+descended past the interior divider equal to it and landed on the wrong
+leaf, because the descent used the leaf's rule, which steps past an equal
+rowid to refuse it as a duplicate. `integrity_check` named the rowid. No
+generated script had met it, since it takes a DELETE of exactly a divider's
+rowid and then an INSERT with that rowid given; the account is in
+[programs.md](programs.md#the-objects-over-it-and-the-defect-update-found-the-same-evening).
+That is the *held against* column earning its place, and it is the second
+prediction of this entry to be wrong in a detail it did not name: the
+shell over the objects broke nowhere the table predicted, and the writer
+under them broke where it did not look.
+
+##### Steps 2 and 3 the same night: the primitive, and the rows on it
+
+**`object:new(dictionary)` is thirty-eight lines of `builtins.c`**, the keys
+checked before a slot is made, a string interned by its length so that a
+NUL cannot cut a name short, and **no root, which the prediction had
+wrong**: defining a slot mallocs it and interns its name in the permanent
+table, neither of which goes through the collector, so nothing can run
+between the child being made and its return. The case in
+`tests/test_object.c` makes two hundred rows and a wide one under
+`SOLUM_GC_STRESS` without one, and the comment beside the primitive says
+why there is none, which the method asks for in place of a guard against a
+hazard that is not there.
+
+**The rows became objects under a prototype a table**, `rowid`, `table`,
+`save` and `delete` on the prototype and the columns on the row, and the
+shell did not change its cases: `row:at(w)` became `row:slotAt(w)` and
+UPDATE builds its new values through `asDictionary`, since there is no way
+to set a slot by a name in a value, which is the boundary the entry drew.
+The sweep is the same 632 of 632 on seed 1 over the object rows. **The
+measurement, 6.15's second half put to a number**, 400,000 reads:
+`o:c5` as a send 0.036 s against `d:at('c5)` 0.069 s, so the property is
+twice as fast as the dictionary it replaced, and `slotAt` by a symbol held
+in a variable 0.088 s, a fifth slower; at twenty-five columns the same
+within noise, because an object past twelve slots has a hash index already,
+which 6.15's *walked linearly* predates. Making 20,000 rows costs 20% more
+as objects than as dictionaries, the dictionary being made either way. So
+the prediction's first half held, within 2× either way at five columns, and
+its second half, the walk losing past twenty, was wrong about the machine
+it was measuring.
+
 ##### The calls only you can make
 
 1. **The names.** The library `lib/sqlite.sol` binding `sqlite`, the program
@@ -6469,15 +6535,19 @@ does not add a second spelling of it.
    language's, `where("count", 'greaterThan, #3)`. Recommended the SQL
    spelling: it is the file's own language and the shell passes it through
    untouched, and a name like `greaterThan` would promise a send that never
-   happens.
+   happens. **Taken, as `filter(column, op, value)`, on 2026-09-15**: a
+   block has one arity, so the three-argument form could not share the
+   name `where`.
 3. **Whether `close` is the only way the file is written**, or `save` writes
    the row's page as it goes. Recommended `close`, with `flush` beside it
    for a program that wants to look with `sqlite3` before it is done: the
    engine batches changed pages, and one write of every changed page at the
-   end is what step 4 of the plan above measured.
+   end is what step 4 of the plan above measured. **Built as recommended,
+   without a separate call.**
 4. **Whether `object:new(dictionary)` takes string keys as well as symbols.**
    Recommended yes: column names are strings, and `asSymbol` on each before
-   the call would be the caller doing the primitive's job.
+   the call would be the caller doing the primitive's job. **Built as
+   recommended, without a separate call.**
 
 ### Networking, and sending code to a machine that is already running
 
@@ -6885,7 +6955,7 @@ program can read it. No `make` target, no `bin/solvm`, no wording of ours.
 | | what it holds | why it is not a conformance suite |
 | --- | --- | --- |
 | `tests/*.c` — 40 files | the C API, the compiler and the VM | internal by construction; a second implementation has none of these symbols |
-| [expect.sol](../programs/expect.sol) — 1104<!--count claims--> claims | the examples and the documents against their own comments | **the author's corpus, matched as a subsequence** — its own header says why, and why that is right for a document |
+| [expect.sol](../programs/expect.sol) — 1129<!--count claims--> claims | the examples and the documents against their own comments | **the author's corpus, matched as a subsequence** — its own header says why, and why that is right for a document |
 | [oracle.sh](../programs/oracle.sh) — six corpora | `sed`, `diff`, `sort` against BSD's | a second implementation of a **program**, not of the language |
 
 **The subsequence rule is the sharp one.** `expect.sol` requires each claim to
@@ -7058,7 +7128,7 @@ answers closes it whether or not a second front end ever exists.
 **Build `accepted/` first, with the harness and the two-file case.** It closes
 the Phoenix gap, it is the half that scores every stranger including the ones
 that cannot read `.sol`, and it can be seeded from the examples rather than
-invented — 35<!--count examples-files--> files of claims already exist and want
+invented — 36<!--count examples-files--> files of claims already exist and want
 only exact output beside them instead of a subsequence.
 
 **Then `refused/`, and it is mostly transcription.** The eleven scope rules and

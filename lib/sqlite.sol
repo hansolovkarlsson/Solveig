@@ -357,11 +357,12 @@ sqlite:render := { v | | nul, at |
     v:isNil:ifElse({ "" },
         { v:isKindOf(integer):ifElse({ v:asString },
             { v:isKindOf(sqlite:real):ifElse({ sqlite:fifteen(v:parts) },
+                { v:isKindOf(float):ifElse({ sqlite:fifteen(sqlite:floatParts(v)) },
                 { v:isKindOf(string):ifElse({ v },
                     { nul := #0:asCharacter.
                       at := v:bytes:indexOf(nul).
                       at:isNil:ifElse({ v:bytes },
-                          { at:equals(#1):ifElse({ "" }, { v:bytes:copyFrom(#1, at:dec) }) }) }) }) }) }) }.
+                          { at:equals(#1):ifElse({ "" }, { v:bytes:copyFrom(#1, at:dec) }) }) }) }) }) }) }) }.
 
 ; ---------------------------------------------------------------------------
 ; The file
@@ -381,6 +382,7 @@ sqlite:db:freelistCount := #0.
 sqlite:db:written := #0.               ; bytes written by flush, for the measurement
 sqlite:db:changed := #0.               ; pages that were changed when flush ran
 sqlite:db:readBefore := #0.            ; pages read before flush had to read the rest
+sqlite:db:tables := nil.               ; lower-cased name -> table, from loadSchema
 
 ; A file that is there is opened; one that is not, or one of no bytes, which
 ; is what sqlite3 leaves after a script that only set a pragma, is a new
@@ -748,6 +750,19 @@ sqlite:positionFor := { o, key, isIndex | | i |
         isIndex:not:and({ o:keys:at(i):equals(key) }) }) }) }:whileTrue({ i := i:inc }).
     i }.
 
+; Which child of an interior page a key descends into: the first whose
+; divider is not less than the key. On a table page the divider is the
+; largest rowid under that child, so a rowid equal to it goes left, and
+; `positionFor`, which steps past an equal rowid to refuse it as a
+; duplicate on the leaf, would send it right. A rowid put back after being
+; taken out, which is what `update` does, was the first to meet that: the
+; divider stays 30 when rowid 30 is deleted, and the row went to the leaf
+; after it, where `integrity_check` found it out of order.
+sqlite:childFor := { o, key, isIndex | | i |
+    i := #1.
+    { i:lessOrEqual(o:keys:size):and({ sqlite:keyLess(isIndex, o:keys:at(i), key) }) }:whileTrue({ i := i:inc }).
+    i }.
+
 sqlite:insertAt := { arr, i, v | | out, k |
     out := []. k := #1.
     { k:lessThan(i) }:whileTrue({ out:add(arr:at(k)). k := k:inc }).
@@ -799,7 +814,7 @@ sqlite:insertCell := { d, n, raw, key, isIndex | | o, i, below |
               error:raise("UNIQUE constraint failed: rowid ":concat(key:asString)) }).
           o:cells := sqlite:insertAt(o:cells, i, raw).
           o:keys := sqlite:insertAt(o:keys, i, key) },
-        { i := sqlite:positionFor(o, key, isIndex).
+        { i := sqlite:childFor(o, key, isIndex).
           below := sqlite:insertCell(d, i:greaterThan(o:children:size):ifElse({ o:right }, { o:children:at(i) }),
                                     raw, key, isIndex).
           below:notNil:ifTrue({
@@ -1478,9 +1493,44 @@ sqlite:insertRow := { d, t, values, rowidGiven | | rowid, record, payload, raw, 
 
 ; A row of sqlite_schema, which is a table like any other with page 1 as
 ; its root and no rowid column of its own.
-sqlite:schemaRow := { d, tables, kind, name, tblName, root, sql |
-    sqlite:insertRow(d, tables:at("sqlite_schema"), [kind, name, tblName, root, sql], nil).
+sqlite:schemaRow := { d, kind, name, tblName, root, sql |
+    sqlite:insertRow(d, d:tables:at("sqlite_schema"), [kind, name, tblName, root, sql], nil).
     d:cookie := d:cookie:inc }.
+
+; A table made: `sql` is the CREATE statement as it will be stored, which is
+; the statement as written, since sqlite3 keeps what it was given after the
+; two words it spells for itself.
+sqlite:createTable := { d, name, sql | | t |
+    d:tables:includes(name:asLowercase):ifTrue({ error:raise("table ":concat(name):concat(" already exists")) }).
+    t := sqlite:table:new.
+    t:name := name.
+    t:db := d.
+    t:columns := sqlite:columnsFromSql(sql).
+    t:columns:size:equals(#0):ifTrue({ error:raise("CREATE TABLE ":concat(name):concat(" has no columns")) }).
+    t:indexes := []. t:maxRowid := nil.
+    t:root := d:newPage(#13).
+    sqlite:schemaRow(d, "table", name, name, t:root, sql).
+    d:tables:atPut(name:asLowercase, t).
+    t }.
+
+; An index made on `cols` of table t, and every row the table already has
+; put into it.
+sqlite:createIndex := { d, t, name, cols, sql | | root, ix |
+    cols:do({ c | sqlite:resolve(t, c) }).
+    root := d:newPage(#10).
+    sqlite:schemaRow(d, "index", name, t:name, root, sql).
+    ix := [name, root, cols].
+    t:indexes:add(ix).
+    sqlite:eachRow(d, t:root, { rowid, p | | values, entry, payload, raw |
+        values := sqlite:decodeRecord(p).
+        entry := cols:collect({ c | | which |
+            which := sqlite:resolve(t, c).
+            which:equals('rowid):ifElse({ rowid }, { which:greaterThan(values:size):ifElse({ nil }, { values:at(which) }) }) }).
+        entry:add(rowid).
+        payload := sqlite:recordBytes(entry).
+        raw := sqlite:varintBytes(payload:size):concat(payload).
+        sqlite:treeInsert(d, root, raw, entry, true) }).
+    ix }.
 
 ; One row out of a table and each of its indexes. The index entries are
 ; rebuilt from the row's values as they were put in, which is why the values
@@ -1497,3 +1547,279 @@ sqlite:deleteRow := { d, t, rowid, values |
     ; The next rowid assigned is one past the largest that remains, as
     ; SQLite assigns it, so the largest is looked for again.
     t:maxRowid := nil }.
+
+; ---------------------------------------------------------------------------
+; The objects
+;
+; The engine above is functions over a database `d` and a table `t`, and
+; the SQL shell was the only thing that called them until 2026-09-15. This
+; is the other front, the one the database was wanted for: the database an
+; object, each table an object, a query over one, and a row. The shell is a
+; client of these now, so the sweep that holds the shell against sqlite3
+; holds these too.
+;
+;     db := sqlite:open("notes.db").
+;     notes := db:create("notes", ["title TEXT", "done INTEGER"]).
+;     notes:insert(#['title = "milk", 'done = #0]).
+;     notes:where(#['done = #0]):each({ n | n:title:display }).
+;     n := notes:find(#1). n:done := #1. n:save.
+;     notes:filter("done", "=", #1):delete.
+;     db:close.
+;
+; A row is an object whose columns are its slots, spelled as the schema
+; spells them, with `rowid`, `table`, `save` and `delete` beside them; a
+; REAL comes out as a float and a blob as a `sqlite:blob`. The slots are
+; made by `object:new(dictionary)`, which is the one message that makes a
+; slot from a name held in a value, and was built for this on 2026-09-15
+; after a version of these rows as dictionaries had run through the sweep:
+; the plan in ideas.md says why in that order.
+
+; Columns are named by string or symbol, and matched as SQL matches them.
+sqlite:nameOf := { key | key:isKindOf(symbol):ifElse({ key:asString }, { key }) }.
+
+; A value as a caller has it, and as the engine stores it: a float is a
+; `real` inside, carrying its parts for the exact printer.
+sqlite:toStored := { v |
+    v:isKindOf(float):ifElse({ sqlite:real:of(sqlite:floatParts(v)) }, { v }) }.
+sqlite:toValue := { v |
+    v:isKindOf(sqlite:real):ifElse({ v:value }, { v }) }.
+
+; Open a file, or begin one, and read its schema.
+sqlite:open := { path | | d |
+    d := sqlite:db:open(path).
+    d:tables := sqlite:loadSchema(d).
+    d:tables:do({ t | t:db := d }).
+    d }.
+
+; The tables by name, in the order sqlite_schema has them, which is the
+; order they were made in.
+sqlite:db:tableNames := { | out |
+    out := [].
+    sqlite:eachRow(self, #1, { rowid, p | | r |
+        r := sqlite:decodeRecord(p).
+        r:at(#1):equals("table"):ifTrue({ out:add(r:at(#2)) }) }).
+    out }.
+
+; A table by name, or nil. A table whose column is named for one of the
+; four messages a row answers is refused here, by name, since a row of it
+; could not be saved through the slot its column would shadow.
+sqlite:db:table := { name | | t |
+    t := self:tables:at(sqlite:nameOf(name):asLowercase, nil).
+    t:notNil:ifTrue({ t:checkColumnNames }).
+    t }.
+
+; A table made from its columns, each spelled as SQL spells one: "title
+; TEXT", "id INTEGER PRIMARY KEY". The schema is SQL text in the file
+; whatever this front says, so this is the one place a caller writes some.
+sqlite:db:create := { name, columns | | t |
+    columns:size:equals(#0):ifTrue({ error:raise("a table needs at least one column") }).
+    t := sqlite:createTable(self, name,
+        "CREATE TABLE ":concat(name):concat(" ("):concat(columns:join(", ")):concat(")")).
+    t:checkColumnNames.
+    t }.
+
+; Written and done. `flush` writes without forgetting anything, for a
+; program that wants sqlite3 to look before it is finished.
+sqlite:db:close := { self:flush. self:tables := nil. self:cache := dictionary:new. nil }.
+
+; ---- a table ------------------------------------------------------------
+
+sqlite:table:db := nil.
+sqlite:table:proto := nil.            ; the prototype of this table's rows, once made
+
+sqlite:rowMessages := ["rowid", "table", "save", "delete", "asDictionary"].
+sqlite:table:checkColumnNames := {
+    self:columns:do({ c |
+        sqlite:rowMessages:indexOf(c:at(#1):asLowercase):notNil:ifTrue({
+            error:raise("column ":concat(c:at(#1)):concat(" of "):concat(self:name)
+                :concat(" is named for a message every row answers, and a row of this table could not be saved through it")) }) }) }.
+
+; The prototype every row of this table delegates to: the table, and the
+; four messages a row answers.
+sqlite:table:rowProto := {
+    self:proto:isNil:ifTrue({
+        self:proto := sqlite:row:new.
+        self:proto:table := self }).
+    self:proto }.
+
+; The column names, in schema order.
+sqlite:table:columnNames := { self:columns:collect({ c | c:at(#1) }) }.
+
+; An index on these columns, named.
+sqlite:table:index := { name, columns | | cols |
+    cols := columns:collect({ c | sqlite:nameOf(c) }).
+    sqlite:createIndex(self:db, self, name, cols,
+        "CREATE INDEX ":concat(name):concat(" ON "):concat(self:name):concat(" ("):concat(cols:join(", ")):concat(")")) }.
+
+; An engine row, [rowid, values as stored], as a caller's row: an object
+; under the table's prototype, a slot a column.
+sqlite:table:rowFrom := { r | | slots, row |
+    slots := dictionary:new.
+    slots:atPut('rowid, r:at(#1)).
+    [#1, self:columns:size]:loop({ i | | v |
+        v := sqlite:valueAt(r:at(#1), r:at(#2), i).
+        ; A REAL column stores a whole number as an integer; it is a float
+        ; again on the way out.
+        (self:columns:at(i):at(#2):equals('real):and({ v:isKindOf(integer) })):ifTrue({ v := v:asFloat }).
+        slots:atPut(self:columns:at(i):at(#1):asSymbol, sqlite:toValue(v)) }).
+    self:rowProto:new(slots) }.
+
+; A caller's row, or any dictionary of column names to values, as the
+; engine's: [values by column with affinities applied, rowid or nil]. A
+; name that is not a column is refused; the INTEGER PRIMARY KEY column and
+; 'rowid both name the rowid.
+sqlite:table:valuesFrom := { given | | pairs, values, rowidGiven, t |
+    t := self.
+    pairs := given:isKindOf(sqlite:row):ifElse({ given:asDictionary }, { given }).
+    values := [].
+    [#1, t:columns:size]:loop({ k | values:add(nil) }).
+    rowidGiven := nil.
+    pairs:keysAndValuesDo({ k, v | | which |
+        which := sqlite:resolve(t, sqlite:nameOf(k)).
+        which:equals('rowid):ifElse(
+            { v:isNil:ifFalse({ rowidGiven := sqlite:rowidOf(sqlite:toStored(v)) }) },
+            { values:atPut(which, sqlite:storeAffinity(sqlite:toStored(v), t:columns:at(which):at(#2))) }) }).
+    [values, rowidGiven] }.
+
+; One row in, from a dictionary of column names to values; a column not
+; named is NULL, and the rowid is given under 'rowid or the INTEGER PRIMARY
+; KEY column or is one past the largest. Answers the row as stored.
+sqlite:table:insert := { pairs | | vr, rowid |
+    vr := self:valuesFrom(pairs).
+    rowid := sqlite:insertRow(self:db, self, vr:at(#1), vr:at(#2)).
+    self:rowFrom([rowid, vr:at(#1)]) }.
+
+; The row with that rowid, or nil.
+sqlite:table:find := { rowid | | p |
+    p := sqlite:findRow(self:db, self:root, rowid).
+    p:isNil:ifElse({ nil }, { self:rowFrom([rowid, sqlite:decodeRecord(p)]) }) }.
+
+; A row changed, put back: the one with its 'rowid, with these values. It
+; is a delete and an insert under the same rowid, which is what the plan
+; said UPDATE was at the page level, and the index entries go with it.
+sqlite:table:update := { row | | rowid, p, vr |
+    rowid := row:isKindOf(sqlite:row):ifElse({ row:rowid }, { row:at('rowid, nil) }).
+    rowid:isNil:ifTrue({ error:raise("update wants a row with a rowid") }).
+    p := sqlite:findRow(self:db, self:root, rowid).
+    p:isNil:ifTrue({ error:raise("no row ":concat(rowid:asString):concat(" in "):concat(self:name)) }).
+    sqlite:deleteRow(self:db, self, rowid, sqlite:decodeRecord(p)).
+    vr := self:valuesFrom(row).
+    sqlite:insertRow(self:db, self, vr:at(#1), rowid).
+    row }.
+
+; A row out, by the row or by its rowid. Answers whether there was one.
+sqlite:table:delete := { rowOrId | | rowid, p |
+    rowid := rowOrId:isKindOf(integer):ifElse({ rowOrId }, { rowOrId:rowid }).
+    p := sqlite:findRow(self:db, self:root, rowid).
+    p:isNil:ifElse({ false }, {
+        sqlite:deleteRow(self:db, self, rowid, sqlite:decodeRecord(p)). true }) }.
+
+; Queries begin here: every row, or the rows a dictionary of equalities
+; keeps, or the rows one comparison keeps.
+sqlite:table:all := { sqlite:query:on(self) }.
+sqlite:table:where := { pairs | self:all:where(pairs) }.
+sqlite:table:filter := { column, op, value | self:all:filter(column, op, value) }.
+sqlite:table:orderBy := { columns | self:all:orderBy(columns) }.
+sqlite:table:each := { block | self:all:each(block) }.
+sqlite:table:count := { self:all:count }.
+
+; ---- a row --------------------------------------------------------------
+;
+; Every row delegates to its table's prototype, which delegates here. Its
+; own slots are its columns and its rowid; these four are the messages. A
+; slot assigned is the row's own, as ever, and `save` puts the row back
+; under its rowid; to move a row to another rowid, delete it and insert.
+
+sqlite:row := object:new.
+sqlite:row:table := nil.
+sqlite:row:rowid := nil.
+sqlite:row:save := { self:table:update(self). self }.
+sqlite:row:delete := { self:table:delete(self:rowid) }.
+
+; The columns and their values, as a dictionary keyed by the column
+; symbols, with 'rowid; what `insert` and `where` take.
+sqlite:row:asDictionary := { | out |
+    out := dictionary:new.
+    out:atPut('rowid, self:rowid).
+    self:table:columns:do({ c | | s |
+        s := c:at(#1):asSymbol.
+        out:atPut(s, self:slotAt(s)) }).
+    out }.
+
+; ---- a query ------------------------------------------------------------
+;
+; Narrowed by `where` and `filter`, ordered by `orderBy`, each answering a
+; new query so that one can be kept and refined; run by `each`, `all`,
+; `first`, `count`, `collect` and `delete`. A comparison is spelled as SQL
+; spells it, "=", "<", ">", "<=" or ">=", since that is the file's own
+; language and the shell passes it through untouched; the terms are joined
+; by AND, and a term on the rowid or on an indexed column is what decides
+; the route through the pages, as in the shell.
+
+sqlite:query := object:new.
+sqlite:query:table := nil.
+sqlite:query:terms := nil.        ; each [column name, op, value as stored]
+sqlite:query:order := nil.        ; column names
+
+sqlite:query:on := { t | | q |
+    q := self:new. q:table := t. q:terms := []. q:order := []. q }.
+
+sqlite:query:refined := { | q |
+    q := sqlite:query:on(self:table).
+    q:terms := self:terms:collect({ x | x }).
+    q:order := self:order:collect({ x | x }).
+    q }.
+
+sqlite:query:where := { pairs | | q |
+    q := self:refined.
+    pairs:keysAndValuesDo({ k, v | q:terms:add([sqlite:nameOf(k), "=", sqlite:toStored(v)]) }).
+    q }.
+
+sqlite:query:filter := { column, op, value | | q |
+    (["=", "<", ">", "<=", ">="]:indexOf(op)):isNil:ifTrue({
+        error:raise("a comparison is =, <, >, <= or >=, not ":concat(op:asString)) }).
+    q := self:refined.
+    q:terms:add([sqlite:nameOf(column), op, sqlite:toStored(value)]).
+    q }.
+
+; One column or an array of them; ties are broken by rowid, so that an
+; ordered query has one answer.
+sqlite:query:orderBy := { columns | | q |
+    q := self:refined.
+    columns:isKindOf(array):ifElse(
+        { columns:do({ c | q:order:add(sqlite:nameOf(c)) }) },
+        { q:order:add(sqlite:nameOf(columns)) }).
+    q }.
+
+; The engine's rows, [rowid, values as stored], in order.
+sqlite:query:rows := { | t, rows, orderCols |
+    t := self:table.
+    rows := sqlite:matchingRows(t:db, t, self:terms).
+    self:order:size:greaterThan(#0):ifTrue({
+        orderCols := self:order:collect({ c | sqlite:resolve(t, c) }).
+        rows := rows:sorted({ a, b | | c, i |
+            c := #0. i := #1.
+            { c:equals(#0):and({ i:lessOrEqual(orderCols:size) }) }:whileTrue({
+                c := sqlite:compare(sqlite:valueAt(a:at(#1), a:at(#2), orderCols:at(i)),
+                                    sqlite:valueAt(b:at(#1), b:at(#2), orderCols:at(i))).
+                i := i:inc }).
+            c:equals(#0):ifTrue({ c := sqlite:compare(a:at(#1), b:at(#1)) }).
+            c:lessThan(#0) }) }).
+    rows }.
+
+sqlite:query:each := { block | self:rows:do({ r | block:value(self:table:rowFrom(r)) }). self }.
+sqlite:query:all := { self:rows:collect({ r | self:table:rowFrom(r) }) }.
+sqlite:query:collect := { block | self:all:collect(block) }.
+sqlite:query:count := { self:rows:size }.
+sqlite:query:first := { | rows |
+    rows := self:rows.
+    rows:size:equals(#0):ifElse({ nil }, { self:table:rowFrom(rows:at(#1)) }) }.
+
+; The rows this query keeps, taken out: found first and removed after,
+; since removing while walking would move the walk's ground. Answers how
+; many.
+sqlite:query:delete := { | rows, t |
+    t := self:table.
+    rows := self:rows.
+    rows:do({ r | sqlite:deleteRow(t:db, t, r:at(#1), r:at(#2)) }).
+    rows:size }.
