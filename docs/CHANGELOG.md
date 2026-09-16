@@ -201,7 +201,7 @@ start of one here.
 [PARASOL-TARGETS.md](PARASOL-TARGETS.md) and
 [PARASOL-SOLVEIG-NOTES.md](PARASOL-SOLVEIG-NOTES.md). The last is a closed
 log: its four open findings about this machine are
-[3.23 to 3.26](ROADMAP.md#3-known-limitations), each still reproducing.
+[3.28 to 3.31](ROADMAP.md#3-known-limitations), each still reproducing.
 Parasol's `conventions.md` is folded into [method.md](method.md), which says
 what was kept and what was retired.
 

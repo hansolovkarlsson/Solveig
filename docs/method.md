@@ -636,7 +636,7 @@ about being a separate repository and are retired with this line: that
 the same one; that what Parasol finds in Solveig is logged in a file of its
 own rather than raised here, which ended when
 [the log](PARASOL-SOLVEIG-NOTES.md) became a page of these documents and its
-four open findings became 3.23 to 3.26 on the roadmap; that Solveig's README
+four open findings became 3.28 to 3.31 on the roadmap; that Solveig's README
 links Parasol and where on the page it does, which is history; that Solveig's
 own documents are read before designing anything that overlaps, which is what
 reading the documents of the project one is in is called; and *what the
@@ -668,7 +668,7 @@ The method is the binary search on `solvm --steps=N` that
 [performance.md](performance.md) describes, exact and one run per bit, and it
 turned a roadmap claim into a roadmap entry with a figure attached. It is 28
 runs to learn a number the machine had after the first, which is
-[3.25](ROADMAP.md#325-the-machine-counts-instructions-and-will-not-say-how-many).
+[3.30](ROADMAP.md#330-the-machine-counts-instructions-and-will-not-say-how-many).
 
 ## Every text replacement asserts its match
 

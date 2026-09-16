@@ -147,7 +147,7 @@ would read 11.
 `solveig-notes.md` had been *kept there rather than raised here*, and once
 there and here were one place that sentence meant nothing, while a list of
 open defects off the single list made the single list false. Its four open
-findings are 3.23 to 3.26 on the roadmap, each re-run today and still
+findings are 3.28 to 3.31 on the roadmap, each re-run today and still
 reproducing, each pointing back for the account. `conventions.md` was read
 against `method.md` and folded: nine rules as sections with Parasol's
 occasions, two as second occasions of rules already there, five retired

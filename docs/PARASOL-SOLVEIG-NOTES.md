@@ -4,9 +4,11 @@
 than raised here, so that each entry was written where it was found and could
 be taken into Solveig's numbering when somebody decided it was worth taking.
 Since 2026-09-15 it is a page of Solveig's documents and the log is closed:
-the four findings still open are [3.23 to 3.26](ROADMAP.md#3-known-limitations)
+the four findings still open became [3.28 to 3.31](ROADMAP.md#3-known-limitations)
 on the roadmap, each pointing back here for the account, and a finding after
-this date is Solveig's own and goes to the roadmap directly.*
+this date is Solveig's own and goes to the roadmap directly. They were 3.23
+to 3.26 for a day, until the count was found to have reused a number; the
+roadmap says so.*
 
 **This is what a second customer is for.** solveig-sdl's README says the same
 thing about `sol_symbol_intern` — reachable and not promised, promised now
@@ -21,7 +23,7 @@ was never a request. Nothing here is a blocker.
 
 ## 1. Program output and a runtime error come out in the wrong order
 
-*Roadmap 3.23.*
+*Roadmap 3.28.*
 
 **Kind:** defect, small, one line.
 
@@ -66,7 +68,7 @@ never happened* rather than as a buffering artefact.
 
 ## 2. A generated file cannot say where it came from
 
-*Roadmap 3.24.*
+*Roadmap 3.29.*
 
 **Kind:** missing capability. Not urgent; the difference between a manual step
 and none.
@@ -107,7 +109,7 @@ set what goes into it.
 
 ## 3. The machine counts instructions and will not say how many
 
-*Roadmap 3.25.*
+*Roadmap 3.30.*
 
 **Kind:** missing capability. Small, and the workaround works — it just costs
 one run per bit.
@@ -154,7 +156,7 @@ script in Parasol's history and can be lifted by anybody who wants it.
 
 ## 4. A run-time trace carries a line and no column
 
-*Roadmap 3.26.*
+*Roadmap 3.31.*
 
 **Kind:** missing functionality, small; matters more to a generated file than
 to a written one.

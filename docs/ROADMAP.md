@@ -316,7 +316,7 @@ ways of answering it cost more than what they buy is currently worth. That
 distinction is worth keeping visible: a restriction chosen and a restriction
 discovered ask different questions of whoever reads the list.
 
-**3.23 to 3.26 arrived together on 2026-09-15, and none of them is new.** All
+**3.28 to 3.31 arrived together on 2026-09-15, and none of them is new.** All
 four were found by Parasol between 2026-08-31 and 2026-09-13, while it was a
 repository of its own, and were written up in its
 [notes on Solveig](PARASOL-SOLVEIG-NOTES.md) as a log *kept there rather than
@@ -328,6 +328,16 @@ each stays where it was written. Each still reproduces on the tree of that
 day. None is a blocker, and each is small: the four together are the shape of
 what a second customer sees that the first does not, a compiler and a machine
 driven from a command line by something that generated their input.
+
+**They were 3.23 to 3.26 for a day.** The count on 2026-09-15 started from
+3.22 as the last number given, and 3.23 had been given on 2026-09-01 to
+[the check on the published pages](COMPLETED.md#323-nothing-checks-the-pages-that-are-actually-published--done),
+closed the same day, as
+[the history at the foot of this page](#how-this-list-emptied-and-how-it-filled-and-emptied-again)
+records. COMPLETED.md's own rule is that a number is never reused, since the
+changelog cites them, so the four were renumbered on 2026-09-16 with all four
+still open, and every page that named them was repointed but Parasol's frozen
+roadmap, where the sentence was true on the day it was written.
 
 **The last three before those arrived together**, from writing
 [the embedding interface](embedding.md) down. Stating what a host may rely on
@@ -1094,7 +1104,7 @@ today every site either sets it at the tail of a branch or wants the rest to
 run, and the moment one does not, the flag has to be threaded through the body
 as `done:not:ifTrue({ ... })` and the workaround starts nesting.
 
-### 3.23 Program output and a run-time error come out in the wrong order
+### 3.28 Program output and a run-time error come out in the wrong order
 
 Down a pipe, a program that prints and then fails shows the error *before*
 its output: standard output is block-buffered when it is not a terminal and
@@ -1107,7 +1117,7 @@ the machine stops for `--steps` or `--memory`, which fail the same way.
 1 has the repro. Found on 2026-08-31 by a `make test` that captured both
 streams and read a print that had happened as one that had not.
 
-### 3.24 A generated file cannot say where it came from
+### 3.29 A generated file cannot say where it came from
 
 `solas`, `solvm` and `solid` report positions in the file they were handed,
 and there is no way to tell any of them the file was generated. Parasol
@@ -1125,7 +1135,7 @@ a way to set what goes into it.
 other route to the same end and asks nothing of this side; Parasol's roadmap
 holds that one.
 
-### 3.25 The machine counts instructions and will not say how many
+### 3.30 The machine counts instructions and will not say how many
 
 `--steps=N` stops a program after N instructions, so the machine is counting,
 and nothing reports the count: a run that finishes says nothing, and one that
@@ -1141,7 +1151,7 @@ than a flag.
 3. What wanted it was a measurement of 5% found by running two programs 56
 times.
 
-### 3.26 A run-time trace carries a line and no column
+### 3.31 A run-time trace carries a line and no column
 
 A compile error is reported with a column, `[prog.sol:1:7]`, and a run-time
 frame is not, `[bignum.sol:27] in block`. For a written file that is a small
