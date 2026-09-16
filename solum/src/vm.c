@@ -726,6 +726,9 @@ void sol_vm_remember_loaded(SolVM *vm, char *identity)
         int capacity = vm->loaded_capacity < 8 ? 8 : vm->loaded_capacity * 2;
         char **grown = realloc(vm->loaded, sizeof(char *) * (size_t)capacity);
         if (grown == NULL) {
+            /* Flushed for the same reason as the report at the end of
+               sol_vm_run: exit flushes stdout, but only after this write. */
+            fflush(stdout);
             fprintf(stderr, "solvm: out of memory\n");
             exit(1);
         }
@@ -1346,6 +1349,9 @@ void sol_vm_intern_chunk(SolVM *vm, SolChunk *chunk)
         chunk->global_slots = calloc((size_t)chunk->names.count,
                                      sizeof *chunk->global_slots);
         if (chunk->interned == NULL || chunk->global_slots == NULL) {
+            /* Flushed for the same reason as the report at the end of
+               sol_vm_run: exit flushes stdout, but only after this write. */
+            fflush(stdout);
             fprintf(stderr, "solvm: out of memory\n");
             exit(1);
         }
