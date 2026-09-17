@@ -63,6 +63,7 @@ marked as a sketch.
 | Programs that would press on something — Pascal, predicate logic, a parser toolkit, `tail`, and [which Unix tool next](#which-unix-tool-next-and-what-each-would-press-on--surveyed-2026-08-31) | **Defer, and none needs permission** — each is [predicted to find one thing](#programs-that-would-press-on-something), written down before it is written. **The editor was written**, and found what this page said it would. **So was `sha256sum`, on 2026-08-31**, the first off the Unix survey and the first program here with no I/O in its inner loop: [the prediction held in both halves](#it-was-written-on-2026-08-31-and-the-prediction-held-in-both-halves) and produced the number it was written for — **208 bytecode instructions a byte, 4.3 ns each, 234M a second**. **And `diff` on 2026-09-02**, where [one prediction of four held](#it-was-written-on-2026-09-02-and-one-of-the-four-predictions-held) — the output format, which was the whole difficulty — and the three that did not are more useful than the one that did. **And `gzip -d` on 2026-09-04**, the last of the three the survey named and [the one whose prediction measured the wrong thing](#it-was-written-on-2026-09-04-and-the-prediction-measured-the-wrong-thing): it asked for the cost of a 32 KB window as boxed values, and the window is 4.8% of the program. **And `sort` the same day**, which had been filed among the also-rans and is [promoted to an entry of its own](#sort--filed-below-as-pressing-on-less-and-written-anyway): the gap it was predicted to find was not there, because a write is not the reverse of a read — a producer knows what comes next — and what its merge wanted was the ranged read, already built |
 | An SQLite file, read and then written, as the twenty-third program | **Scoped on 2026-09-15, chosen over a format of our own for the oracle; all six steps were built the same day, and [the positioned write was wanted at step 4 and not before](#step-4-the-same-night-and-the-first-prediction-fired-where-it-said), as predicted; [the reader pressed on nothing](#steps-0-and-1-were-built-the-same-day-and-the-reader-pressed-on-nothing), as predicted**: [the entry](#an-sqlite-file-read-and-then-written-scoped-2026-09-15) predicted the positioned write is wanted at step 4 and not before, and it was, raised and closed the same day as [3.27](COMPLETED.md#327-a-file-is-written-whole-or-appended-to-and-nothing-in-between--done), `writeFile(path, from, text)`; that a page as strings is bearable, and it is so far at 0.36 ms a row; and that locking, flushing and a truncate are not found at all. Six steps, each held against `sqlite3` and `PRAGMA integrity_check` |
 | The database as objects, and `object:new(dictionary)` | **Scoped on 2026-09-15, the evening the SQL front was done, and built the same night**: [the entry](#the-database-as-objects-and-the-first-slot-made-from-a-run-time-name-scoped-2026-09-15) moved the engine into `lib/sqlite.sol`, put a table, a query and a row over it, and asked for one slot-creating message at construction, `object:new(dictionary)`, built after a version with rows as dictionaries had run through the sweep, so that the program asked and not the page. The shell became a client of the objects and `sqlite3` judged both fronts at once, 632 of 632; UPDATE, added so that `update` could be judged, [found a defect the writer had carried since step 5](#step-1-the-same-evening-and-update-found-a-defect-in-the-writer). Two predictions wrong in a detail: the primitive needs no GC root, and a slot walk past twenty columns loses nothing, since an object has a hash index past twelve |
+| Forms over a database, the way VB3 did it | **Scoped 2026-09-17, to be built in three steps**: [the entry](#forms-over-a-database-the-way-vb3-did-it-scoped-2026-09-17) is the customer the objects entry above was waiting for. The controls are C in the GTK binding, about twenty messages; a `recordset` is Solveig in `lib/` here and knows no widget, so the suite can test it; the `form` binding the two is Solveig in the binding's new `lib/`. Predicted to meet [3.1](ROADMAP.md#31-capturing-blocks-cannot-escape-their-frame) on the first button, and to be its third real customer at master-child |
 | Networking, and sending code to a running machine | **The first half is built**, on 2026-08-29 — [extensions/net](../extensions/net/README.md), five messages, and the waiting question answered with a timeout rather than a block; [the second half](#networking-and-sending-code-to-a-machine-that-is-already-running) is untouched and still needs 3.4, 6.32 and a proxy |
 | SQLite, SDL2, GTK | **One project, not three** — [extensions](#extensions-a-capability-from-a-binary-rather-than-from-the-vm); GTK and SDL2 fire that trigger and SQLite does not, and wanting *both* toolkits is what settles the mechanism |
 | A game controller, and more of the sound, in [solveig-sdl](https://github.com/hansolovkarlsson/solveig-sdl) | **Held, with a trigger**, said by Hans on 2026-09-14 after the eleventh game and written where that binding's rule for growing lives: every cabinet had a stick and the arrows stand in for it, and one `beep` has carried twelve games and a tune and would not carry a console's music. Neither is a trigger yet. The famous console games come first, and they are what will ask; the binding grows only when a program wants what it cannot have |
@@ -7497,6 +7498,200 @@ its line half went this way and its column half stands.
    script writing `.sol` could use `@line` where it could not write a map.
    The recommendation is not to build for a generator that does not exist,
    which is the rule Parasol's optional parts were refused under three times.
+
+### Forms over a database, the way VB3 did it: scoped 2026-09-17
+
+**Asked on 2026-09-17, two days after the objects went in, and it is the
+customer that entry was waiting for.** [The database as objects](#the-database-as-objects-and-the-first-slot-made-from-a-run-time-name-scoped-2026-09-15)
+put a table, a query and a row over the engine so that a program could say
+`n:title := "eggs". n:save` without SQL, and the first program to want that
+is a form: a window over a table, one record at a time, with labels and
+entries for its columns and buttons to move, add, save, delete and search.
+The inspiration is Hans's and it is named: VB3 and .NET, where a form is
+controls, a data binding that ties a control to a field, and event
+procedures written between them. The designer those tools had, a form drawn
+rather than written, is for later and this entry does not plan it; **the
+first thing is a form that is written**, connects to a file, and takes the
+program's own logic in the middle, which is the control layer in the sense
+that word had before the web took it.
+
+**What it looks like, written before a line of it exists.** A sketch, not
+run, and the file is a contacts table because that is the smallest one that
+wants every kind of field the first form needs and a code table the second
+step will:
+
+```
+@include "sqlite.sol".
+@include "recordset.sol".
+@include "form.sol".
+
+db := sqlite:open("contacts.db").
+db:table("contacts"):isNil:ifTrue({
+    db:create("contacts", ["name TEXT", "email TEXT", "phone TEXT", "kind TEXT"]) }).
+people := recordset:on(db:table("contacts")).
+
+gtk:start.
+f := form:on(people, gtk:window("Contacts", #480, #320)).
+f:field('name, 'text).
+f:field('email, 'text).
+f:field('phone, 'text).
+f:field('kind, 'text).                  ; a dropdown over a code table, later
+f:navigation.                           ; First Prev Next Last New Save Delete Find
+f:onValidate({ r | r:name:size:greaterThan(#0) }).
+f:onSave({ r | r:email := r:email:asLowercase }).
+f:show.
+gtk:run.
+db:close.
+```
+
+Three layers, and the line between them is the one the
+[GTK binding's page](https://github.com/hansolovkarlsson/solveig-gtk) already
+draws for itself, *each binding publishes what its toolkit has*:
+
+1. **The controls are C, in `solveig-gtk`, one message per GTK thing and
+   nothing about records.** Today the binding is seventeen messages and
+   four widgets: a window, a label, a button, a box, and a canvas. A form
+   needs an entry, a check button, a dropdown, a text view for a memo, a
+   scrolled window, a grid to lay labels beside entries, and, for the
+   master-child step, a list. With their reads, writes and events that is
+   about twenty messages: `entry`, `check(text)`, `dropdown(strings)`,
+   `textView`, `scrolled(child)`, `grid(#columnSpacing, #rowSpacing)` and
+   `attach(grid, child, #column, #row, #width, #height)`, `list` with
+   `listAdd` and `listClear`; `text` and `setText` extended to an entry and
+   a text view by asking GTK what the widget is; `checked` and
+   `setChecked`; `selected` and `setSelected`, an index counted from `#1`
+   as everything here is; `setSensitive`, since a Save button on a record
+   nobody changed is grey in every tool the inspiration names; and
+   `onChange`, `onActivate` for Enter in an entry, `onToggle`, `onSelect`.
+   The binding doubles, mechanically, and every message checks its arity
+   and its widget's kind as the seventeen do.
+2. **The recordset is Solveig and knows nothing of widgets.** It is what
+   VB's `Data` control and .NET's `BindingSource` are: a table, a query
+   over it narrowed or not, the rowids that query answers in order, a
+   position, and the current row. `on(table)`; `first`, `next`,
+   `previous`, `last`; `current`, `position`, `count`; `new`, which is a
+   state of the recordset and not a row, since the library makes rows only
+   by `insert` and `find` and a row without a rowid is nothing it has;
+   `save`, which is `insert` on a new record and `row:save` otherwise;
+   `delete`, which moves to the neighbour; `find(pairs)`, which narrows to
+   `where` and stands on its first row, and `all`, which drops the
+   narrowing. **This is the half that can be tested without eyes**, and
+   the reason it is a separate object is that reason: a window cannot be
+   driven down a pipe, which is why the binding's `make test` compiles its
+   examples and runs none of them, and a form's logic that lived in the
+   window would be tested by clicking or not at all.
+3. **The form is Solveig, in `solveig-gtk`, and is the binding between the
+   two.** `on(recordset, window)`; `field(column, kind)`, which makes a
+   label and a control, attaches them to the grid on the next row, and
+   remembers which column they stand for; `navigation`, the standard
+   button row, opt-in; `button(text, block)` for one the program adds;
+   `load`, which puts the current row into the controls, and `store`,
+   which reads them back into it; `onValidate(block)`, a block over the
+   row that answers `false` to refuse a save, and `onSave(block)`, run on
+   the row before it is written; `show`. The kinds are `'text`,
+   `'integer`, `'real`, `'check` and `'memo` to begin with; `'choice` over
+   a code table is the third step. A kind is where a control's string
+   meets a column's type, and it is the only place that knows both.
+
+##### Where each lives, and one fact about the search path
+
+**`lib/recordset.sol` here, binding `recordset`, beside `sqlite.sol` which
+is all it includes**, on the library list in `test_compile.c`, with its
+section in `REFERENCE.md`, its line in `CHEATSHEET.md` and an
+`examples/recordset.sol` whose claims `expect` checks. It names no `gtk`,
+so the front page's no-dependency sentence stays true and the suite runs
+it on every platform the CI has.
+
+**`lib/form.sol` in `solveig-gtk`, binding `form`, and that repository
+grows a `lib/` it has not had.** It names `gtk`, so it cannot live here,
+and it names `recordset`, so it is found through the search path as
+`edit.sol` finds `re.sol` today. That sets one thing: the binding's README
+says *Solveig 0.37.0 or later*, and a `form.sol` that includes
+`recordset.sol` needs the release that ships it, so the minimum the
+Makefile checks moves to that release on the day the form goes in. And
+`examples/contacts.sol` there says `@include "form.sol"`, which is looked
+for beside the includer first and then on the search path, so the
+binding's Makefile passes `-I lib` to `solas`, which it has a comment
+about already. The records stay here, as that repository's `CLAUDE.md`
+says they do; a closeout there is a README and a commit.
+
+##### The steps, and what each is held against
+
+Each step ends green before the next begins, and the second is the one the
+suite can see.
+
+| step | builds | held against |
+| --- | --- | --- |
+| **0. The controls** | the twenty messages in `gtk.c`, the README's reference grown to match, and a `widgets.sol` example that puts every one in a window so that each can be seen once | `make test` there, which compiles every example; and eyes, since nothing else can see a window |
+| **1. The recordset** | `lib/recordset.sol`, `examples/recordset.sol`, the library list, the reference and the cheatsheet | `make test` here, the example's claims under `expect`; and `sqlite3` reading the file the example wrote, by hand, since the sweep speaks SQL and cannot judge a recordset |
+| **2. The form, single record** | `lib/form.sol` and `examples/contacts.sol` in the binding, `-I lib` in its Makefile, the version minimum moved, the README | being used: a contacts file kept for a while, and `sqlite3` reading it after |
+| **3. The records** | this entry's outcome under its prediction, the changelog, the journal, the design table's *Graphics* and *Databases* rows | `make test` |
+
+**Not in these steps, and named so that they are not smuggled in**: the
+master-child form, where a list on the parent's window shows the child
+recordset narrowed by the parent's current rowid; the `'choice` kind,
+a dropdown over a code table storing the key and showing the text; and
+the designer. Each is a scoping of its own once a single-record form has
+been used, and the first of them is the one that tests the prediction
+below.
+
+##### What it would press on, predicted before writing
+
+| | |
+| --- | --- |
+| **[3.1](ROADMAP.md#31-capturing-blocks-cannot-escape-their-frame), and this is the prediction the entry is most sure of** | Every handler in the binding's three examples is hung at the top level of the script, whose frame lives for the run. A form library hangs its handlers from inside a method: `navigation` makes a Next button and says `gtk:onClick(b, { self:next })`, and that block captures the method's frame, which is gone before the button is ever pressed. **Predicted to be met on the first button of step 2**, reported as *block outlived the frame it was written in*, and the way through is the one the language allows and the one the journal argued on 2026-08-24 when a pattern library was first weighed, an object rather than a closure: the handler reads no local and no `self`, and reaches the form through a global, `form:active`, which is right while there is one form, which is the stated scope. **The master-child step, with two forms alive, is where that runs out**, and the entry predicts it as the third real customer for 3.1 after Pascal and awk, and the one that asks for either its upgrade path or an `onClick` whose block is handed the widget it fired from. |
+| **`text` on an entry** | The C asks `GTK_IS_EDITABLE` before `GTK_IS_LABEL`, and a text view is a buffer with bounds, ten lines. Predicted nothing. |
+| **`load` fires `onChange`** | Putting the row into the controls is `setText` on each, and each `setText` fires the change handler that marks the form dirty, so a record just loaded would ask to be saved. Predicted on the first `load`, and a `loading` flag the handlers check is the whole fix, which is the guard every binding in the inspiration has under one name or another. |
+| **What an entry gives an INTEGER column** | Found while scoping: the library already does what `sqlite3` does on the way in, `storeAffinity` makes `"42"` the integer 42 under a numeric affinity and leaves `"abc"` as text. So the `'integer` kind converts nothing; it refuses `"abc"` before the row sees it, which is validation and not conversion, and one sentence on the page. |
+| **The empty table** | A form over zero rows: `current` is nil, every field blank and insensitive, New the only live button, and `next` on nothing must not fail. **Predicted the first defect found by eyes**, in some corner of the empty state, since the sketch above was written with a row in mind. |
+| **Widget lifetime** | A form holds twenty foreign handles in slots; the handles are GTK's, as the counter's are, and the window's close releases what the retain rule in `gtk.c` retained. Predicted nothing new, because the mechanism is the one the editor has used since August. |
+| **The split policy** | A contacts file written by a form will run 1.4× `sqlite3`'s in pages, the item held on 2026-09-17 as *cosmetic until a program cares*. A form is the program that might, and it is predicted not to care at a hundred contacts. |
+
+##### What it would not find
+
+**Transactions.** `save` writes the row's page and `close` writes the
+file; nothing rolls back, which is the library's stated absence and the
+form inherits it.
+
+**Two programs on one file.** The library has no lock and a form is one
+program; a second `sqlite3` writing while the form is open is undefined
+today and stays so.
+
+**A general layout.** Labels beside entries in a grid, top to bottom, is
+what `field` makes; a program that wants something else makes the widgets
+itself with the controls of step 0 and binds them with `field(column,
+kind, control)`, which is why the control is an argument the form may take
+rather than only one it makes.
+
+##### The calls only you can make
+
+1. **The names.** `recordset` is VB's own word, from DAO, and says what the
+   thing is better than `cursor`, which here is a terminal's and a scanner's
+   already; `form` for the binding. Recommended those.
+2. **Moving off a changed record.** VB's `Data` control saved silently on
+   every move; .NET does not and leaves the change pending. Recommended
+   neither: the form refuses the move and says *save or revert first*, with
+   `revert` a button beside Save, since a silent write is the kind of thing
+   the house rule is against and a silently dropped edit is worse.
+3. **What Find is.** A dialog is a second window and a second form; query
+   by example is none: Find clears the fields, the user types into any of
+   them, Find again narrows to `where` on the ones filled, and Find with
+   nothing filled is `all`. Recommended query by example, because it needs
+   no widget the form has not got and is what the inspiration's users
+   already know.
+4. **Whether the standard button row is the library's.** Recommended yes,
+   as `navigation`, opt-in, with `button(text, block)` beside it for a
+   program's own; a form that draws its own row from step 0's controls
+   loses nothing.
+5. **How a handler reaches its form.** Recommended the global `form:active`
+   for step 2 and deciding again at master-child, where it is tested; the
+   alternative, an `onClick` that hands its block the widget, is a change
+   to the binding's contract and should be asked for by the form that
+   needs it rather than by this entry.
+6. **Which is first, the controls or the recordset.** Recommended the
+   controls, because they carry no design risk, and the recordset second so
+   that its shape is asked for by a form being written against real
+   widgets rather than by this page.
 
 ## Recommended against
 
