@@ -119,6 +119,21 @@ static void test_everything_written_down_is_true(void)
         assert(false);
     }
 
+    /* The other reason those counts are deferred is accepted, and said: an
+       example whose header names something the run has not, `; needs: file
+       modes` in files.sol, is skipped by name and its claims are not counted,
+       so the checker reports the per-run counts as counting a run that
+       skipped nothing. That is the Windows job under Cygwin, whose `noacl`
+       mount reads a `.txt` set to 755 as 644. Every skip line is repeated
+       here, so the suite's log names what was not checked on this machine,
+       as the bundle checks in test_cli.c do. */
+    for (const char *line = out; (line = strstr(line, "skipped: ")) != NULL;) {
+        const char *end = strchr(line, '\n');
+        if (end == NULL) end = line + strlen(line);
+        printf("  %.*s\n", (int)(end - line), line);
+        line = end;
+    }
+
     /* And the count, so that a checker which quietly stopped finding anything
        to check fails too. It was 589 across 40 files when this went in and 729
        across 41 once blocks began to be read on the page they were written

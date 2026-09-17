@@ -527,6 +527,34 @@ exampleClaims := #0.
 exampleFiles := #0.
 seen := array:new.
 skipped := array:new.
+skippedNeeds := array:new.
+
+; What an example may say it needs, and whether this run has it. A `.sol`
+; file whose header carries `; needs: <name>` is not run where the name is
+; not provided, and the report says so by name; a name nothing here provides
+; is a failure, as a count marker naming nothing is. One need so far.
+;
+; **`file modes`**: that a permission mode set is a permission mode read
+; back, which files.sol claims as `755`. Windows under Cygwin, the first
+; place `make test` ran outside POSIX (2026-09-17), keeps no bits on a
+; `noacl` mount and synthesises the execute bit from a file's extension, so
+; a `.txt` set to 755 reads 644. Probed rather than assumed from the
+; platform, because it is the mount that decides, not the kernel.
+provides := dictionary:new.
+provides:atPut("file modes", { | probe, ok |
+    probe := "build/expect-modes-probe.txt".
+    system:writeFile(probe, "probe\n").
+    system:setMode(probe, %111101101).
+    ok := system:modeOf(probe):equals(%111101101).
+    system:remove(probe).
+    ok }:value).
+
+needsOf := { source | | out |
+    out := array:new.
+    source:split("\n"):do({ line |
+        line:startsWith("; needs: "):ifTrue({
+            out:add(line:copyFrom(#10, line:size):trim) }) }).
+    out }.
 
 ; Writes `source`, compiles it, runs it, and answers its output as lines --
 ; or nil when it would not compile, which the caller reports.
@@ -698,11 +726,25 @@ matchAll := { expected, output, subject | | at, i, found, ok |
 ; lies, because a `@use "../lib/clike.psol"` looks beside the file first,
 ; exactly as `@include` does.
 
-checkSol := { path | | source, expected, name, output, before |
+checkSol := { path | | source, expected, name, output, before, lacking |
     source := system:readFile(path).
     seen:add(path).
     before := checked.
-    expected := expectationsIn:value(source).
+
+    ; A file that needs what this run has not is set aside by name; one that
+    ; names a need nothing provides is a finding. Either way its claims are
+    ; not counted, so the counts that are facts about a run are deferred,
+    ; further down, as they are for a run over less than the whole set.
+    lacking := nil.
+    needsOf:value(source):do({ need |
+        provides:at(need, nil):isNil:ifElse(
+            { failures:add([path, #0,
+                  "nothing provides '":concat(need):concat("'"), ""]) },
+            { provides:at(need):ifFalse({ lacking := need }) }) }).
+    lacking:notNil:ifTrue({ skippedNeeds:add([path, lacking]) }).
+
+    expected := lacking:isNil:ifElse(
+        { expectationsIn:value(source) }, { array:new }).
     unchecked := unchecked:add(silentPrintsIn:value(source)).
 
     expected:size:equals(#0):ifFalse({
@@ -1299,7 +1341,7 @@ count:atPut("messages", messages:value(array:new)).
 ; The ones that are facts about this run.
 perRun := ["claims", "checked-files", "docs-claims", "docs-documents",
            "examples-claims", "examples-files"].
-complete:ifTrue({
+complete:and({ skippedNeeds:size:equals(#0) }):ifTrue({
     count:atPut("claims",         checked).
     count:atPut("checked-files",  files).
     count:atPut("docs-claims",    docsClaims).
@@ -1312,7 +1354,8 @@ deferred := #0.
 stated:do({ c | | name, want, got |
     name := c:at(#2).
     count:at(name, nil):isNil:ifElse(
-        { perRun:indexOf(name):notNil:and({ complete:not }):ifElse(
+        { perRun:indexOf(name):notNil
+              :and({ complete:not:or({ skippedNeeds:size:greaterThan(#0) }) }):ifElse(
             { deferred := deferred:add(#1) },
             { failures:add([c:at(#1), #0,
                   "nothing counts '":concat(name):concat("'"), ""]) }) },
@@ -2041,6 +2084,9 @@ entryPlaces := dictionary:new.
 "{} file{} with expectations, {} claim{} checked"
     :fill([files, files:equals(#1):ifElse({""},{"s"}),
            checked, checked:equals(#1):ifElse({""},{"s"})]):display.
+skippedNeeds:do({ s |
+    "skipped: {} needs {}, which this run has not"
+        :fill([s:at(#1), s:at(#2)]):display }).
 blocks:greaterThan(#0):ifTrue({
     "{} of them in fenced blocks, {} standing alone and {} given the page above"
         :fill([blocks, blocks:sub(continued), continued]):display }).
@@ -2119,8 +2165,11 @@ recounted:add(deferred):greaterThan(#0):ifTrue({
     "{} count{} stated in prose, recounted{}"
         :fill([recounted, recounted:equals(#1):ifElse({""},{"s"}),
                deferred:greaterThan(#0):ifElse(
-                   { "; {} more want the whole set to be checked"
-                         :fill([deferred]) },
+                   { complete:ifElse(
+                         { "; {} more count a run that skipped nothing"
+                               :fill([deferred]) },
+                         { "; {} more want the whole set to be checked"
+                               :fill([deferred]) }) },
                    { "" })]):display }).
 entryNumbers:greaterThan(#0):ifTrue({
     "{} entry numbers on the roadmap and the completed page, {} given twice"

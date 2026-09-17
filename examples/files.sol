@@ -1,5 +1,13 @@
 ; files.sol -- reading and writing whole files.
 ; Run with:  ./bin/solas examples/files.sol && ./bin/solvm examples/files.sob
+; needs: file modes
+;
+; The line above is for programs/expect.sol, which checks every `;` claim
+; here against a run. The mode set at the end is read back as `755`, which is
+; only true of a filesystem that keeps permission bits; on Windows under
+; Cygwin's `noacl` mounts a `.txt` cannot be made executable and reads `644`.
+; The checker probes for that once and, where the bits do not hold, skips
+; this file by name rather than reporting the claim as wrong.
 ;
 ; Reading and writing are on `system` rather than on the string naming the file.
 ; A string does not know anything about files, and `system` is where what
