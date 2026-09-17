@@ -1255,6 +1255,52 @@ objects is the first two thirds of it, and the account of what writing it
 found is under [sql](programs.md#sql-and-sqlite-an-sql-shell-and-the-library-that-reads-and-writes-the-file)
 in programs.md. See [examples/database.sol](../examples/database.sol).
 
+#### recordset.sol
+
+One table, one record at a time: a position among the rows a query answers,
+and the row standing there. It is the piece between a table and a form, what
+VB's Data control and .NET's BindingSource were, and it knows nothing of any
+window, which is why it is here where the suite can run it.
+
+```
+@include "recordset.sol".
+
+people := recordset:on(db:table("contacts")).
+people:current:name:display.
+people:next. people:last. people:previous.
+people:addNew. people:current:name := "Ada". people:save.
+people:find(#['kind = "friend"]):name:display.
+people:all.
+```
+
+| Message | Answers |
+| --- | --- |
+| `recordset:on(table)` | a recordset over every row, standing on the first if there is one |
+| `r:first` `r:last` `r:next` `r:previous` `r:at(#n)` | the row now current, or nil where there is none; past either end `next` and `previous` stay put, and `at` is refused by name |
+| `r:current` | the row standing there, the new record, or nil |
+| `r:position` `r:count` | where that is, from `#1`, and among how many; `#0` when there is nowhere to stand |
+| `r:addNew` | a record with every column nil and no rowid, under the table's prototype so that its columns are slots; `isNew` is true until it is saved |
+| `r:save` | the record written, inserted if new and put back under its rowid otherwise, the file flushed, and the position on it |
+| `r:changed` | whether the current record differs from the pages, column by column; a new record is always changed |
+| `r:revert` | the current record re-read in place, or a new one dropped |
+| `r:delete` | the current record taken out and the file flushed, standing on the next neighbour or else the previous; whether there was one to take out |
+| `r:find(dictionary)` | narrowed to the rows equal on every pair, as the library's `where`, standing on the first |
+| `r:all` | the narrowing dropped, the position kept on the same row where it can be |
+| `r:orderBy(columns)` | a column, an array of them, or nil for rowid order; the position kept on the same row |
+
+**The current row is re-read from the pages on every move**, so a change
+made to it and not saved is gone once the position moves. That is the
+recordset's whole contract with a form: the form asks `changed` before it
+lets the position move, and refuses or saves; the recordset does not decide.
+Every `save` and `delete` flushes the file, since a record is the unit a
+person expects to be on disk when they were told it was saved; `close` on
+the database is still what ends it.
+
+The library is [lib/recordset.sol](../lib/recordset.sol); it includes
+`sqlite.sol` and nothing else, and the form it was written for is Solveig in
+the [GTK binding](https://github.com/hansolovkarlsson/solveig-gtk). See
+[examples/records.sol](../examples/records.sol).
+
 **A file is compiled once** per compilation, however many ways it is reached,
 keyed by where it turns out to be on disk so that two spellings of one file are
 one file. C compiles it every time and leaves each file to guard itself, which

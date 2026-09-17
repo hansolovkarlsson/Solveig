@@ -6967,7 +6967,7 @@ program can read it. No `make` target, no `bin/solvm`, no wording of ours.
 | | what it holds | why it is not a conformance suite |
 | --- | --- | --- |
 | `tests/*.c` — 40 files | the C API, the compiler and the VM | internal by construction; a second implementation has none of these symbols |
-| [expect.sol](../programs/expect.sol) — 1129<!--count claims--> claims | the examples and the documents against their own comments | **the author's corpus, matched as a subsequence** — its own header says why, and why that is right for a document |
+| [expect.sol](../programs/expect.sol) — 1162<!--count claims--> claims | the examples and the documents against their own comments | **the author's corpus, matched as a subsequence** — its own header says why, and why that is right for a document |
 | [oracle.sh](../programs/oracle.sh) — six corpora | `sed`, `diff`, `sort` against BSD's | a second implementation of a **program**, not of the language |
 
 **The subsequence rule is the sharp one.** `expect.sol` requires each claim to
@@ -7140,7 +7140,7 @@ answers closes it whether or not a second front end ever exists.
 **Build `accepted/` first, with the harness and the two-file case.** It closes
 the Phoenix gap, it is the half that scores every stranger including the ones
 that cannot read `.sol`, and it can be seeded from the examples rather than
-invented — 36<!--count examples-files--> files of claims already exist and want
+invented — 37<!--count examples-files--> files of claims already exist and want
 only exact output beside them instead of a subsequence.
 
 **Then `refused/`, and it is mostly transcription.** The eleven scope rules and
@@ -7687,6 +7687,40 @@ status line and a Save button that wakes when something changes; it was
 seen, once, on a screen, and `make test` there compiles five examples
 now, the new one bare. The `--expr` case in that Makefile inverted to
 name the two that need the flag rather than the one that did not.
+
+##### Step 1 the same afternoon: the recordset, and two names the language decided
+
+**`lib/recordset.sol`, 184 lines, and `examples/records.sol` with 33
+claims under `expect`**, on the library list and the example list in
+`test_compile.c`, with its section in the reference and its line on the
+cheatsheet. The shape is the one sketched, a table, a narrowing, the
+rowids in order, a position and the row there, re-read from the pages on
+every move, with `changed` comparing the current row to the pages column
+by column so that a form can ask before it moves. Two names went the way
+the language sent them rather than the way the sketch spelled them:
+**`new` could not be the message that makes a new record, because `new`
+is how a recordset itself is made**, `recordset:on` saying `self:new`
+and finding its own slot first, so the message is `addNew`, which is
+DAO's own word and the one the inspiration used; and the example could
+not be `examples/recordset.sol`, since a file that says `@include
+"recordset.sol"` finds itself beside the includer before the search path,
+which is the self-include the compiler warns about and the reason the SQL
+shell became `sql.sol` two days ago, so it is `records.sol`. A new record
+is made under the table's own prototype with every column nil and no
+rowid, so that its columns are slots as any row's are and `insert` takes
+it as it takes a row, which is why *a state of the recordset and not a
+row* in the plan above was half right: it is a row, and `isNew` is the
+state. **One thing found by the probe and worth its sentence on the
+page**: every move answers the row, so `r:at(#2):delete` deletes through
+the row and not the recordset, with no flush and no refresh; a recordset
+message after a move is a second statement. Held against `make test`,
+1,162 claims now, and `sqlite3` reading `build/rs-probe.db` after a probe
+of every message: the three rows it should have, `integrity_check` ok.
+The empty-table prediction above was for step 2's eyes; the recordset
+met the empty table on its own first line, `count`, `position`,
+`current` and `next` on nothing, and `on` answered nil there once,
+because it ended in `first`, which is the defect the prediction was
+about, found by the probe rather than by eyes.
 
 ##### The calls only you can make
 

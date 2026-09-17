@@ -241,6 +241,7 @@ static const char *shipped[] = {
     "examples/exports.sol",    "examples/plugins.sol",
     "examples/render-plain.sol", "examples/render-loud.sol",
     "examples/operators.sol",  "examples/database.sol",
+    "examples/records.sol",
 
     "programs/log.sol",        "programs/evaluator.sol",
     "programs/manifest.sol",   "programs/page.sol",
@@ -610,7 +611,7 @@ static void test_no_example_is_left_out(void)
 static const char *library[] = {
     "lib/control.sol", "lib/text.sol", "lib/json.sol", "lib/shell.sol",
     "lib/html.sol", "lib/math.sol", "lib/scan.sol", "lib/re.sol",
-    "lib/sob.sol",     "lib/sqlite.sol",
+    "lib/sob.sol",     "lib/sqlite.sol",  "lib/recordset.sol",
 };
 #define LIBRARY_COUNT (sizeof(library) / sizeof(library[0]))
 
