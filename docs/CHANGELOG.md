@@ -5,6 +5,23 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### The sqlite engine has a rung in `make test` — `a15836e`, 2026-09-16
+
+`programs/sql/check.sh`: the nine author cases without a `-- writer: skip`
+line, each written by the program from its script and read back by it,
+the output diffed against `cases/<name>.expected`, which `check.sh record`
+wrote once from `sqlite3` over `sqlite3`'s own file. Half a second, after
+the conformance corpus, and nothing outside C11 and `make`, which is the
+suite's rule and why `sweep.sh` stays beside it: that needs `sqlite3` and
+`python3`, its `-escape off` needs a `sqlite3` newer than `ubuntu-latest`
+ships, and twenty generated cases are ninety seconds, not the minute the
+standup had guessed. The Makefile builds `programs/sql.sob` in place,
+depending on `lib/sqlite.sol`. Not checked here, said in the script:
+`integrity_check`, `sqlite3` reading the written file, the six skipped
+shapes, anything generated. The trigger was not met: the standup called the
+sweep's absence from the suite a hole and nothing had fallen through it;
+this is the part of the sweep the rule allows.
+
 ### The two out-of-memory exits flush stdout first — `cfec870`, 2026-09-16
 
 The two `solvm: out of memory` writes in `vm.c`, after a failed `realloc`

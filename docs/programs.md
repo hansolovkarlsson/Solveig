@@ -2840,6 +2840,24 @@ INSERT with it given, which no generated script did, meets it. `childFor`
 descends now and `positionFor` places, and the comment beside them says
 which rule is whose.
 
+### The rung in `make test`
+
+Nothing above runs in `make test`, and could not: the suite needs nothing
+outside C11 and `make`, and the sweep needs `sqlite3` to build and judge
+and `python3` to generate. Since 2026-09-16 the suite carries the one rung
+that needs neither, [programs/sql/check.sh](../programs/sql/check.sh): the
+nine author cases the writer takes, each built by this program from the
+statements above `-- queries` and read back by it with the statements
+below, the output diffed against `cases/<name>.expected`, which
+`check.sh record` wrote once from `sqlite3` over `sqlite3`'s own file. The
+oracle's answer is in the tree and the oracle is not needed to check
+against it, the shape `programs/digest/sha256.expected` has; half a second,
+after the conformance corpus. What it does not check the script says by
+name: `integrity_check` over the written file, `sqlite3` reading that file,
+the six shapes marked `-- writer: skip`, and anything generated. A writer
+and a reader wrong in the same way pass it and fail the sweep, which is
+what the sweep remains for.
+
 ### What it wanted from the language, so far
 
 The positioned write, above, at step 4 and not before, which is what the

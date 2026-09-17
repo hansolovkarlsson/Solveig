@@ -188,6 +188,23 @@ fail, so it shipped on inspection, and it is recorded as done without its
 trigger, for consistency: every `solvm:` line the machine writes now comes
 after what the program printed, with no site excepted.
 
+**Then the sqlite rung, which was not the item the standup described.**
+The standup had said a one-seed, twenty-case run of the sweep in `make
+test` would cost about a minute. Read before building, three things were
+wrong with that. The suite's rule is that nothing outside C11 and `make`
+is needed to run it, which is why every oracle sweep sits beside it, and
+this one needs `sqlite3` and `python3`; the sweep's `-escape off` is a
+3.47 flag and `ubuntu-latest` ships 3.45, so two of the five jobs would
+have gone red on an unknown option; and twenty cases timed at ninety
+seconds, a doubling of the suite. Four shapes were put to Hans and he
+chose the second: the nine writable author cases written and read back by
+the program, held against `sqlite3`'s answer recorded once beside each,
+the shape `sha256.expected` already has. `a15836e`, half a second, and the
+script says by name what it does not check. The lesson is the one method.md
+already carries about a check that is decoration: the number on the standup
+was a guess written at close-out, and the guess was the only thing about
+the item that survived being measured.
+
 ---
 
 ## 2026-09-15: the documents, and Parasol is a member
