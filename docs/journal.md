@@ -196,11 +196,17 @@ is needed to run it, which is why every oracle sweep sits beside it, and
 this one needs `sqlite3` and `python3`; the sweep's `-escape off` is a
 3.47 flag and `ubuntu-latest` ships 3.45, so two of the five jobs would
 have gone red on an unknown option; and twenty cases timed at ninety
-seconds, a doubling of the suite. Four shapes were put to Hans and he
-chose the second: the nine writable author cases written and read back by
-the program, held against `sqlite3`'s answer recorded once beside each,
-the shape `sha256.expected` already has. `a15836e`, half a second, and the
-script says by name what it does not check. The lesson is the one method.md
+seconds, a doubling of the suite. Four shapes were put to Hans: the sweep
+skipped where the tools are absent, which is a check whose presence depends
+on the machine and would have run on none of the Linux jobs; the writable
+author cases written and read back by the program, held against `sqlite3`'s
+answer recorded once beside each, the shape `sha256.expected` already has;
+the same with the fifteen `sqlite3`-built `.db` files checked in, some 620
+KB of binary, a quarter of it the one 65536-byte-page file, so that the
+reader rung covers every author shape; and leaving it beside the suite as
+gzip's is. He chose the second. `a15836e`, half a second, and the script
+says by name what it does not check, the six skipped shapes among them,
+which is the cost of not taking the third. The lesson is the one method.md
 already carries about a check that is decoration: the number on the standup
 was a guess written at close-out, and the guess was the only thing about
 the item that survived being measured.
