@@ -282,6 +282,20 @@ static void test_the_promised_surface_is_exported(void)
  * distinction the test is here to hold. */
 static void test_the_surface_stops_where_it_says(void)
 {
+    /* A question about what a loaded bundle could reach, on a platform where
+       the build makes no bundle to load: the Makefile builds none on Windows,
+       because a PE shared object cannot leave `sol_*` for the loading program
+       to resolve, and there `-fvisibility=hidden` means nothing and
+       `-rdynamic` exports everything, so all nine are reachable from a bundle
+       that cannot exist. Skipped by name, as the checks that load one are. */
+    FILE *probe = fopen("build/tests/ext_probe.so", "rb");
+    if (probe == NULL) {
+        printf("  skipped: no bundle is built on this platform, so what one"
+               " could reach is not checked\n");
+        return;
+    }
+    fclose(probe);
+
     static const char *internal[] = {
         "sol_chunk_init",          /* the bytecode reader */
         "sol_compile",             /* the compiler */
