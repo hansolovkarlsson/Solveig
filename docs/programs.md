@@ -617,6 +617,19 @@ a number over two titles across the two, or the same title under one number
 on both, is a finding. It was 103 numbers on the day it went in, and the
 check read the two pages of 2026-09-15 and named the collision before it did.
 
+**And an example may say what it needs, since 2026-09-17.** A `.sol` file
+whose header carries `; needs: <name>` is run only where the run provides
+the name, and the report says by name when it did not:
+[files.sol](../examples/files.sol) carries `; needs: file modes`, because a
+mode set to 755 reads back 644 on the mount the Windows job runs on, and
+the claim is about the mount rather than about the language. The checker
+probes for each name it provides, once, by doing the thing rather than by
+asking which platform it is on; a name nothing provides is a finding. A run
+that skipped a file has counts that are not the whole tree's, so the count
+markers that state them are deferred with their own clause, *count a run
+that skipped nothing*, and `test_documents.c` accepts that clause where it
+refuses the one for a run over less than the whole set. One need so far.
+
 **And [site.sh](../programs/site.sh) asks the same questions of the pages that
 are actually published**, which is a different thing and is not in `make test`:
 the suite is offline and dependency-free, and a check that fails on a train is

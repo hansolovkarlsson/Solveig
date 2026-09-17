@@ -176,9 +176,12 @@ make clean
 ```
 
 No dependencies beyond a C11 compiler and `make`. Every push is built and the
-suite run three ways — gcc and clang on Linux, clang on macOS — and again under
+suite run four ways, gcc and clang on Linux, clang on macOS and gcc on Windows
+under MSYS2, and again under
 [ASan and UBSan](.github/workflows/build.yml), so that sentence is checked
-rather than asserted.
+rather than asserted. On Windows eleven checks say by name what that
+platform has not: a bundle to load, permission bits, a terminal that keeps
+what was typed across a mode switch.
 
 ## Install
 

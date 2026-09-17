@@ -11,6 +11,128 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-09-17: the suite runs on Windows, and eleven checks say what it has not
+
+**The morning was the standup, three explanations and an audit.** Hans
+asked for 3.29, the `expect.sol` workaround and the sqlite split policy
+explained, and left all three where they were: 3.29 behind its trigger, the
+workaround because it is right under both orderings and five lines long,
+the split because it is cosmetic until a program cares. Then `/project-audit`
+over `v0.47.0..HEAD`, fifteen commits from yesterday grouped as seven tasks,
+every one in the ledger or the changelog as it should be, nothing open that
+the records did not already hold, the suite green at the same line as the
+standup's. Two sentences had gone false, both before the segment:
+`CLAUDE.md` illustrated the count markers with `476` and `twenty-nine`,
+numbers that are 495 and forty-one now, and `programs.md` said the sqlite
+sweep "is" fourteen author cases, eight writable, from the evening deletes
+went in, though `updates.sql` made it fifteen and nine the same evening and
+the rung subsection thirty lines on said so. The first now shows the
+marker's shape with `<n>` and says the number is whatever the last run
+left, so it cannot rot again; the second is dated and names the fifteenth.
+One commit, `5b403ce`, green on five jobs and the site.
+
+**Then Hans asked what a Windows version would take, and the answer was two
+things with different prices.** The tree is POSIX by assumption, not by
+accident: sixteen `unistd.h` includes, `fork` for `system:run`, `dlopen` for
+extensions, termios for the line editor, `sh` for two scripts in `make
+test`. Some of it already had an `#else` that answers nil or says *no fork
+here*. A, a job on `windows-latest` under MSYS2's POSIX layer, asks whether
+the tree builds and passes with GCC on Windows and nothing about a native
+binary. B, a native binary under MinGW, is `LoadLibrary`, `_fullpath`, the
+`_s` time functions, `NUL` for `/dev/null`, Winsock or no `net`, `.dll` and
+`.exe` in the Makefile: a day or two, behind a trigger nobody has pulled. He
+said do A, and A took nine runs, each of which said one thing.
+
+**The first run compiled every C file with no warning and failed to link a
+bundle.** A PE shared object cannot leave `sol_*` unresolved for the loading
+program to satisfy; ELF and Mach-O allow exactly that, and every bundle here
+does it. The Makefile's own comment already said *a platform that cannot
+build a bundle at all says so during the build*, and Windows had said so.
+Three shapes were put to Hans: the job builds and tests without bundles and
+the checks that load one say so by name; the core becomes a DLL on Cygwin,
+the real fix and a change to the build's shape on one platform; the job
+comes out and the finding goes in `ideas.md`. He took the first, with the
+second written down as the next step behind its trigger, which is
+[3.32](ROADMAP.md#332-no-bundle-can-be-built-on-windows) now. So on a
+`uname -s` with `_NT-` in it `EXTENSIONS` and `EXT_PROBE` are empty, and
+the six checks in `test_cli.c` and `test_solid.c` that load the probe or
+`net.so` test for the file and print `skipped:` when it is absent, with
+what needs no bundle in them still running; proven here by moving the two
+bundles aside. `diffutils` went into the job's packages too, since the MSYS
+base has no `cmp` and the Makefile's `config.h` rule and `check.sh` both
+use it.
+
+**The second run reached the document checker and said a line number and
+nothing else.** `test_documents.c` prints the checker's whole report before
+`assert(false)`, and an abort flushes nothing: down a pipe the report was
+in stdout's block buffer and died with the process. Cygwin's libc, and
+glibc's since 2.27, which had never fired on Linux because nothing there
+had failed after printing a report. Seven report-then-assert sites in three
+test files flush first now, with the reason at the first. That is 3.28,
+which flushed the machine's output before its failure report on Tuesday,
+met again from the harness's side, and it was the cheapest of the nine
+lessons because the fix was already in the tree under another name.
+
+**The third run's report was eight findings and one cause.**
+`examples/files.sol` sets a mode of 755 and reads it back; the runner's
+Cygwin over a `noacl` mount answered 644, since it keeps no bits and makes
+the execute bit from the extension, and `.txt` has none. The checker stops
+a block at its first failed claim, so four claims went uncounted and the
+seven count markers saying 1129 and 632 were off by four; the ninth
+difference, 199 files with links against 198, was `programs/build/
+disasm-sample.sol`, ignored and untracked here and on no clone. Three
+shapes again: the checker skips an example that needs a capability the
+filesystem lacks, by name; `test_documents` does not run on Windows; the
+example claims something true on both, of which there is nothing, since on
+that mount `setMode` is a no-op for a `.txt`. He took the first, *skip
+example by name*. A `.sol` header may carry `; needs: <name>`; `files.sol`
+carries `; needs: file modes`; `expect.sol` probes for each name it
+provides by doing the thing on a file of its own, because the mount
+decides and not the kernel; a need nothing provides is a finding, as a
+count marker naming nothing is. The counts that are facts about a run are
+deferred with a clause of their own, *count a run that skipped nothing*,
+because `test_documents.c` refuses the existing clause, *want the whole
+set*, on purpose and should go on refusing it; it accepts the new one and
+repeats every skip line into the suite's log. Proven here with a copy of
+the checker whose probe answers false: 87 files, 1114 claims, the skip
+named, 16 counts recounted and 11 deferred, exit 0.
+
+**Runs four to seven were one platform fact each.** PE has no symbol
+visibility and `-rdynamic` there exports everything, so the nine internal
+symbols `test_extension` asserts are hidden from a bundle were reachable
+from a bundle that cannot exist: skipped on the predicate the other six
+use. Windows finds a program's DLLs through `PATH`, so `test_parasol_sob`,
+which runs everything with `PATH` set to `bin` alone so that nothing else
+can supply a `solas`, started nothing at all, 21 of 27 checks failing with
+nothing said and 127; on Cygwin the PATH is `bin` and `/usr/bin`, and the
+PATH with no `solas` on it is `/usr/bin` rather than `/nonexistent`, which
+holds no `solas` either. `chmod 0` on a directory shuts nothing on that
+mount, so the test that a file inside cannot be looked at reads the mode
+back and, where the bits did not take, says so, beside the case for root
+it already had. And Cygwin's pseudo-terminal answers the `poll` after the
+switch to raw and then does not hand `readKey` the `[`: the test makes the
+primitive's dance itself on the slave, in C, and where the byte does not
+come back the driver is the reason and the primitive is not checked.
+
+**The eighth run was mine, and it cost 25 minutes.** The probe's read had
+`VMIN` 1, as the primitive's does, on a slave whose driver was never going
+to hand the byte over, and the Test step timed out inside it. `VMIN` 0 and
+`VTIME` 5, half a second, after which an empty read is the answer the probe
+was written to take. The ninth run was green on all six jobs, Windows in
+3m46s: 87 conformance cases, the sqlite rung, 46 binaries, 1114 claims,
+eleven skips, each naming what the platform has not. Then the records:
+three changelog entries, 3.32, a paragraph on `; needs:` in the `expect`
+section, and the README's sentence about four ways rather than three.
+
+**Two things worth carrying.** A probe without a deadline is a hang waiting
+for the platform that never answers, and the platform that never answers
+is exactly the one the probe is for. And a skip that is named is a
+different thing from a skip that is silent: the eleven lines say what the
+Windows job does not check, and a reader of its log knows the tree's
+extension mechanism has never been exercised there, which is what 3.32 is
+for. The alternative, a job that is green because it does not look, is the
+job the sqlite scoping declined on Tuesday for the same reason.
+
 ## 2026-09-16: 0.47.0 cut, and Parasol's version is the tree's
 
 **The morning was the two cheapest things on the standup, and a question.**

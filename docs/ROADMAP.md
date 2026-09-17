@@ -1165,6 +1165,24 @@ and either alone would do.
 4. Found on 2026-09-13 by `programs/bignum`, which put a deliberate error in
 a copy of its library to test the map across two modules.
 
+### 3.32 No bundle can be built on Windows
+
+Every bundle here, `extensions/net` and the test probe, is a shared object
+with `sol_*` left unresolved for the loading program to satisfy, which ELF
+and Mach-O allow and PE does not: the linker refuses it with an undefined
+reference per call. So on Windows, under MSYS2 where the suite has run since
+2026-09-17, the Makefile builds no bundle, `--extension=` has nothing to
+load, and seven checks say they were skipped. Everything else builds and
+passes there. What would make a bundle buildable is the core as a DLL,
+`cygsol.dll` or its MinGW equivalent, that the four binaries and every
+bundle link against by import library; a change to the build's shape on
+one platform, with `make install` and `make dist` to follow it. Held
+until somebody wants an extension on Windows, which nothing in the records
+does: the job asks whether the tree builds and passes there, and it does.
+The account of the nine runs that found this and the rest is in the
+[journal](journal.md#2026-09-17-the-suite-runs-on-windows-and-eleven-checks-say-what-it-has-not)
+and the changelog entry for `34174af`.
+
 ### 1.1d Collection is stop-the-world and non-incremental
 
 Fine at this size and not worth touching yet. Noted so it is a choice rather than

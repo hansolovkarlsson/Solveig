@@ -5,6 +5,50 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### The suite runs on Windows, under MSYS2 — `2e66747` to `34174af`, 2026-09-17
+
+A fourth job in [build.yml](../.github/workflows/build.yml): `windows-latest`,
+the MSYS environment of `msys2/setup-msys2`, `gcc`, `make`, `diffutils` and
+`tzcode` from its packages, `core.autocrlf` off before the checkout. The
+first run compiled every C file with no warning and failed to link a bundle:
+a PE shared object cannot leave `sol_*` for the loading program to resolve,
+so on a `uname -s` with `_NT-` in it the Makefile builds none, and the seven
+checks that load one say they were skipped. Nine runs found what else the
+platform has not, each said by name where a check meets it: a `noacl` mount
+keeps no permission bits (three checks, and `files.sol` through `; needs:
+file modes`), PE has no symbol visibility (one), Windows finds a program's
+DLLs through `PATH` so `test_parasol_sob` keeps `/usr/bin` on it there, and
+Cygwin's pseudo-terminal does not carry typed bytes across a mode switch
+(one, probed with a deadline after the probe without one hung a run). Green
+at `34174af` in under four minutes: 87 conformance cases, the sqlite rung,
+46 binaries, 1,114 claims and eleven skips. Not a native binary: what one
+would need is [3.32](ROADMAP.md#332-no-bundle-can-be-built-on-windows).
+
+### A test that prints a report before it aborts flushes it first — `7573d3a`, 2026-09-17
+
+Seven sites in `test_documents.c`, `test_cli.c` and `test_compile.c` print
+what a run said and then `assert(false)`, and an abort flushes nothing:
+down a pipe the report sat in stdout's buffer and died with the process,
+so the second Windows run said a line number and no more. True of glibc
+since 2.27 as well; it had never fired on Linux because nothing there had
+failed after printing a report. `fflush(stdout)` before each, and the
+reason at the first. 3.28's lesson from the harness's side.
+
+### An example may say what it needs, and the checker skips it by name — `c533243`, 2026-09-17
+
+A `.sol` file's header may carry `; needs: <name>`; `files.sol` carries
+`; needs: file modes`, since a mode set to 755 read back as 644 on the
+Windows job's mount and the checker, stopping the block at its first failed
+claim, left four claims uncounted and seven count markers off by four.
+[expect.sol](../programs/expect.sol) probes once for each name it provides,
+by setting a mode on a file of its own and reading it back rather than by
+asking the platform, since the mount decides. Where the need is not met the
+file is skipped and the report says so; a need nothing provides is a
+finding, as a count marker naming nothing is. The counts that are facts
+about a run are then deferred with their own clause, *count a run that
+skipped nothing*, which `test_documents.c` accepts where it still refuses
+*want the whole set*, and every skip line is repeated into the suite's log.
+
 ### The sqlite engine has a rung in `make test` — `a15836e`, 2026-09-16
 
 `programs/sql/check.sh`: the nine author cases without a `-- writer: skip`
