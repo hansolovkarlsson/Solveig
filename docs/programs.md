@@ -2815,9 +2815,10 @@ line, since the usable size is what the format is defined over; the writer
 leaves the reserved bytes of a page it rewrites as zeros, and nothing has
 complained, which says the twelve bytes are reserved and not read.
 
-The sweep is fourteen author cases, eight of them writable, and two hundred
-generated a seed with deletes in the writable rung now: **629 of 629 on seed
-1 and 629 of 629 on seed 5**, both ways.
+The sweep was then fourteen author cases, eight of them writable, and two
+hundred generated a seed with deletes in the writable rung: **629 of 629 on
+seed 1 and 629 of 629 on seed 5**, both ways. The fifteenth case, `updates.sql`,
+came with the objects the same evening, below.
 
 ### The objects over it, and the defect UPDATE found the same evening
 

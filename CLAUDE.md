@@ -61,7 +61,7 @@ specification for what belongs in it — follow it over any general instruction.
 
 `make test` runs `tests/test_documents.c` and `programs/expect.sol` over the
 prose, and `docs/programs.md` carries live counts inside HTML comment markers —
-`476<!--count docs-claims--> claims across twenty-nine<!--count
-docs-documents--> documents`. **Adding a file to `docs/` moves those numbers and
-turns the suite red.** Re-run `make test` after writing any document here, and
-re-sync the count if it moved.
+`<n><!--count docs-claims--> claims across <n><!--count docs-documents-->
+documents`, where each `<n>` is whatever the last run left. **Adding a file
+to `docs/` moves those numbers and turns the suite red.** Re-run `make test`
+after writing any document here, and re-sync the count if it moved.
