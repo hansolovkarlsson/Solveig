@@ -63,6 +63,52 @@ jobs:
         timeout-minutes: 5
         run: make test CC=${{ matrix.cc }}
 
+  # Windows, through MSYS2's POSIX layer rather than natively. The tree is
+  # POSIX by assumption: `fork` for system:run, `dlopen` for extensions,
+  # termios for the line editor, `sh` for two scripts in `make test`. The MSYS
+  # environment (not MINGW) has all of it over msys-2.0.dll, so this asks
+  # whether the tree builds and passes with GCC on Windows and nothing about a
+  # native binary; what a native one would need is the list this job's first
+  # red run wrote, not one guessed from grep. `fail-fast` does not apply, since
+  # it is not in the matrix: it fails on its own.
+  #
+  # `core.autocrlf` is set before the checkout, not after: the suite compares
+  # program output to files byte for byte, and a checkout that turns `\n` into
+  # `\r\n` fails every one of those with nothing on screen saying why.
+  windows:
+    name: windows / msys2 gcc
+    runs-on: windows-latest
+    timeout-minutes: 40
+
+    defaults:
+      run:
+        shell: msys2 {0}
+
+    steps:
+      - name: Keep line endings as committed
+        shell: pwsh
+        run: git config --global core.autocrlf false
+
+      - uses: actions/checkout@v5
+
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: MSYS
+          update: false
+          install: gcc make
+
+      - name: Compiler
+        run: gcc --version
+
+      - name: Build
+        run: make CC=gcc
+
+      # Longer than the others: `fork` is emulated here and the suite forks
+      # for every claim in the documents.
+      - name: Test
+        timeout-minutes: 25
+        run: make test CC=gcc
+
   # Undefined behaviour is the thing this repository has already been bitten by
   # once, and by luck rather than by a check: `frame->ip += READ_SHORT()` was
   # right for the project's whole life because clang happened to evaluate it in
