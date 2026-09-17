@@ -7,6 +7,7 @@
 #define _POSIX_C_SOURCE 200809L
 
 #include <assert.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -458,13 +459,33 @@ static void test_exports_reads_bytecode(void)
     printf("  --exports reads a .sob with no source beside it\n");
 }
 
+/* The probe three checks below load, and whether the build made it. On ELF
+   and Mach-O it always did, since `make test` depends on it; on Windows, under
+   any of its Unix layers, the Makefile builds none, because a PE shared object
+   cannot leave `sol_*` for the loading program to resolve. Those checks then
+   say they were skipped, by name, rather than fail on the platform's behalf.
+   The same arrangement as test_cli.c's. */
+#define PROBE "build/tests/ext_probe.so"
+
+static bool probe_was_built(void)
+{
+    FILE *f = fopen(PROBE, "rb");
+    if (f != NULL) fclose(f);
+    return f != NULL;
+}
+
 /* A `.so` has no bytecode to read at all: its surface exists only once
    `sol_extension_init` has run. Same report, and with nothing else named there
    is no file to give. */
 static void test_exports_reads_an_extension(void)
 {
+    if (!probe_was_built()) {
+        printf("  skipped: no bundle is built on this platform, so --exports"
+               " over an extension is not checked\n");
+        return;
+    }
     char out[16384];
-    int status = reported(NULL, "--exports --extension=build/tests/ext_probe.so",
+    int status = reported(NULL, "--exports --extension=" PROBE,
                           out, sizeof out);
 
     assert(status == 0);
@@ -478,9 +499,14 @@ static void test_exports_reads_an_extension(void)
    name is never a guess. */
 static void test_exports_keeps_the_two_subjects_apart(void)
 {
+    if (!probe_was_built()) {
+        printf("  skipped: no bundle is built on this platform, so the two"
+               " subjects of --exports are not checked apart\n");
+        return;
+    }
     char out[16384];
     int status = reported("mine := object:new.\nmine:own := { #1 }.\n",
-                          "--exports --extension=build/tests/ext_probe.so",
+                          "--exports --extension=" PROBE,
                           out, sizeof out);
     assert(status == 0);
 
@@ -519,9 +545,14 @@ static void test_exports_reports_a_file_that_did_not_finish(void)
    what the sanitised build is here to prove. */
 static void test_exports_survives_a_global_being_replaced(void)
 {
+    if (!probe_was_built()) {
+        printf("  skipped: no bundle is built on this platform, so a file"
+               " replacing what an extension bound is not checked\n");
+        return;
+    }
     char out[16384];
     int status = reported("probe := #1.\nafter := #2.\n",
-                          "--exports --extension=build/tests/ext_probe.so",
+                          "--exports --extension=" PROBE,
                           out, sizeof out);
 
     assert(status == 0);

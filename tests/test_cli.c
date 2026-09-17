@@ -13,6 +13,7 @@
 #define _POSIX_C_SOURCE 200809L
 
 #include <assert.h>
+#include <stdbool.h>
 #include <dirent.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -1714,7 +1715,6 @@ static void test_the_editor_does_what_the_keys_say(void)
     printf("  the editor does what %d scripted sessions say it does\n", sessions);
 }
 
-
 /* ---- extensions --------------------------------------------------------- *
  *
  * The one thing test_extension.c cannot check. It registers its extensions as
@@ -1731,6 +1731,24 @@ static void test_the_editor_does_what_the_keys_say(void)
  * which is a regression that would otherwise be found by somebody else's
  * extension a year later. See tests/ext_probe.c and WHOLE_LIB in the Makefile.
  */
+
+/* The bundles the checks below load, and whether the build made them. On ELF
+   and Mach-O it always did, since `make test` depends on the probe and a
+   platform that cannot build one fails there. On Windows, under any of its
+   Unix layers, the Makefile builds none: a PE shared object cannot leave
+   `sol_*` for the loading program to resolve. The checks that load a bundle
+   then say they were skipped, by name, rather than fail on the platform's
+   behalf; what does not need a bundle still runs. */
+#define PROBE "build/tests/ext_probe.so"
+#define NET   "build/extensions/net.so"
+
+static bool bundle_was_built(const char *path)
+{
+    FILE *f = fopen(path, "rb");
+    if (f != NULL) fclose(f);
+    return f != NULL;
+}
+
 static void test_an_extension_reaches_the_program(void)
 {
     system("mkdir -p " DIR);
@@ -1742,17 +1760,24 @@ static void test_an_extension_reaches_the_program(void)
     fclose(f);
     assert(system("bin/solas " DIR "/ext.sol -o " DIR "/ext.sob") == 0);
 
+    /* Without it the program is the one that fails, at the line that first
+       names the global rather than before anything ran. Checked first, since
+       it needs no bundle. */
     char out[4096];
-    assert(run("bin/solvm --extension=build/tests/ext_probe.so " DIR "/ext.sob"
+    assert(run("bin/solvm " DIR "/ext.sob 2>&1 >/dev/null", out, sizeof out) == 70);
+    assert(strstr(out, "undefined name 'probe'") != NULL);
+
+    if (!bundle_was_built(PROBE)) {
+        printf("  a program without its extension fails at the first name;"
+               " skipped: no bundle is built on this platform, so a loaded one"
+               " is not checked\n");
+        return;
+    }
+    assert(run("bin/solvm --extension=" PROBE " " DIR "/ext.sob"
                " 2>/dev/null", out, sizeof out) == 0);
     assert(strstr(out, "true") != NULL);      /* a value the extension bound   */
     assert(strstr(out, "\"QUIET\"") != NULL);  /* sol_vm_send reached back in   */
     assert(strstr(out, "#3") != NULL);        /* the array calls and the root  */
-
-    /* And without it the program is the one that fails, at the line that first
-       names the global rather than before anything ran. */
-    assert(run("bin/solvm " DIR "/ext.sob 2>&1 >/dev/null", out, sizeof out) == 70);
-    assert(strstr(out, "undefined name 'probe'") != NULL);
     printf("  a loaded extension reaches the program, and is absent without it\n");
 }
 
@@ -1772,6 +1797,11 @@ static void test_an_extension_reaches_the_program(void)
  */
 static void test_the_net_extension_carries_a_datagram(void)
 {
+    if (!bundle_was_built(NET)) {
+        printf("  skipped: no bundle is built on this platform, so the net"
+               " extension is not checked\n");
+        return;
+    }
     system("mkdir -p " DIR);
     FILE *f = fopen(DIR "/net.sol", "w");
     assert(f != NULL);
@@ -1788,7 +1818,7 @@ static void test_the_net_extension_carries_a_datagram(void)
     assert(system("bin/solas " DIR "/net.sol -o " DIR "/net.sob") == 0);
 
     char out[4096];
-    assert(run("SOLUM_GC_STRESS=1 bin/solvm --extension=build/extensions/net.so "
+    assert(run("SOLUM_GC_STRESS=1 bin/solvm --extension=" NET " "
                DIR "/net.sob 2>/dev/null", out, sizeof out) == 0);
     assert(strstr(out, "#4") != NULL);            /* four bytes went out       */
     assert(strstr(out, "\"ping\"") != NULL);      /* and came back            */
@@ -1837,19 +1867,25 @@ static void test_every_front_end_that_runs_takes_the_flag(void)
 {
     char out[4096];
 
-    /* solis, given the source rather than the bytecode, since it takes either. */
-    assert(run("bin/solis --extension=build/tests/ext_probe.so " DIR "/ext.sol"
-               " 2>/dev/null", out, sizeof out) == 0);
-    assert(strstr(out, "\"QUIET\"") != NULL);
+    if (bundle_was_built(PROBE)) {
+        /* solis, given the source rather than the bytecode, since it takes
+           either. */
+        assert(run("bin/solis --extension=" PROBE " " DIR "/ext.sol"
+                   " 2>/dev/null", out, sizeof out) == 0);
+        assert(strstr(out, "\"QUIET\"") != NULL);
 
-    /* solid stops at the first line, so it is told to leave again at once.
-       What is being checked is that it got that far: without the extension it
-       would fail on an undefined name instead. */
-    assert(run("printf 'quit\\n' | bin/solid"
-               " --extension=build/tests/ext_probe.so " DIR "/ext.sob"
-               " 2>/dev/null", out, sizeof out) == 0);
-    assert(strstr(out, "undefined name") == NULL);
-    assert(strstr(out, "probe:loaded") != NULL);   /* stopped on the first line */
+        /* solid stops at the first line, so it is told to leave again at
+           once. What is being checked is that it got that far: without the
+           extension it would fail on an undefined name instead. */
+        assert(run("printf 'quit\\n' | bin/solid"
+                   " --extension=" PROBE " " DIR "/ext.sob"
+                   " 2>/dev/null", out, sizeof out) == 0);
+        assert(strstr(out, "undefined name") == NULL);
+        assert(strstr(out, "probe:loaded") != NULL);   /* stopped on the first line */
+    } else {
+        printf("  skipped: no bundle is built on this platform, so solis and"
+               " solid loading one is not checked\n");
+    }
 
     /* And both refuse a missing one the way solvm does. */
     assert(run("bin/solis --extension=./no-such-bundle.so " DIR "/ext.sol"

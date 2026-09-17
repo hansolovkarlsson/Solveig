@@ -151,7 +151,21 @@ BINARIES = $(BIN)/solas $(BIN)/solvm $(BIN)/solis $(BIN)/solid $(BIN)/parasol
 # a host asks with `--extension=`, which is the whole arrangement: the
 # capability is here, and granting it is still a decision taken on a command
 # line. The rule is beside the test probe's, further down.
+#
+# Not on Windows, under any of its Unix layers: `uname -s` there is
+# `MSYS_NT-…`, `CYGWIN_NT-…` or `MINGW64_NT-…`. A PE shared object cannot leave
+# `sol_*` unresolved for the loading program to satisfy, which is what every
+# bundle here does and what ELF and Mach-O allow; the linker refuses it with
+# an undefined reference per call, found by the first Windows run of the suite
+# on 2026-09-17. Everything else builds and runs there, so the bundles are
+# left out rather than the platform, and the checks that load one say they
+# were skipped. What would make them buildable is the core as a DLL the
+# binaries and the bundles both link against; that is on the roadmap, not here.
+ifneq ($(findstring _NT-,$(shell uname -s)),)
+EXTENSIONS =
+else
 EXTENSIONS = $(BUILD)/extensions/net.so
+endif
 
 .PHONY: all test sanitize examples embed install uninstall dist clean FORCE
 all: $(BINARIES) $(EXTENSIONS)
@@ -449,8 +463,13 @@ $(BUILD)/tests/test_threads: CFLAGS += -pthread
 #
 # Built here rather than by the test at run time. A test that shells out to a
 # compiler is a test that fails differently on every machine, and this way a
-# platform that cannot build a bundle at all says so during the build.
+# platform that cannot build a bundle at all says so during the build -- or,
+# on Windows, is known not to and builds none; see EXTENSIONS above.
+ifneq ($(findstring _NT-,$(shell uname -s)),)
+EXT_PROBE =
+else
 EXT_PROBE = $(BUILD)/tests/ext_probe.so
+endif
 
 $(EXT_PROBE): tests/ext_probe.c $(CONFIG)
 	@mkdir -p $(@D)

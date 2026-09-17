@@ -95,7 +95,9 @@ jobs:
         with:
           msystem: MSYS
           update: false
-          install: gcc make
+          # diffutils for the `cmp` the Makefile uses to leave config.h alone
+          # when it has not changed, and the `diff` and `cmp` in check.sh.
+          install: gcc make diffutils
 
       - name: Compiler
         run: gcc --version
