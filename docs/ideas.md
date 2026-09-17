@@ -7549,8 +7549,9 @@ Three layers, and the line between them is the one the
 draws for itself, *each binding publishes what its toolkit has*:
 
 1. **The controls are C, in `solveig-gtk`, one message per GTK thing and
-   nothing about records.** Today the binding is seventeen messages and
-   four widgets: a window, a label, a button, a box, and a canvas. A form
+   nothing about records.** Today the binding is twenty-two messages and
+   five widgets: a window, a label, a button, a box, and a canvas (its page
+   said seventeen, a count the canvas had outgrown). A form
    needs an entry, a check button, a dropdown, a text view for a memo, a
    scrolled window, a grid to lay labels beside entries, and, for the
    master-child step, a list. With their reads, writes and events that is
@@ -7662,6 +7663,30 @@ what `field` makes; a program that wants something else makes the widgets
 itself with the controls of step 0 and binds them with `field(column,
 kind, control)`, which is why the control is an argument the form may take
 rather than only one it makes.
+
+##### Step 0 the same afternoon, and the one thing GTK would not do
+
+**Eighteen messages and three grown ones, `d9d0a1b` in the binding**, one
+more than the entry counted because `focus` was wanted the moment a form
+was imagined with a cursor in its first field, and two fewer under their
+own names because `add` takes a list as it takes a box and `clear` is the
+list's only message of its own. A probe that called every message, read
+every answer back and closed its own window after 600 ms was run before
+the example was written, and it found the one thing on this step that was
+not mechanical: **a GTK dropdown cannot show nothing.** `setSelected(d,
+#0)` was written to mean *none*, as it does on a list, and read back `#3`,
+because `GtkDropDown` re-selects the first item the moment nothing is
+selected. So `#0` on a dropdown is refused with a sentence, and a form
+that wants *no value* puts an empty string first, which is what every
+combo box since VB has done and is now what the page says. `text` on a
+widget is asked in an order that matters, since a check is a button;
+`onChange` is one message over four signals, and a dropdown's is a
+`notify::selected` with a `GParamSpec` in the middle, so it has its own
+door. `examples/widgets.sol` puts every control in one window with a
+status line and a Save button that wakes when something changes; it was
+seen, once, on a screen, and `make test` there compiles five examples
+now, the new one bare. The `--expr` case in that Makefile inverted to
+name the two that need the flag rather than the one that did not.
 
 ##### The calls only you can make
 
