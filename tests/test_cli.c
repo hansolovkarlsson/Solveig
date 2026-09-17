@@ -1195,6 +1195,7 @@ static void test_check_syntax_reads_solum_itself(void)
                "done; echo SWEPT", out, sizeof out) == 0);
     if (strstr(out, "BAD") != NULL) {
         printf("\nsolum.bnf rejects a file solas accepts:\n%s\n", out);
+        fflush(stdout);                 /* an abort flushes nothing; see test_documents.c */
         assert(false);
     }
     assert(strstr(out, "SWEPT") != NULL);
@@ -1626,6 +1627,7 @@ static void test_sola_compiles_a_program_that_runs(void)
                      DIR "/corpus.sob 2>&1", corpus[i]);
             if (run(command, out, sizeof out) != 0) {
                 printf("\n%s.bas will not compile:\n%s\n", corpus[i], out);
+                fflush(stdout);
                 assert(false);
             }
         }
@@ -1702,6 +1704,7 @@ static void test_the_editor_does_what_the_keys_say(void)
     int status = run("bin/solvm " DIR "/checks.sob 2>&1", out, sizeof out);
     if (status != 0 || strstr(out, "every session holds") == NULL) {
         printf("\n%s\n", out);
+        fflush(stdout);
         assert(false);
     }
 

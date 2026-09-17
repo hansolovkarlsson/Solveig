@@ -199,6 +199,7 @@ static void must_verify(const char *what, const char *source, const char *path)
     sol_chunk_init(&chunk);
     if (!sol_compile_options(source, path, &search, &options, &chunk)) {
         printf("  did not compile: %s\n", what);
+        fflush(stdout);                 /* an abort flushes nothing; see test_documents.c */
         assert(false);
     }
     SolSerResult result = sol_chunk_verify(&chunk);

@@ -93,7 +93,15 @@ static void test_everything_written_down_is_true(void)
                      " $(find programs -name README.md | sort) 2>/dev/null",
                      out, sizeof out);
     if (status != 0 || strstr(out, "every claim holds") == NULL) {
+        /* Flushed before the abort, because an abort flushes nothing: stdout
+           down a pipe is block-buffered, and on Cygwin and glibc since 2.27
+           the report a failing test prints would otherwise die in the buffer
+           with the process. The first Windows run of the suite failed here
+           and said nothing but the line number. 3.28's lesson, from the
+           harness's side. The same at every report-then-assert below and in
+           test_cli.c and test_compile.c. */
         printf("\n%s\n", out);
+        fflush(stdout);
         assert(false);
     }
 
@@ -107,6 +115,7 @@ static void test_everything_written_down_is_true(void)
     if (strstr(out, "want the whole set") != NULL) {
         printf("\n%s\nthe subjects above are less than the checker's whole "
                "set\n", out);
+        fflush(stdout);
         assert(false);
     }
 
@@ -302,6 +311,7 @@ static void test_the_grammar_matches_the_compiler(void)
     if (status != 0) {
         printf("\n%s\na construct is in the language and not in the grammar,\n"
                "or a construct file stopped compiling\n", out);
+        fflush(stdout);
         assert(false);
     }
 
