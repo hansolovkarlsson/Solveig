@@ -1846,12 +1846,15 @@ static void test_key_waiting_looks_past_the_line_discipline(void)
         struct pollfd waiting = { slave, POLLIN, 0 };
         (void)poll(&waiting, 1, 200);
         assert(tcsetattr(slave, TCSANOW, &canonical) == 0);
-        raw.c_cc[VMIN] = 1;
+        /* VMIN 0 and a deadline where the primitive has VMIN 1: a driver
+           that will never hand the byte over must not hang the suite, which
+           the eighth Windows run did for its whole 25 minutes. */
+        raw.c_cc[VMIN] = 0; raw.c_cc[VTIME] = 5;
         assert(tcsetattr(slave, TCSANOW, &raw) == 0);
         char first = 0;
         ssize_t got = read(slave, &first, 1);
         char rest[8];
-        raw.c_cc[VMIN] = 0;
+        raw.c_cc[VTIME] = 0;
         assert(tcsetattr(slave, TCSANOW, &raw) == 0);
         (void)read(slave, rest, sizeof rest);
         assert(tcsetattr(slave, TCSANOW, &canonical) == 0);
