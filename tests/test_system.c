@@ -8,7 +8,9 @@
 
 #include <fcntl.h>
 #include <sys/ioctl.h>
+#include <poll.h>
 #include <sys/stat.h>
+#include <termios.h>
 
 #include "solas/compiler.h"
 #include "solum/gc.h"
@@ -1823,6 +1825,44 @@ static void test_key_waiting_looks_past_the_line_discipline(void)
     if (master < 0) {
         printf("  keyWaiting on a terminal: no pseudo-terminal here, skipped\n");
         return;
+    }
+
+    /* Whether this terminal driver keeps what was typed across the mode
+       switches the primitive makes: canonical to raw with VMIN 0 for the
+       poll, back, raw with VMIN 1 for the read, back. Linux's and macOS's
+       do. Cygwin's pty emulation, where the Windows job runs, answered the
+       poll and then handed `readKey` something other than the `[`, on the
+       seventh run of the suite there; the dance is done here on the slave
+       directly, and where the `[` does not come back the driver is the
+       reason and the primitive is not checked, said by name. */
+    {
+        assert(write(master, "[B", 2) == 2);
+        struct termios canonical, raw;
+        assert(tcgetattr(slave, &canonical) == 0);
+        raw = canonical;
+        raw.c_lflag &= (tcflag_t)~(ICANON | ECHO);
+        raw.c_cc[VMIN] = 0; raw.c_cc[VTIME] = 0;
+        assert(tcsetattr(slave, TCSANOW, &raw) == 0);
+        struct pollfd waiting = { slave, POLLIN, 0 };
+        (void)poll(&waiting, 1, 200);
+        assert(tcsetattr(slave, TCSANOW, &canonical) == 0);
+        raw.c_cc[VMIN] = 1;
+        assert(tcsetattr(slave, TCSANOW, &raw) == 0);
+        char first = 0;
+        ssize_t got = read(slave, &first, 1);
+        char rest[8];
+        raw.c_cc[VMIN] = 0;
+        assert(tcsetattr(slave, TCSANOW, &raw) == 0);
+        (void)read(slave, rest, sizeof rest);
+        assert(tcsetattr(slave, TCSANOW, &canonical) == 0);
+        if (got != 1 || first != '[') {
+            close(slave);
+            close(master);
+            printf("  skipped: this terminal driver does not keep typed bytes"
+                   " across a mode switch, so keyWaiting on a terminal is not"
+                   " checked\n");
+            return;
+        }
     }
 
     /* Two bytes and no newline: a canonical read would wait for the rest of
