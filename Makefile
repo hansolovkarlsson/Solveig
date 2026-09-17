@@ -491,6 +491,12 @@ examples/%.sob: examples/%.sol $(BIN)/solas
 examples/operators.sob: examples/operators.sol $(BIN)/solas
 	@$(BIN)/solas --expr $< -o $@
 
+# The SQL shell, for the sqlite rung of the suite below. In place, as the
+# examples are, because that is where the shell's own header, sweep.sh and
+# check.sh all say it is. It depends on the engine it includes.
+programs/sql.sob: programs/sql.sol lib/sqlite.sol $(BIN)/solas
+	@$(BIN)/solas $< -o $@
+
 # The benchmark programs under comparisons/ are compiled by `make test` and not
 # run by it. Compiled, because a program that stops compiling is exactly the rot
 # that happens to code nothing builds -- and these are cited by
@@ -540,10 +546,21 @@ comparisons/%.sob: comparisons/%.sol $(BIN)/solas
 # can be wrong in a way no unit test sees -- valid-looking Solveig that Solveig
 # rejects, or accepts and reads differently -- and the only witness is the real
 # compiler. The unit tests are among the others, as tests/test_parasol_*.
+#
+# And since 2026-09-16 one rung of the sqlite engine's ladder, the one that
+# needs nothing this suite does not already have: programs/sql/check.sh writes
+# each of the author cases the writer takes, reads it back, and holds the
+# answer against what sqlite3 said once, frozen beside the case. The sweep
+# that judges the engine by sqlite3 over generated cases is
+# programs/sql/sweep.sh, beside the suite for the reason the oracles are: it
+# needs sqlite3 and python3, and ninety seconds for twenty cases.
 test: $(BINARIES) $(TEST_BINS) $(EXAMPLE_SOBS) $(COMPARISON_SOBS) $(EXT_PROBE) $(EXTENSIONS) \
-      $(PARASOL_EXAMPLE_SOBS) $(PARASOL_PROGRAM_SOBS) $(EMBER_ASM) $(EMBER_TESTED)
+      $(PARASOL_EXAMPLE_SOBS) $(PARASOL_PROGRAM_SOBS) $(EMBER_ASM) $(EMBER_TESTED) \
+      programs/sql.sob
 	@echo "-- conformance"
 	@sh conformance/run.sh
+	@echo "-- programs/sql/check.sh"
+	@sh programs/sql/check.sh || exit 1
 	@for t in $(TEST_BINS); do echo "-- $$t"; $$t || exit 1; done
 	@echo "-- parasol"
 	@$(PARASOL_BOUNDARY)

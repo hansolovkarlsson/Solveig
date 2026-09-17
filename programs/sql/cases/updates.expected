@@ -1,0 +1,59 @@
+1|1|row 1|green|1.5
+2|2|row 2|blue|2.5
+3|1000|moved|amber|0.125
+4|4|row 4|green|4.5
+5|5|row 5|blue|5.5
+6|6|row 6|amber|6.5
+8|8|row 8|blue|8.5
+9|9|row 9|amber|9.5
+10|10|row 10|green|10.5
+11|11|row 11|blue|7.0
+12|12|row 12|amber|7.0
+13|13|row 13|green|7.0
+14|14|row 14|blue|7.0
+15|15|row 15|amber|15.5
+16|16|row 16|green|16.5
+17|17|row 17|blue|17.5
+18|18|row 18|amber|18.5
+19|19|row 19|green|19.5
+20|20|row 20||20.5
+21|21|row 21|amber|21.5
+22|22|row 22|green|22.5
+23|23|row 23|blue|23.5
+24|24|row 24|amber|24.5
+25|25|row 25|green|25.5
+26|26|row 26|blue|26.5
+27|27|row 27|amber|27.5
+28|28|row 28|green|28.5
+29|29|row 29|blue|29.5
+30|30|row 30|amber|30.5
+31|31|row 31|green|31.5
+32|32|row 32|blue|32.5
+33|33|row 33|amber|33.5
+34|34|row 34|green|34.5
+35|35|row 35|blue|35.5
+36|36|row 36|amber|36.5
+37|37|row 37|green|37.5
+38|38|row 38|blue|0.125
+39|39|row 39|amber|0.125
+40|40|row 40|green|0.125
+99|7|row 7|green|7.5
+3
+6
+9
+12
+15
+18
+21
+24
+27
+30
+33
+36
+39
+3|moved
+99
+7|row 7|green|7.5
+table|t|t
+index|t_k|t
+index|t_n|t

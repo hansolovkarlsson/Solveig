@@ -51,6 +51,11 @@
 # levels. Root page numbers differ between two writers, so no query here
 # asks for one.
 #
+# None of this is in `make test`, which needs nothing outside C11 and `make`
+# and this needs sqlite3 and python3. check.sh beside this is the rung the
+# suite carries: the writable author cases written and read back by the
+# program, held against sqlite3's answer recorded once.
+#
 # `keep DIR` is for looking at the corpus while writing the reader: the .sql,
 # the .db it became and the .q.sql that will be run over it, and nothing is
 # compared. It was the first mode written, at step 0 of the plan in ideas.md,
