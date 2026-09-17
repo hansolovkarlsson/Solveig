@@ -24,6 +24,21 @@ static int checks = 0;
 static char directory[256];
 static const char *bin;
 
+/* What PATH holds besides `bin`, and what a PATH with no solas on it is. On
+   ELF and Mach-O a program's libraries are found without PATH, so `bin` alone
+   is the whole PATH and `/nonexistent` is one with no solas. On Windows the
+   loader finds a program's DLLs through PATH, and MSYS2's runtime lives in
+   `/usr/bin`, so with `bin` alone nothing here starts at all: every run
+   answered 127 with nothing said, on the fifth Windows run of the suite.
+   `/usr/bin` holds no solas, which is all either case needs of it. */
+#if defined(__CYGWIN__)
+#define ALSO_ON_PATH ":/usr/bin"
+#define NO_SOLAS_PATH "/usr/bin"
+#else
+#define ALSO_ON_PATH ""
+#define NO_SOLAS_PATH "/nonexistent"
+#endif
+
 static void write_file(const char *name, const char *text)
 {
     char path[512];
@@ -106,7 +121,7 @@ static char *slurp(const char *name, size_t *size)
 static int run(const char *command, char *out, size_t size)
 {
     char line[2048];
-    snprintf(line, sizeof line, "cd '%s' && PATH='%s' %s 2>&1",
+    snprintf(line, sizeof line, "cd '%s' && PATH='%s" ALSO_ON_PATH "' %s 2>&1",
              directory, bin, command);
     out[0] = '\0';
     FILE *pipe = popen(line, "r");
@@ -242,7 +257,7 @@ int main(void)
         snprintf(line, sizeof line, "cp '%s/parasol' '%s/p'", bin, directory);
         if (system(line) != 0) { perror("cp"); clean_up(); return 1; }
     }
-    status = run("PATH=/nonexistent ./p --sob v.psol", out, sizeof out);
+    status = run("PATH=" NO_SOLAS_PATH " ./p --sob v.psol", out, sizeof out);
     check("no solas anywhere is 127", status == 127, out);
     check("and says so", strstr(out, "cannot run") != NULL, out);
     check("and writes no .sob", !exists("v.sob"), NULL);
