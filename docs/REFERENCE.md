@@ -1280,6 +1280,7 @@ people:all.
 | `r:current` | the row standing there, the new record, or nil |
 | `r:position` `r:count` | where that is, from `#1`, and among how many; `#0` when there is nowhere to stand |
 | `r:addNew` | a record with every column nil and no rowid, under the table's prototype so that its columns are slots; `isNew` is true until it is saved |
+| `r:set(dictionary)` | the current record with those columns given those values, by name, as `insert` takes them; made again under the table's prototype, since a slot cannot be written by a name held in a value; a name that is not a column is refused |
 | `r:save` | the record written, inserted if new and put back under its rowid otherwise, the file flushed, and the position on it |
 | `r:changed` | whether the current record differs from the pages, column by column; a new record is always changed |
 | `r:revert` | the current record re-read in place, or a new one dropped |

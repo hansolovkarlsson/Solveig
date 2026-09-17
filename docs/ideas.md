@@ -6967,7 +6967,7 @@ program can read it. No `make` target, no `bin/solvm`, no wording of ours.
 | | what it holds | why it is not a conformance suite |
 | --- | --- | --- |
 | `tests/*.c` — 40 files | the C API, the compiler and the VM | internal by construction; a second implementation has none of these symbols |
-| [expect.sol](../programs/expect.sol) — 1162<!--count claims--> claims | the examples and the documents against their own comments | **the author's corpus, matched as a subsequence** — its own header says why, and why that is right for a document |
+| [expect.sol](../programs/expect.sol) — 1165<!--count claims--> claims | the examples and the documents against their own comments | **the author's corpus, matched as a subsequence** — its own header says why, and why that is right for a document |
 | [oracle.sh](../programs/oracle.sh) — six corpora | `sed`, `diff`, `sort` against BSD's | a second implementation of a **program**, not of the language |
 
 **The subsequence rule is the sharp one.** `expect.sol` requires each claim to
@@ -7721,6 +7721,59 @@ met the empty table on its own first line, `count`, `position`,
 `current` and `next` on nothing, and `on` answered nil there once,
 because it ended in `first`, which is the defect the prediction was
 about, found by the probe rather than by eyes.
+
+##### Step 2 the same evening: the form, and the prediction the entry was most sure of was wrong
+
+**`lib/form.sol` in the binding, 309 lines, `examples/contacts.sol`, a
+`lib/` that repository had not had, `-I lib` in its Makefile and a check
+for Solveig's `lib/recordset.sol` by name rather than by version, since
+the file is the thing needed and no release carries it yet; `daf32a7`
+there.** A field a column in five kinds, the standard row greyed to match
+the position, `onValidate` answering false or a reason, `onSave` over the
+record before it is written, `button(text, block)` for the program's own,
+a move off a changed record refused with *save or revert first*, and Find
+by example, all as the calls below recommended. Driven end to end without
+a person by a probe that set the controls and pressed the buttons by their
+methods, thirty answers read back, and `sqlite3` reading the file it left;
+then seen once, over an empty table, every field grey and New and Find the
+live buttons.
+
+**3.1 did not fire, and the reason is a fact about the machine the entry
+did not know.** `self` is bound into a block when the block is made, by
+`sol_block_new`, and is not a capture: `o:m := { { self:x } }` answers a
+block that outlives `m` and reads `x`. What a block may not outlive is the
+frame whose *locals* it reads, so `{ self:next }` hung from inside
+`navigation` is fine and `{ column | ... }`'s `column` read from a handler
+is not. So the global `form:active` was never needed, the master-child
+prediction below is void before it is tested, and the field is an object
+for the plainer reason that `load`, `store` and `value` differ by kind and
+want the column beside them. **What did press, three times, was the
+language's own rules, each met in the probe's first minute:**
+
+1. **A slot cannot be written by a name held in a value.** A control's
+   value goes into a column named by the schema at run time, and there is
+   no `slotAtPut`; the SQL shell met this on 2026-09-15 and went through
+   `asDictionary`. The answer went into the recordset, where the suite can
+   see it: `set(pairs)` makes the current record again under the table's
+   prototype with the pairs applied, the same rowid, `isNew` kept, which
+   is `object:new(dictionary)` doing the job it was built for a second
+   time. Two claims in `records.sol` and a row in the reference.
+2. **A slot holding a block is a method.** `f:onValidate(block)` stores the
+   block in a slot, and `self:validate` then *runs* it with no argument,
+   which is *'block' takes 1 argument, got 0*. The program's blocks are
+   read with `slotAt`, as `sqlite.sol` reads its `isDigit`.
+3. **`ifTrue` answers nil when the condition is false**, so
+   `c:ifTrue({ a }):ifFalse({ b })` is a send to nil. Written twice, in the
+   recordset and the form, both `ifElse` now. Not a defect in the
+   language; the spelling the language has is the two-armed one.
+
+**Two predictions in the table above held**: `load` fired `onChange` on
+every field, and a `loading` flag the handlers check is the whole fix; and
+the `'integer` kind converts nothing and refuses `"x"` by name before the
+record sees it, which the probe checked. The empty-table prediction had
+already fired in step 1. And one thing the entry did not predict and the
+binding's page now says: a GTK dropdown cannot show nothing, found in
+step 0, which is what the `'choice` kind will meet first.
 
 ##### The calls only you can make
 

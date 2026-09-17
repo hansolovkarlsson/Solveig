@@ -23,7 +23,10 @@
 ; lives here where the suite can see it, and the form is written over it.
 ; Scoped in docs/ideas.md on 2026-09-17, for the forms that asked.
 ;
-; A record is a row of the table, re-read from the pages on every move, so a
+; A column is written as a slot, `people:current:name := "Ada"`, or by a
+; name held in a value through `set`, which a form needs since its column
+; names come out of the schema. A record is a row of the table, re-read from
+; the pages on every move, so a
 ; change made to `current` and not saved is gone once the position moves; a
 ; form that wants to refuse the move asks `changed` first. A new record is a
 ; row with no rowid yet, made under the table's own prototype so that its
@@ -124,6 +127,24 @@ recordset:addNew := { | slots |
     self:table:columnNames:do({ c | slots:atPut(c:asSymbol, nil) }).
     self:current := self:table:rowProto:new(slots).
     self:isNew := true.
+    self:current }.
+
+; Columns of the current record given values by name, from a dictionary of
+; column names to values, as `insert` takes them. A slot cannot be written
+; by a name held in a value, which is the line docs/ROADMAP.md 2.14 draws,
+; so the record is made again under the table's prototype with the pairs
+; applied, the same rowid, and the same `isNew`; a form, whose column names
+; come out of the schema at run time, is the customer. A name that is not a
+; column is refused by name. Answers the record.
+recordset:set := { pairs | | slots |
+    self:current:isNil:ifTrue({ error:raise("no record to set") }).
+    slots := self:current:asDictionary.
+    pairs:keysAndValuesDo({ k, v | | s |
+        s := sqlite:nameOf(k):asSymbol.
+        slots:includes(s):ifFalse({
+            error:raise("no such column: ":concat(sqlite:nameOf(k))) }).
+        slots:atPut(s, v) }).
+    self:current := self:table:rowProto:new(slots).
     self:current }.
 
 ; The current record written: inserted if new, put back under its rowid

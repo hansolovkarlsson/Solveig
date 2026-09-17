@@ -70,6 +70,15 @@ people:current:email := "ada@example.org".
 people:save.
 contacts:find(#1):email:display.         ; ada@example.org
 
+; A column is a slot, so `people:current:email := ...` writes it; a column
+; named at run time, as a form's are from the schema, is written by `set`,
+; which makes the record again with the pairs applied.
+people:set(#["email" = "ada@work.example", 'kind = "friend"]):kind:display. ; friend
+people:changed:print.                    ; true
+people:save:email:display.               ; ada@work.example
+{ people:set(#['colour = "red"]) }:onError({ e | e:message:display }).
+                                         ; no such column: colour
+
 ; ---------------------------------------------------------------------------
 ; Searching, and order
 ;
