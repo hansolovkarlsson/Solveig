@@ -1344,18 +1344,31 @@ static void test_a_missing_path_answers_nil(void)
     if (geteuid() != 0) {
         assert(chmod("build/tests/shut", 0) == 0);
 
-        static const char *refused[] = {
-            "system:fileSize(\"build/tests/shut/inside.txt\").",
-            "system:modifiedAt(\"build/tests/shut/inside.txt\").",
-        };
-        for (size_t i = 0; i < sizeof(refused) / sizeof(refused[0]); i++) {
-            SolVM v2; sol_vm_init(&v2);
-            SolChunk c2;
-            assert(run(&v2, &c2, refused[i]) == SOL_RUNTIME_ERROR);
-            sol_chunk_free(&c2); sol_vm_free(&v2);
-        }
+        /* And a filesystem that keeps no permission bits shuts nothing: on
+           Cygwin's `noacl` mount, where the Windows job runs, the chmod
+           answers 0 and the mode reads back as it was. Read back rather than
+           assumed, as for root: the test is of a door that is shut, and a
+           door this mount cannot shut is said so and left. */
+        struct stat shut;
+        assert(stat("build/tests/shut", &shut) == 0);
+        if ((shut.st_mode & 0777) != 0) {
+            assert(chmod("build/tests/shut", 0777) == 0);
+            printf("  skipped: this filesystem keeps no permission bits, so a"
+                   " path that cannot be looked at is not checked\n");
+        } else {
+            static const char *refused[] = {
+                "system:fileSize(\"build/tests/shut/inside.txt\").",
+                "system:modifiedAt(\"build/tests/shut/inside.txt\").",
+            };
+            for (size_t i = 0; i < sizeof(refused) / sizeof(refused[0]); i++) {
+                SolVM v2; sol_vm_init(&v2);
+                SolChunk c2;
+                assert(run(&v2, &c2, refused[i]) == SOL_RUNTIME_ERROR);
+                sol_chunk_free(&c2); sol_vm_free(&v2);
+            }
 
-        assert(chmod("build/tests/shut", 0777) == 0);
+            assert(chmod("build/tests/shut", 0777) == 0);
+        }
     }
 
     remove("build/tests/shut/inside.txt");
