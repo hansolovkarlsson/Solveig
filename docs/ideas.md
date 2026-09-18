@@ -64,6 +64,8 @@ marked as a sketch.
 | An SQLite file, read and then written, as the twenty-third program | **Scoped on 2026-09-15, chosen over a format of our own for the oracle; all six steps were built the same day, and [the positioned write was wanted at step 4 and not before](#step-4-the-same-night-and-the-first-prediction-fired-where-it-said), as predicted; [the reader pressed on nothing](#steps-0-and-1-were-built-the-same-day-and-the-reader-pressed-on-nothing), as predicted**: [the entry](#an-sqlite-file-read-and-then-written-scoped-2026-09-15) predicted the positioned write is wanted at step 4 and not before, and it was, raised and closed the same day as [3.27](COMPLETED.md#327-a-file-is-written-whole-or-appended-to-and-nothing-in-between--done), `writeFile(path, from, text)`; that a page as strings is bearable, and it is so far at 0.36 ms a row; and that locking, flushing and a truncate are not found at all. Six steps, each held against `sqlite3` and `PRAGMA integrity_check` |
 | The database as objects, and `object:new(dictionary)` | **Scoped on 2026-09-15, the evening the SQL front was done, and built the same night**: [the entry](#the-database-as-objects-and-the-first-slot-made-from-a-run-time-name-scoped-2026-09-15) moved the engine into `lib/sqlite.sol`, put a table, a query and a row over it, and asked for one slot-creating message at construction, `object:new(dictionary)`, built after a version with rows as dictionaries had run through the sweep, so that the program asked and not the page. The shell became a client of the objects and `sqlite3` judged both fronts at once, 632 of 632; UPDATE, added so that `update` could be judged, [found a defect the writer had carried since step 5](#step-1-the-same-evening-and-update-found-a-defect-in-the-writer). Two predictions wrong in a detail: the primitive needs no GC root, and a slot walk past twenty columns loses nothing, since an object has a hash index past twelve |
 | Forms over a database, the way VB3 did it | **Scoped 2026-09-17, and all three steps built the same day**: [the entry](#forms-over-a-database-the-way-vb3-did-it-scoped-2026-09-17) is the customer the objects entry above was waiting for. The controls are C in the GTK binding, eighteen messages; `lib/recordset.sol` is Solveig here and knows no widget, so the suite runs it; `form.sol` binding the two is Solveig in the binding's new `lib/`. **The prediction it was most sure of was wrong**: `self` is bound into a block and not captured, so [3.1](ROADMAP.md#31-capturing-blocks-cannot-escape-their-frame) never fired; what pressed was a column written by a name held in a value, answered by `recordset:set` |
+| A dropdown over a code table, and a form that says where and how big | **Scoped 2026-09-18, not built**: [the entry](#a-dropdown-over-a-code-table-and-a-form-that-says-where-and-how-big-scoped-2026-09-18) takes the `'choice` kind the forms above named and the size and position a form cannot say at all, and makes them one signature, since both are what `field` answers. Three layers again: `setSize` and `setExpand` in the binding, which travel together because a size request under a control that expands is invisible; a `codes` read of a code table here, where the suite can run it; and in the binding the kind, `field:size`, `field:at` and the attach moved into `show`, which is what lets a placement be a slot write rather than a detach. **The prediction it is most sure of is a silent one**, read off `form:store` rather than reasoned from a sentence: a record holding a code the table no longer has loads as the blank and saves as nil |
+| A child table on a form, and what a grid would be | **On the list 2026-09-18, with a trigger**: [the note](#a-child-table-on-the-form-and-what-a-grid-would-be) is the master-child form with the shape Hans gave it, orders under a contact. Half is built, since a child recordset is `find` narrowed by the parent's rowid; what is missing is a hook after `load` and a widget. **`gtk:grid` is not the widget**: it is GTK's layout mesh, and what VB3 called a grid is a `GtkColumnView`, a family the binding has never touched. The forms entry's 3.1 prediction about master-child is void rather than pending, and what it does press on is a cost, a child refreshed on every parent move scanning an unindexed column. Trigger: the contacts form growing orders, after the single-record form has been used |
 | Networking, and sending code to a running machine | **The first half is built**, on 2026-08-29 — [extensions/net](../extensions/net/README.md), five messages, and the waiting question answered with a timeout rather than a block; [the second half](#networking-and-sending-code-to-a-machine-that-is-already-running) is untouched and still needs 3.4, 6.32 and a proxy |
 | SQLite, SDL2, GTK | **One project, not three** — [extensions](#extensions-a-capability-from-a-binary-rather-than-from-the-vm); GTK and SDL2 fire that trigger and SQLite does not, and wanting *both* toolkits is what settles the mechanism |
 | A game controller, and more of the sound, in [solveig-sdl](https://github.com/hansolovkarlsson/solveig-sdl) | **Held, with a trigger**, said by Hans on 2026-09-14 after the eleventh game and written where that binding's rule for growing lives: every cabinet had a stick and the arrows stand in for it, and one `beep` has carried twelve games and a tune and would not carry a console's music. Neither is a trigger yet. The famous console games come first, and they are what will ask; the binding grows only when a program wants what it cannot have |
@@ -7804,6 +7806,221 @@ step 0, which is what the `'choice` kind will meet first.
    controls, because they carry no design risk, and the recordset second so
    that its shape is asked for by a form being written against real
    widgets rather than by this page.
+
+### A dropdown over a code table, and a form that says where and how big: scoped 2026-09-18
+
+**Asked on 2026-09-18, the morning after the first form ran.** [Forms over a
+database](#forms-over-a-database-the-way-vb3-did-it-scoped-2026-09-17) named
+the `'choice` kind as the next scoping and deliberately did not plan it. Hans
+asked for a second thing the same morning: a program has to be able to say how
+big a control is and where it sits, which a form cannot say at all today. They
+are one entry because they are one signature. Both are what `field` answers and
+what `show` does with what it answered.
+
+**What a form can say today, read out of the two files rather than
+remembered.** `form:field(column, kind)` makes a label, attaches it at grid
+column 1 of the next row, attaches the control at column 2, and answers the
+field. That is the whole of the layout. A size is set in exactly two places in
+`gtk.c`, `scrolled` and `canvas`, both at construction; every other control
+asks GTK for nothing, and `entry`, `dropdown`, `textView`, `scrolled` and
+`list` each set `hexpand` true in C, so a control fills the width of its cell
+and a program cannot say otherwise. The only size a form owns is the memo's,
+`gtk:scrolled(self:control, #200, #80)`, a constant inside `field:widget`; the
+only spacing is `gtk:grid(#8, #8)` inside `form:on`. The forms entry named
+`field(column, kind, control)` as the escape hatch for a program that wants a
+layout of its own, and that third argument was never built: `form:field` takes
+two, and a method's arity here is exact.
+
+**What it should look like.** A sketch, not run, and the table is the contacts
+one the first form already has, with a `kinds` code table beside it:
+
+```
+kinds := codes:on(db:table("kinds"), 'code, 'name).
+
+f := form:on(people, gtk:window("Contacts", #520, #480)).
+f:field('name, 'text):size(#240, #0).
+f:choice('kind, kinds).
+f:field('notes, 'memo):size(#320, #120):at(#1, #6, #2).
+f:navigation.
+f:show.
+```
+
+Three layers, the same three the forms entry drew, and the line between them is
+the same line:
+
+1. **Two messages in the binding, and they travel together.**
+   `setSize(widget, #width, #height)`, over `gtk_widget_set_size_request`, with
+   `#0` meaning ask for nothing, which is GTK's own `-1` spelled the way
+   everything here counts. And `setExpand(widget, across, down)`, over
+   `gtk_widget_set_hexpand` and `set_vexpand`, because a size request under a
+   control that expands is invisible: the request is a minimum and the
+   expansion takes whatever the cell has left. A narrower entry asked for with
+   `setSize` alone would look exactly as it does now, which is why the second
+   message is recommended into the same step rather than held behind a trigger
+   of its own.
+2. **The code table is read here, in Solveig's `lib/`, and knows no widget.**
+   `codes:on(table, keyColumn, textColumn)` reads a table once into an ordered
+   array of key and text, and answers an object that can say `texts`,
+   `keyAt(index)`, `textFor(key)` and `indexOf(key)`. `codes:of(pairs)` makes
+   the same thing from an array written in the program, for a form that wants
+   three fixed choices and no second table. This is the half the suite can run,
+   and it is the reason the recordset lives here: a window cannot be driven
+   down a pipe, so anything that can be tested without eyes is put where eyes
+   are not needed.
+3. **The kind and the placement are in the binding's `form.sol`.** `'choice`
+   joins `field:kinds`; `form:choice(column, codes)` is the maker, a message of
+   its own rather than a third argument to `field`, since arity is exact and
+   every kind that needs a thing beside its column can have a maker of its own.
+   `field:size(#width, #height)` and `field:at(#column, #row, #columns)` are
+   slot writes that answer the field, so they chain. And **the attach moves out
+   of `field` and into `show`**, which is what makes them slot writes rather
+   than a detach and a re-attach: there is no message in the binding that takes
+   a child out of a grid, and there does not need to be one if the grid is
+   filled once, at the end, from what the fields were told.
+
+##### What a choice stores, and the one thing that can lose a column
+
+A choice shows a text and stores a key, which is what a code table is for. The
+mapping is an index: `selected` answers the dropdown's position counted from
+`#1`, the codes object turns that into a key, and `load` turns a key back into
+a position. Two facts about GTK decide the edges of that, and both were found
+in step 0 of the forms rather than argued here. **A dropdown cannot show
+nothing**: `setSelected(d, #0)` is refused by name, because `GtkDropDown`
+re-selects the first item the moment nothing is selected, so *no value* is a
+blank text put first and the key behind it is nil. **And `text` refuses a
+dropdown**, having no branch for one, so a choice is read through `selected`
+and never through the string.
+
+**Which leaves the case the entry is most sure of, and it is a silent one.** A
+record whose column holds a code the table no longer has. `form:store` writes
+every field into the record on every save, not only the ones that changed, and
+`field:load` has nowhere to put a code that is not among the choices: it cannot
+show nothing and it cannot show what it was not given. So the record would load
+as the blank and save as nil, and a column nobody touched would be quietly
+emptied. That is read off `form:store` and `field:load` as they stand rather
+than reasoned from a sentence, which is the correction the last entry earned.
+
+##### What it would press on, predicted before writing
+
+| | |
+| --- | --- |
+| **Nothing in the language, and this time the machine was asked first** | No roadmap entry is predicted to fire. The one language fact that shapes every recommendation above was checked in three lines before the entry was written rather than read off a page: a method's arity is exact, `'block' takes 2 arguments, got 1` and `'block' takes 1 argument, got 2`, so `field` cannot grow an optional third argument, and what looks like an optional argument anywhere here is a second message or a wider one. |
+| **A key the code table no longer has** | The prediction this entry is most sure of, and the reason it is sure is above: `store` writes every field and `load` cannot show an unknown code. **Predicted the first defect of step 2, and predicted to be found by a probe rather than by eyes**, since it is a wrong value and not a wrong picture. The way through recommended below is that the field appends the unknown key as a choice of its own. |
+| **`hexpand` over a size request** | Predicted the surprise of the size half: a width asked for with `setSize` alone is predicted to change nothing visible, because every control the form makes expands. **Settled by eyes and by nothing else**, since no allocated width is published to a program, which is what the binding's checks have been since August. |
+| **`load` fires `onChange` on a dropdown too** | `setSelected` fires `notify::selected`, which is the door `onChange` already goes through, so a record just loaded would mark the form dirty. The `loading` flag covers it, as it covered `setText` at step 2. Predicted, nothing to build. |
+| **`field:widget` called twice** | Found while scoping, and true today: `field:widget` makes a fresh `gtk:scrolled` on every call and happens to be called once. Moving the attach into `show` calls it again, so a memo would get a second scrolled window while its text view stayed in the first. The widget becomes a slot made once in `make`, which is one line and is named here so it is not met as a mystery. |
+| **Find by example over a choice** | `field:isFilled` asks `gtk:text`, which refuses a dropdown. A choice is filled when its selection is past the blank. Predicted one line, and predicted to be the whole of it. |
+| **The empty code table** | A choice over a table with no rows is a dropdown holding one item, the blank. `setSelected(#1)` answers it, `value` answers nil, and nothing is a special case. Predicted nothing, and in the probe anyway, because the empty table is where step 1 found its one defect. |
+| **Tab order** | With the attach moved to `show`, GTK's order is the order the fields were declared and not the order they were placed. That is usually what is wanted and is why the default stays the declaration order; a form that places fields out of order gets a tab order that does not match what is seen. Predicted, and predicted not to be worth a message until somebody minds. |
+
+##### What it would not find
+
+**A code table that changes while the form is open.** A dropdown's strings are
+copied into the widget by `gtk_drop_down_new_from_strings` at construction, and
+there is no message that replaces them. A `setChoices` is small, and it is held
+below rather than built, because nothing asks for it yet.
+
+**A collision.** Two fields placed in the same cell is GTK's business, and
+nothing here would check it. A designer would have to.
+
+**A layout that is not a grid.** Rows of label and control, placed where the
+program says, is still a grid; a form that wants something else still builds
+its own widgets from the controls of step 0, and still has no way to hand one
+to `field`, which is the escape hatch the forms entry named and nobody built.
+
+**Transactions and locks**, as before and for the same reasons.
+
+##### The steps, and what each is held against
+
+| step | builds | held against |
+| --- | --- | --- |
+| **0. The two size messages** | `setSize` and `setExpand` in `gtk.c`, the README's reference grown, `examples/widgets.sol` grown to show one control that does not fill its cell | `make test` there, and eyes, since a size is a picture and nothing else can see one |
+| **1. The code table** | `codes` in Solveig's `lib/`, its reference section, its cheatsheet line, claims in `examples/records.sol` | `make test` here, the claims under `expect`, and `sqlite3` reading the file a probe wrote |
+| **2. The kind and the placement** | `'choice` and `form:choice`, `field:size` and `field:at`, the attach moved into `show`, `field:widget` held in a slot, all in the binding's `lib/form.sol`; `examples/contacts.sol` given a real `kinds` table and one placed field | a probe that presses every button with a code deleted under it, `sqlite3` reading the file after, and eyes once |
+| **3. The records** | this entry's outcome under its prediction, the changelog, the journal | `make test` |
+
+##### The calls only you can make
+
+1. **Where the code table's read lives.** Recommended here, in Solveig's
+   `lib/`, as a small object beside the recordset, because the suite can run it
+   and a window cannot be driven down a pipe. In `form.sol` it would be the
+   first piece of form logic no test can reach.
+2. **What a choice stores.** Recommended the key, with the text only shown.
+   Storing the text needs no code table at all, and is worth having as the same
+   kind over `codes:of(["friend", "work"])`, where the key and the text are one
+   string.
+3. **A key the code table no longer has.** Recommended appending it as a choice
+   of its own, shown as the key itself, so the record says what it holds. The
+   alternatives are blanking it, which is the silent overwrite above, and
+   refusing to load, which makes a bad row unreachable from the one form that
+   could fix it.
+4. **How a field says where and how big.** Recommended a chain on the field
+   that `field` already answers, `f:field('name, 'text):size(#240, #0):at(#1,
+   #4, #2)`, because it changes no call that exists and reads the way the
+   language reads. Weighed against: an options bag as a third argument, which
+   the exact arity turns into a change to every call ever written; and a cursor
+   on the form, `f:at(#3, #1)` said before the next field, which is closer to
+   how the inspiration's designer wrote its files and hides a field's placement
+   from the line that makes it.
+5. **Whether `setExpand` goes in beside `setSize`.** Recommended yes, for the
+   reason in layer 1: alone, the first of them is predicted to do nothing a
+   person can see.
+6. **Whether `setChoices` is built now.** Recommended no, held behind a trigger:
+   a form that edits the code table it reads.
+7. **Whether the blank first choice is the form's or the code table's.**
+   Recommended the form's. *A dropdown cannot show nothing* is a fact about
+   GTK, and `codes` is the half that is not allowed to know one.
+
+### A child table on the form, and what a grid would be
+
+**Put on the list on 2026-09-18.** It is the master-child form the
+[forms entry](#forms-over-a-database-the-way-vb3-did-it-scoped-2026-09-17)
+named, with the shape Hans asked it to have: the child rows shown together in a
+grid, and the example is contacts and their orders. This is a note rather than
+a scoping, and it names what is already true, what is missing and what fires it.
+
+**Half of it is built.** A child recordset is a recordset narrowed by the
+parent's rowid, `orders:find(#['contact = people:current:rowid])`, which is
+`recordset:find` doing exactly what it does. What is missing on that side is
+one hook: a block the parent's form runs after each `load`, so that the child
+follows the parent without the program hanging a handler on every button.
+
+**The widget is the real question, and `gtk:grid` is not it.** The binding's
+`grid` is GTK's layout container, a mesh of cells filled by `attach`; it has no
+row of data, no header, no selection and no sort, and it is what the form
+already puts its labels and controls in. What VB3 called a grid is GTK4's
+`GtkColumnView`: a column each with a factory that makes a cell widget, a
+selection model under it, headers that sort. That is a widget family the
+binding has never touched, and it would be the first thing in it that needs a
+callback per cell rather than per event. What the binding does have today is
+`gtk:list`, a `GtkListBox` of one selected row at a time whose rows are
+widgets, so a line of orders is a label per row with the columns run together
+by `fill`, ordered only by the query underneath and sorted by no header.
+
+**So the choice is between a list of formatted labels, which exists today and
+is enough for a first master-child form, and a column view, which is a step
+the size of step 0 of the forms.** A scoping should say which, and it should be
+written after the single-record form has been used, which is still outstanding
+from 2026-09-17.
+
+**One prediction from the forms entry is void here rather than pending.** It
+predicted master-child as the third real customer for
+[3.1](ROADMAP.md#31-capturing-blocks-cannot-escape-their-frame), on the
+reading that two live forms is where a handler reaching its form through a
+global runs out. `self` is bound into a block and is not a capture, so each
+form's handlers reach their own form and no global was ever needed. **What
+master-child does press on is untested and is a cost rather than a
+limitation**: a child recordset refreshed on every parent move re-reads its
+rowids through the pages, and a `where` on a column with no index is a scan of
+the table. A hundred contacts with a few orders each will not notice; the entry
+that scopes this should say at what size it would, and measure rather than
+argue it.
+
+**Trigger**: the contacts form growing orders. What stands before it is the
+single-record form being used with typing, and the dropdown entry above going
+first, since both want `field` to have settled what it answers and how a field
+is placed.
+
 
 ## Recommended against
 
