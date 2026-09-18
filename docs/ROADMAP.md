@@ -470,8 +470,8 @@ A block answers its last expression. Smalltalk's `^` returns from the enclosing
 *method* from inside a block, which needs frames unwound and is a much larger
 change. Plenty of languages do without it.
 
-**Two shipped libraries have now hit it**, and what they wanted was narrower
-than what this entry offers. [lib/json.sol](../lib/json.sol) and
+**Two shipped libraries have hit the loop half**, and what they wanted was
+narrower than what this entry offers. [lib/json.sol](../lib/json.sol) and
 [lib/html.sol](../lib/html.sol) both cite this number for a loop they could not
 leave, and neither wanted to return from an enclosing *method* — they wanted to
 stop a loop. That is [3.13](#313-a-loop-is-left-by-its-condition-or-by-failing),
@@ -498,6 +498,20 @@ same local case `edit.sol` found, three sites in one file rather than one, and
 it arrived unpredicted by
 [the scoping](ideas.md#programs-that-would-press-on-something) whose whole job
 was to say what awk would want.
+
+**And on 2026-09-18 a third hit it, the first from outside this
+repository.** `lib/form.sol` in the [GTK binding](https://github.com/hansolovkarlsson/solveig-gtk)
+gained a `'choice` kind, and three of its methods ask what kind a field is and
+want to answer on the spot: `load` puts a row's value into a control, `value`
+reads it back, `isFilled` says whether a find has anything to go on. Each is a
+chain of *this kind, else that kind*, which is the dispatch shape
+[edit.sol](../programs/edit.sol) found and [awk.sol](../programs/awk.sol) found
+three times over, and `^` was written in all three before remembering it is not
+there. They are nested `ifElse` now, one level per kind, and a fourth kind
+costs a fourth level. **What is new is only where it came from**: the first
+customer for this entry is a program, the second and third were programs, and
+this one is a library in another repository written against the language rather
+than inside it, which is the reading the entry could not get from its own tree.
 
 **The unwinding half of it exists now**, which is worth noticing: `onError`
 stops an error part-way out and carries on, and `ensure` sets a failure aside

@@ -102,9 +102,12 @@ flag was already there.
 **What actually got in the way was the spelling, not the widgets.** The entry
 made eight predictions and they were all about GTK or about the data. Twice
 the language stopped the work instead. There is no non-local return, 3.2, so
-the three methods that wanted an early exit per kind are nested `ifElse`, and
-this is the third shipped library to cite that number and the third to have
-wanted the smaller thing rather than `^`. And an array has no `concat`, so the
+the three methods that wanted an early exit per kind are nested `ifElse`. That
+is **the local case**, the one `edit.sol` found in August and `awk.sol` found
+three times over in September, and not the loop half that `json.sol` and
+`html.sol` cite: a field asked what kind it is wants to answer and leave, and
+what it gets instead is one nesting level per kind. It is the first customer
+for that entry from outside this repository, and the entry says so now. And an array has no `concat`, so the
 blank that goes in front of a dropdown's texts is put there by a `do` into a
 new array. Neither is a defect. Both are the same lesson as yesterday's from
 the other side: the entry reasons about the machine it is building on and not

@@ -8035,11 +8035,12 @@ example over a dropdown, which is one line asking whether the selection is past
 the blank, since `text` refuses a dropdown. **`load` firing `onChange` needed
 nothing**, as predicted, because the `loading` flag was already there.
 
-**And the language pressed twice, both times in the same method.** There is no
-non-local return, [3.2](ROADMAP.md#32-no-non-local-return), so the three
-methods that wanted an early exit per kind are nested `ifElse`; that is the
-third library to cite the number and, like the first two, it wanted the smaller
-thing rather than `^`. And **an array has no `concat`**, so the blank that goes
+**And the language pressed twice.** There is no non-local return,
+[3.2](ROADMAP.md#32-no-non-local-return), so the three methods that wanted an
+early exit per kind are nested `ifElse`. That is the **local** case that entry
+records, the one `edit.sol` and `awk.sol` found, and not the loop half
+`json.sol` and `html.sol` cite: a field asked what kind it is wants to answer
+and leave its own body. And **an array has no `concat`**, so the blank that goes
 in front of a dropdown's texts is put there by a `do` into a new array. Neither
 is a defect and neither was predicted, which is the usual ratio: the entry's
 eight predictions were about the widgets and the data, and what actually got in
