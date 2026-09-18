@@ -64,7 +64,7 @@ marked as a sketch.
 | An SQLite file, read and then written, as the twenty-third program | **Scoped on 2026-09-15, chosen over a format of our own for the oracle; all six steps were built the same day, and [the positioned write was wanted at step 4 and not before](#step-4-the-same-night-and-the-first-prediction-fired-where-it-said), as predicted; [the reader pressed on nothing](#steps-0-and-1-were-built-the-same-day-and-the-reader-pressed-on-nothing), as predicted**: [the entry](#an-sqlite-file-read-and-then-written-scoped-2026-09-15) predicted the positioned write is wanted at step 4 and not before, and it was, raised and closed the same day as [3.27](COMPLETED.md#327-a-file-is-written-whole-or-appended-to-and-nothing-in-between--done), `writeFile(path, from, text)`; that a page as strings is bearable, and it is so far at 0.36 ms a row; and that locking, flushing and a truncate are not found at all. Six steps, each held against `sqlite3` and `PRAGMA integrity_check` |
 | The database as objects, and `object:new(dictionary)` | **Scoped on 2026-09-15, the evening the SQL front was done, and built the same night**: [the entry](#the-database-as-objects-and-the-first-slot-made-from-a-run-time-name-scoped-2026-09-15) moved the engine into `lib/sqlite.sol`, put a table, a query and a row over it, and asked for one slot-creating message at construction, `object:new(dictionary)`, built after a version with rows as dictionaries had run through the sweep, so that the program asked and not the page. The shell became a client of the objects and `sqlite3` judged both fronts at once, 632 of 632; UPDATE, added so that `update` could be judged, [found a defect the writer had carried since step 5](#step-1-the-same-evening-and-update-found-a-defect-in-the-writer). Two predictions wrong in a detail: the primitive needs no GC root, and a slot walk past twenty columns loses nothing, since an object has a hash index past twelve |
 | Forms over a database, the way VB3 did it | **Scoped 2026-09-17, and all three steps built the same day**: [the entry](#forms-over-a-database-the-way-vb3-did-it-scoped-2026-09-17) is the customer the objects entry above was waiting for. The controls are C in the GTK binding, eighteen messages; `lib/recordset.sol` is Solveig here and knows no widget, so the suite runs it; `form.sol` binding the two is Solveig in the binding's new `lib/`. **The prediction it was most sure of was wrong**: `self` is bound into a block and not captured, so [3.1](ROADMAP.md#31-capturing-blocks-cannot-escape-their-frame) never fired; what pressed was a column written by a name held in a value, answered by `recordset:set` |
-| A dropdown over a code table, and a form that says where and how big | **Scoped 2026-09-18, seven calls answered the same morning and every one as recommended, not built**: [the entry](#a-dropdown-over-a-code-table-and-a-form-that-says-where-and-how-big-scoped-2026-09-18) takes the `'choice` kind the forms above named and the size and position a form cannot say at all, and makes them one signature, since both are what `field` answers. Three layers again: `setSize` and `setExpand` in the binding, which travel together because a size request under a control that expands is invisible; a `codes` read of a code table here, where the suite can run it; and in the binding the kind, `field:size`, `field:at` and the attach moved into `show`, which is what lets a placement be a slot write rather than a detach. **The prediction it is most sure of is a silent one**, read off `form:store` rather than reasoned from a sentence: a record holding a code the table no longer has loads as the blank and saves as nil |
+| A dropdown over a code table, and a form that says where and how big | **Scoped 2026-09-18, seven calls answered the same morning and all three steps built the same day**: [the entry](#a-dropdown-over-a-code-table-and-a-form-that-says-where-and-how-big-scoped-2026-09-18) takes the `'choice` kind the forms above named and the size and position a form cannot say at all, and makes them one signature, since both are what `field` answers. Three layers again: `setSize` and `setExpand` in the binding, which travel together because a size request under a control that expands is invisible; a `codes` read of a code table here, where the suite can run it; and in the binding the kind, `field:size`, `field:at` and the attach moved into `show`, which is what lets a placement be a slot write rather than a detach. **The prediction it is most sure of is a silent one**, read off `form:store` rather than reasoned from a sentence: a record holding a code the table no longer has loads as the blank and saves as nil. **Two of the seven answers collided**, and that is the finding: a key appended at load time *is* a dropdown's list changing, so call 3 could not be carried out while call 6 held `setChoices` back, and the trigger call 6 named was the wrong one. Three predictions held exactly, and what actually got in the way was the spelling: no non-local return, and no `concat` on an array |
 | A child table on a form, and what a grid would be | **On the list 2026-09-18, with a trigger**: [the note](#a-child-table-on-the-form-and-what-a-grid-would-be) is the master-child form with the shape Hans gave it, orders under a contact. Half is built, since a child recordset is `find` narrowed by the parent's rowid; what is missing is a hook after `load` and a widget. **`gtk:grid` is not the widget**: it is GTK's layout mesh, and what VB3 called a grid is a `GtkColumnView`, a family the binding has never touched. The forms entry's 3.1 prediction about master-child is void rather than pending, and what it does press on is a cost, a child refreshed on every parent move scanning an unindexed column. Trigger: the contacts form growing orders, after the single-record form has been used |
 | Networking, and sending code to a running machine | **The first half is built**, on 2026-08-29 — [extensions/net](../extensions/net/README.md), five messages, and the waiting question answered with a timeout rather than a block; [the second half](#networking-and-sending-code-to-a-machine-that-is-already-running) is untouched and still needs 3.4, 6.32 and a proxy |
 | SQLite, SDL2, GTK | **One project, not three** — [extensions](#extensions-a-capability-from-a-binary-rather-than-from-the-vm); GTK and SDL2 fire that trigger and SQLite does not, and wanting *both* toolkits is what settles the mechanism |
@@ -7975,6 +7975,75 @@ the argument, and the answer to each is the first thing under it.
 7. **Whether the blank first choice is the form's or the code table's.**
    Recommended the form's. *A dropdown cannot show nothing* is a fact about
    GTK, and `codes` is the half that is not allowed to know one.
+
+##### All three steps the same day, and the two calls that collided
+
+**Step 0, `2d22114` in the binding.** `setSize` and `setExpand`, together, and
+the prediction that they had to be was checked rather than believed: three
+entries in one grid column, one told nothing, one told a width, one told a
+width and `setExpand(e, false, false)`. **The first two were
+indistinguishable and only the third was narrow**, which is the picture the
+prediction asked for and the reason the two messages are one commit.
+`setExpand` also sets that direction's alignment, which the entry had not
+foreseen: GTK's default is to fill, and a fill ignores the size request it was
+given, so an expansion turned off without an alignment would have left the
+first two entries indistinguishable as well. `#0` asks for nothing on a
+measure, GTK's `-1` counted the way everything here counts. A probe called
+both on an entry, a scrolled window, a dropdown, a list and a window, and read
+back five refusals. `widgets.sol` grew an Age entry, the one control in it
+that does not fill its cell.
+
+**Step 1, `7ffb27c` here.** `lib/codes.sol`, and the probe decided two things
+the page had not. `on` takes a table **or a query**, told apart by `isKindOf`,
+which is the one line `sqlite.sol` is included for: a query is how an order of
+its own is asked for, `table:orderBy('name)`, and the sketch above had only a
+table. And a column that is not there is refused there, naming the table,
+because `slotAt` would otherwise refuse it one row at a time saying only *no
+slot named 'code'*. Fifteen claims in `examples/records.sol`, and `sqlite3`
+read the file after. **One thing shipped wrong and was taken out an hour
+later** in `f645453`: `codes:includes`, which the reference argues against
+three sections above where it argues that `array` has none, since `indexOf`
+answers *where* and `notNil` is how to ask *whether*. A name given up in one
+place had survived in another, which is the defect [method.md](method.md) has
+a rule about.
+
+**Step 2, `1f8f662` in the binding.** The kind and the placement. A field
+answers itself, so `size` and `at` chain, and the attach moved into `show`,
+which is what makes them slot writes. `form:choice` is a message of its own
+and `field(column, 'choice)` is refused by name saying which message to use.
+Driven by a probe over three records, one holding a code nobody kept, with
+twenty answers read back and `sqlite3` reading the file after; then seen once.
+
+**The two calls collided, and the collision is the finding.** Call 3 said a
+key the code table no longer has is appended as a choice of its own. Call 6
+said `setChoices` waits for a trigger, on the reading that nothing asked. **A
+dropdown's strings are copied when it is made, so the first decision cannot be
+carried out without the second**: appending a choice at load time *is* changing
+a dropdown's list. The two were answered in the same minute and one of them
+was already false. `setChoices` went in with `form.sol` as its caller, named in
+the comment over it, which is the trigger rule being met rather than waived:
+what asked was a program, and the program is the one this entry was written
+for. **The trigger named in call 6, a form that edits the code table it reads,
+was the wrong trigger**, and it was wrong in a way the entry could have caught,
+since the mechanism was written down two sections above it under *what it would
+not find*.
+
+**Three predictions held exactly**: `hexpand` over a size request, above;
+`field:widget` making a fresh scrolled window on every call, which mattered the
+moment the attach moved and became a slot made once in `make`; and find by
+example over a dropdown, which is one line asking whether the selection is past
+the blank, since `text` refuses a dropdown. **`load` firing `onChange` needed
+nothing**, as predicted, because the `loading` flag was already there.
+
+**And the language pressed twice, both times in the same method.** There is no
+non-local return, [3.2](ROADMAP.md#32-no-non-local-return), so the three
+methods that wanted an early exit per kind are nested `ifElse`; that is the
+third library to cite the number and, like the first two, it wanted the smaller
+thing rather than `^`. And **an array has no `concat`**, so the blank that goes
+in front of a dropdown's texts is put there by a `do` into a new array. Neither
+is a defect and neither was predicted, which is the usual ratio: the entry's
+eight predictions were about the widgets and the data, and what actually got in
+the way was the spelling.
 
 ### A child table on the form, and what a grid would be
 

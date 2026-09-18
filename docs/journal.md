@@ -11,6 +11,105 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-09-18: the dropdown, the size question, and two answers that could not both be true
+
+**The standup named the `'choice` kind as the next scoping, and Hans added a
+second thing to it before a line was written**: a program has to be able to
+say how big a control is and where it sits, which a form could not say at
+all. They were scoped as one entry because they are one signature. Both are
+what `field` answers and what `show` does with what it answered, and scoping
+them apart would have decided the same thing twice. He also put a third thing
+on the list rather than in the scoping, child tables, with the shape he wants
+them to have: the children of the current record shown together, orders under
+a contact.
+
+**What the form could say before today, read out of the files rather than
+remembered.** `field(column, kind)` put a label in grid column 1 and a control
+in column 2 of the next row, and that was the layout. A size was set in two
+places in `gtk.c`, `scrolled` and `canvas`, both at construction. The only
+size a form owned was the memo's, a constant inside `field:widget`. And the
+escape hatch yesterday's entry had named for a program that wants a layout of
+its own, `field(column, kind, control)`, turned out never to have been built.
+
+**Arity was checked against the machine before a word of the entry was
+written**, which is the correction yesterday earned: a method's arity here is
+exact, `'block' takes 2 arguments, got 1`, so `field` cannot grow an optional
+third argument and every apparent option in the entry is a second message or a
+wider one. That is what put `choice` beside `field` rather than inside it.
+
+**Seven calls went to Hans and all seven came back as recommended.** The
+entry keeps the recommendations where they were written, above the answers,
+for the same reason it keeps a prediction above its outcome. Then three steps,
+all three the same day.
+
+**Step 0 was the one with a picture to check.** `setSize` and `setExpand` went
+in together because the entry predicted the first alone would do nothing
+anybody could see: every control this binding makes asks to expand across its
+cell, and a size request is a minimum. Three entries in one grid column
+settled it, one told nothing, one told a width, one told a width and an
+expansion turned off. **The first two were indistinguishable.** The entry had
+not foreseen the alignment: GTK's default is to fill and a fill ignores the
+size it was given, so turning an expansion off without also saying *start*
+would have left all three looking alike. That is in the C beside the line that
+does it.
+
+**Step 1 was `lib/codes.sol`**, and it is here rather than in the binding for
+the reason the recordset is here: a window cannot be driven down a pipe, so
+the half that can be run is put where eyes are not needed. The probe decided
+two things the page had not. `on` takes a table or a query, which is how an
+order of its own is asked for; and a column that is not there is refused
+there, naming the table, because `slotAt` would otherwise refuse it one row at
+a time saying only *no slot named 'code'*. **One thing shipped wrong and came
+out an hour later.** `codes:includes` went in beside `indexOf`, and the
+reference argues against exactly that three sections above, where it says why
+`array` has none: one message that answers *where* is worth more than two, one
+of which only answers *whether*. A name given up in one place had survived in
+another.
+
+**Step 2 was the kind and the placement, and it is where the two answers
+collided.** Call 3 said a key the code table no longer has is appended as a
+choice of its own, so that the record says what it holds. Call 6 said
+`setChoices` waits for a trigger, since nothing had asked for one. **A
+dropdown's strings are copied when it is made, so the first of those cannot be
+carried out without the second**: appending a choice at load time *is* a
+dropdown's list changing. The two were answered in the same minute and one of
+them was already false when it was given. `setChoices` went in with `form.sol`
+named in the comment over it as what asked, which is the trigger rule being
+met rather than waived. What is worth keeping is that the mechanism was
+written down in the entry two sections above the call, under *what it would
+not find*, and the call was made anyway.
+
+**Why call 3 is the one that had to survive.** `store` writes every field into
+the record on every save, not only the ones that changed, so a record whose
+code somebody deleted would have loaded as the blank and saved as nil: a
+column nobody touched, quietly emptied. That was the prediction the entry was
+most sure of, and unlike yesterday's it was read off `form:store` and
+`field:load` as they stood rather than reasoned from a sentence. The probe
+drove three records, one of them holding a code nobody kept, and `sqlite3`
+read the file afterwards: the stale code went back unchanged, and the code
+table on disk was untouched, since the append is to the codes object in
+memory.
+
+**Three predictions held exactly** and one needed nothing. `hexpand` over a
+size request, above. `field:widget` making a fresh scrolled window on every
+call, which was harmless only while the grid was filled in `field` and it was
+called once, and which the attach moving into `show` would have broken the
+same afternoon; it is a slot made once now. Find by example over a dropdown,
+one line asking whether the selection is past the blank, since `text` refuses
+a dropdown. And `load` firing `onChange` needed nothing, because the `loading`
+flag was already there.
+
+**What actually got in the way was the spelling, not the widgets.** The entry
+made eight predictions and they were all about GTK or about the data. Twice
+the language stopped the work instead. There is no non-local return, 3.2, so
+the three methods that wanted an early exit per kind are nested `ifElse`, and
+this is the third shipped library to cite that number and the third to have
+wanted the smaller thing rather than `^`. And an array has no `concat`, so the
+blank that goes in front of a dropdown's texts is put there by a `do` into a
+new array. Neither is a defect. Both are the same lesson as yesterday's from
+the other side: the entry reasons about the machine it is building on and not
+about the one it is building in.
+
 ## 2026-09-17 (evening): forms over a database, scoped and built in three steps, and the prediction that was wrong
 
 **Hans brought a project after the standup, and it was the customer an

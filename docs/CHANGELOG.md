@@ -5,6 +5,34 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### `lib/codes.sol`, a code table read once, and the dropdown it is the lookup for — `7ffb27c` and `f645453`, 2026-09-18
+
+The key a column stores and the text a person reads: `codes:on(table, key,
+text)`, or a query in place of the table where an order of its own is
+wanted, `codes:of(array)` for one written in the program; `size`, `keys`,
+`texts`, `at`, `keyAt`, `textAt`, `indexOf`, `textFor`, `keyFor`, `add`. A
+missing key answers nil and an index out of range is refused by name, which
+is the line between a fact about the data and a mistake in the caller: a
+record holding a code somebody has since deleted is not a bug in the program
+that reads it. It includes `sqlite.sol` for one line, the `isKindOf` that
+tells a table from a query, and it knows nothing about a dropdown, which is
+why it is here where the suite runs it: fifteen claims in
+[examples/records.sol](../examples/records.sol), on the library list in
+`test_compile.c`, with its section in the reference and its line on the
+cheatsheet. The counts moved: 1,180 claims, 683 of them in the examples.
+
+The dropdown it was written for is the `'choice` field in
+[lib/form.sol](https://github.com/hansolovkarlsson/solveig-gtk), which
+stores the key and shows the text, with three messages added to the binding
+the same day: `setSize` and `setExpand`, which go in together because a size
+request under a control that expands is invisible, and `setChoices`, which a
+record holding a code the table no longer has is what asked for. A field
+there answers itself now, so `size` and `at` chain off the line that makes
+it, and the grid is filled at `show` rather than at `field`. The plan, the
+seven calls and what each step found are under
+[A dropdown over a code table](ideas.md#a-dropdown-over-a-code-table-and-a-form-that-says-where-and-how-big-scoped-2026-09-18)
+in ideas.md, `6f6a89f` and `1e4299d`.
+
 ### `lib/recordset.sol`, one record at a time between a table and a form — `1be8655` and `58ec78e`, 2026-09-17
 
 A position among the rows a query answers and the row standing there,
