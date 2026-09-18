@@ -453,27 +453,69 @@ static void test_a_large_file_round_trips(void)
    Spending time
  */
 
-/* The lower bound is the contract -- `nanosleep` promises *at least* -- so that
-   is what is asserted. The upper bound is loose on purpose: a test that fails
-   because the machine was busy is a test that teaches the next person to ignore
-   it. */
+/* **Two sleeps and the difference between them**, rather than one sleep against
+   the time it asked for, and the reason is that the second was never the check
+   it said it was.
+ *
+ * It used to assert `{ system:sleep(0.05) }:timeToRun >= 0.05`, on the reading
+ * that the lower bound is the contract, since `nanosleep` promises *at least*.
+ * But the sleep is `nanosleep` and the measurement is
+ * `clock_gettime(CLOCK_MONOTONIC)`, so what that asserted was that two clocks
+ * agree, and they do not have to. It went red on Windows on 2026-09-18 for a
+ * commit that changed three markdown files: under MSYS2 the two are separate
+ * Windows facilities, a waitable timer against QueryPerformanceCounter, free
+ * to disagree by up to the system timer tick, 15.625 ms by default, so a sleep
+ * that genuinely waited can measure just under.
+ *
+ * **Loosening the floor was tried first and was worse than it looked.** macOS
+ * does not overshoot proportionally, it adds a roughly constant 95 ms to every
+ * sleep: 0.05 measures 0.149, 0.1 measures 0.198, 0.5 measures 0.600. So a
+ * floor anywhere near the ask passes a `system:sleep` patched to *halve* its
+ * argument, which was tried, and it did. A test that a deliberate defect walks
+ * through is decoration.
+ *
+ * A difference of two non-zero sleeps has neither problem, because the
+ * constant is in both terms and subtracts out: five runs of 0.5 against 0.1
+ * measured 0.3973, 0.4058, 0.4006, 0.4041 and 0.4169 against a true 0.4, and
+ * the same cancellation covers the Windows tick. The floor is 0.3 rather than
+ * 0.39 so that a busy machine is not a failure, and it still refuses a sleep
+ * that halves its argument, one that ignores it, and one that returns at once:
+ * each of those puts the difference at 0.2 or below.
+ *
+ * The comparison is the shape `test_time_to_run_measures_the_block` below uses
+ * for the same reason, and its comment says so: what matters is that it
+ * measures, and an absolute bound on a timing test is how a suite gets a
+ * failure nobody believes.
+ *
+ * **Run against four deliberate defects** in `prim_system_sleep`, each built
+ * and run rather than argued: halving the argument, zeroing it and taking 20%
+ * off it are all caught; **adding a constant to it is not**, and that is the
+ * trade this shape makes rather than an oversight. A difference cancels
+ * anything common to both terms, which is what makes it immune to the 95 ms
+ * macOS adds and to the Windows tick, and the same cancellation is why it
+ * cannot see a constant of its own. Nothing here checks that a sleep is not
+ * systematically late, and on this evidence nothing could without failing on a
+ * busy machine. */
 static void test_sleep_spends_the_time(void)
 {
     SolVM vm; sol_vm_init(&vm);
     SolChunk chunk;
 
     assert(run(&vm, &chunk,
-        "took := { system:sleep(0.05) }:timeToRun."
+        "slow := { system:sleep(0.5) }:timeToRun."
+        "quick := { system:sleep(0.1) }:timeToRun."
         "answer := system:sleep(0.0).") == SOL_OK);
 
-    double took = SOL_AS_FLOAT(global(&vm, "took"));
-    assert(took >= 0.05);
-    assert(took < 5.0);
+    double difference = SOL_AS_FLOAT(global(&vm, "slow"))
+                      - SOL_AS_FLOAT(global(&vm, "quick"));
+    assert(difference >= 0.3);
+    assert(difference < 2.0);
     assert(SOL_IS_NIL(global(&vm, "answer")));
 
     sol_chunk_free(&chunk);
     sol_vm_free(&vm);
-    printf("  sleep spends at least the time it was given, and answers nil\n");
+    printf("  a longer sleep spends longer, by the difference asked for,"
+           " and sleep answers nil\n");
 }
 
 /* The same refusals `keyWaiting` makes, and for the same reason: there is no
