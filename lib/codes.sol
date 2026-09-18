@@ -104,8 +104,6 @@ codes:indexOf := { key | | found, i |
         (found:isNil:and({ p:at(#1):equals(key) })):ifTrue({ found := i }) }).
     found }.
 
-codes:includes := { key | self:indexOf(key):notNil }.
-
 ; The text for a key, or nil where there is none.
 codes:textFor := { key | | i |
     i := self:indexOf(key).

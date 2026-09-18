@@ -140,7 +140,7 @@ kinds:textAt(#2):display.                ; work
 ; caller's mistake and a missing key is not.
 kinds:indexOf("zz"):print.               ; nil
 kinds:textFor("zz"):print.               ; nil
-kinds:includes("zz"):print.              ; false
+kinds:indexOf("zz"):notNil:print.        ; false   -- there is no `includes`
 { kinds:at(#9) }:onError({ e | e:message:display }).
                                          ; no code 9 among 3
 

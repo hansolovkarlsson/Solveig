@@ -495,7 +495,7 @@ without being told where they live.
 | [re.sol](../lib/re.sol) | `re:on` or `re:ere`, then `find` `findLast` `matches` `replaceAllIn` `group` | regular expressions and substitution, POSIX basic and extended |
 | [sqlite.sol](../lib/sqlite.sol) | `sqlite:open`, then `create` `table`; `insert` `find` `where` `filter` `orderBy` `each` `delete`; a row's columns as slots, `save` | an SQLite database file, as objects |
 | [recordset.sol](../lib/recordset.sol) | `recordset:on(table)`; `first` `next` `previous` `last` `at`; `current` `position` `count`; `addNew` `set` `save` `revert` `delete` `changed`; `find` `all` `orderBy` | one record at a time, between a table and a form |
-| [codes.sol](../lib/codes.sol) | `codes:on(table, key, text)` or `codes:of(array)`; `keys` `texts` `keyAt` `textAt`; `indexOf` `textFor` `keyFor` `includes` `add` | a code table read once: the key a column stores, the text a person reads |
+| [codes.sol](../lib/codes.sol) | `codes:on(table, key, text)` or `codes:of(array)`; `keys` `texts` `keyAt` `textAt`; `indexOf` `textFor` `keyFor` `add` | a code table read once: the key a column stores, the text a person reads |
 
 ```
 @include "math.sol".

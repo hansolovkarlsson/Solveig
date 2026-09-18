@@ -1326,8 +1326,12 @@ colours := codes:of(["red", "green"]).
 | `c:size` `c:keys` `c:texts` | how many, and each side in order |
 | `c:at(#n)` `c:keyAt(#n)` `c:textAt(#n)` | the pair, the key or the text there, counted from `#1`; past either end is refused by name |
 | `c:indexOf(key)` `c:textFor(key)` | where that key sits and what it reads as, or **nil** where no code answers |
-| `c:keyFor(text)` `c:includes(key)` | the other way round, and whether there is one; two codes with one text answers the first |
+| `c:keyFor(text)` | the other way round; two codes with one text answers the first |
 | `c:add(key, text)` | one more on the end, answering the codes |
+
+There is no `includes`, for the reason [array](#array) gives for not having
+one: `indexOf` already answers *where*, and `c:indexOf(k):notNil` is how to ask
+*whether*.
 
 **A missing key is nil and an index out of range is refused**, which is the
 line between a caller's mistake and a fact about the data: a record holding a
