@@ -87,9 +87,11 @@ children on the parent's window; the designer. Each is a scoping of its own
 once this form has been used, and the calls the entry left are the names,
 the refused move, find by example and the library's button row, all taken
 on the recommendation by building. Green here at 1,165 claims and 37
-examples, six examples compiling in the binding. `programs/build/` was
-cleared in the morning, on instruction, so the local link count is the
-clone's.
+examples, six examples compiling in the binding. Both repositories were
+pushed once the records were in, and `build` was green on all six jobs at
+`7ec89ed`, the recordset's example running under `expect` on Windows too,
+with `site` green beside it. `programs/build/` was cleared in the morning,
+on instruction, so the local link count is the clone's.
 
 ## 2026-09-17: the suite runs on Windows, and eleven checks say what it has not
 
