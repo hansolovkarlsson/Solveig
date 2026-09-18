@@ -5,6 +5,29 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### `lib/recordset.sol`, one record at a time between a table and a form — `1be8655` and `58ec78e`, 2026-09-17
+
+A position among the rows a query answers and the row standing there,
+re-read from the pages on every move: `recordset:on(table)`; `first`,
+`last`, `next`, `previous`, `at`; `current`, `position`, `count`; `addNew`,
+`set`, `save`, `revert`, `delete`, `changed`; `find`, `all`, `orderBy`.
+It includes `sqlite.sol` and nothing else, and knows nothing of a window,
+which is why it is here where the suite runs it: [examples/records.sol](../examples/records.sol),
+36 claims, on the library and example lists in `test_compile.c`, with its
+section in the reference and its line on the cheatsheet. `set(pairs)`
+writes columns by names held in values, which a form's are, by making the
+record again under the table's prototype with the pairs applied, since a
+slot cannot be written by a name held in a value ([2.14](ROADMAP.md#214-loose-ends-from-the-decided-items)).
+`addNew` rather than `new`, because `new` is how a recordset itself is
+made; `records.sol` rather than `recordset.sol`, because an example that
+includes `"recordset.sol"` would find itself first. The counts moved: 37
+examples, 668 example claims, 1,165 claims. The form it was written for is
+[lib/form.sol in solveig-gtk](https://github.com/hansolovkarlsson/solveig-gtk),
+over seven widgets and eighteen messages added to the binding the same
+day; the plan and what each step found are under
+[Forms over a database](ideas.md#forms-over-a-database-the-way-vb3-did-it-scoped-2026-09-17)
+in ideas.md, `cf89de8`, `8bcf929` and `58ec78e`.
+
 ### The suite runs on Windows, under MSYS2 — `2e66747` to `34174af`, 2026-09-17
 
 A fourth job in [build.yml](../.github/workflows/build.yml): `windows-latest`,

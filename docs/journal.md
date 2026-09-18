@@ -11,6 +11,86 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-09-17 (evening): forms over a database, scoped and built in three steps, and the prediction that was wrong
+
+**Hans brought a project after the standup, and it was the customer an
+entry had been waiting for.** Forms of different kinds over a database file,
+VB3 and .NET the inspiration: labels, entries, dropdowns, scroll boxes, a
+single record at a time to begin with, master-child and code-table
+dropdowns later, and new, save, edit, delete and search. The 2026-09-15
+objects entry had put a table, a query and a row over the sqlite engine so
+that a program could say `n:title := "eggs". n:save`, and had said the
+first program to want that had not arrived. This was it. The shape argued
+in the morning and taken by him without change: three layers, with the line
+between them the one the GTK binding's page already draws for itself, *each
+binding publishes what its toolkit has*. The controls are C in the binding
+and know nothing of a record; the recordset is Solveig in `lib/` here,
+knows nothing of a window, and is the half the suite can run, since a
+window cannot be driven down a pipe; the form is Solveig in the binding and
+is the binding between the two, with the program's logic hung on it as
+blocks. He named the inspiration's third piece, a designer, and put it
+later himself; a form described by messages is what a designer would emit,
+so nothing built today makes one harder. The contacts table was his choice
+of first form, and the placement and the order were the recommendation.
+
+**The scoping went in as `cf89de8` before a line was written**, with a
+sketch, a steps table with a *held against* column, seven predictions and
+six calls, and then the three steps went in the same day, each one's
+outcome appended under the prediction as the two sqlite entries did.
+
+**Step 0, the controls, `d9d0a1b` in the binding**: seven widgets and
+eighteen messages, `add` taking a list, `text` and `setText` reaching a
+check, an entry and a text view. A probe that called every message and
+closed its own window ran before the example was written, and found the one
+thing on the step that was not mechanical: a GTK dropdown cannot show
+nothing, since it re-selects the first item the moment nothing is selected,
+so `setSelected(d, #0)` read back `#3`. Refused with a sentence now; a form
+wanting *no value* puts an empty string first, VB's way. The binding's page
+had said seventeen messages for a binding of twenty-two, a count the canvas
+had outgrown; forty now.
+
+**Step 1, the recordset, `1be8655`**: 184 lines including `sqlite.sol`
+and nothing else, and `examples/records.sol` under `expect`. Two names the
+language decided: `new` cannot make a new record, because `new` is how a
+recordset is made, so it is `addNew`, DAO's own word; and the example
+cannot be `recordset.sol`, since a file that includes `"recordset.sol"`
+finds itself first, the self-include that renamed the SQL shell two days
+ago. `on` answered nil over an empty table once, because it ended in
+`first`: the empty-table prediction, fired a step early and by the probe
+rather than by eyes. `sqlite3` read the probe's file back, three rows,
+`integrity_check` ok.
+
+**Step 2, the form, `daf32a7` in the binding and `58ec78e` here.** The
+prediction the entry was most sure of, that 3.1 would fire on the first
+button because a handler hung from inside a method captures the method's
+frame, was wrong about the machine: `self` is bound into a block when it is
+made, by `sol_block_new`, and is not a capture, so `{ self:next }` outlives
+`navigation` and reads the form. Only a method's *locals* are captured.
+Tested in a scratch file before the form was written, three lines. So the
+global `form:active` was never needed and the master-child prediction is
+void before it is tested. What pressed instead was the language's own
+rules, three of them in the probe's first minute: a control's value goes
+into a column named by the schema at run time and there is no `slotAtPut`,
+so `recordset:set(pairs)` makes the record again under the table's
+prototype, `object:new(dictionary)` doing its job a second time; a slot
+holding a block is a method, so `self:validate` ran the program's block
+with no argument and the blocks are read with `slotAt` as `sqlite.sol`
+reads its `isDigit`; and `ifTrue` answers nil when the condition is false,
+so `ifTrue(...):ifFalse(...)` sends to nil, written twice and `ifElse` now.
+The form was driven end to end without a person, thirty answers read back,
+and seen once over an empty table with every field grey and New and Find
+the live buttons.
+
+**What was not built, on purpose**: the `'choice` kind over a code table,
+which will meet the dropdown finding first; master-child, a list of the
+children on the parent's window; the designer. Each is a scoping of its own
+once this form has been used, and the calls the entry left are the names,
+the refused move, find by example and the library's button row, all taken
+on the recommendation by building. Green here at 1,165 claims and 37
+examples, six examples compiling in the binding. `programs/build/` was
+cleared in the morning, on instruction, so the local link count is the
+clone's.
+
 ## 2026-09-17: the suite runs on Windows, and eleven checks say what it has not
 
 **The morning was the standup, three explanations and an audit.** Hans
