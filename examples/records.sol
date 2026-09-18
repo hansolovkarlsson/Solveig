@@ -8,6 +8,7 @@
 ; over it. This writes into build/, which `make clean` takes away again.
 
 @include "recordset.sol".
+@include "codes.sol".
 
 system:makeDirectory("build").
 path := "build/example-contacts.db".
@@ -111,6 +112,52 @@ people:delete. people:count:print.       ; #0
 people:current:print.                    ; nil
 { people:save }:onError({ e | e:message:display }).
                                          ; nothing to save
+
+; ---------------------------------------------------------------------------
+; A code table: the key a column stores, the text a person reads
+;
+; `codes` is the lookup a dropdown is made of, and it is here rather than in
+; the GTK binding for the reason the recordset is: it can be run and checked,
+; where a window cannot. It knows nothing about a dropdown, and the blank a
+; dropdown needs is the form's business and never appears here.
+kindTable := db:create("kinds", ["code TEXT", "name TEXT"]).
+kindTable:insert(#['code = "f", 'name = "friend"]).
+kindTable:insert(#['code = "w", 'name = "work"]).
+kindTable:insert(#['code = "a", 'name = "acquaintance"]).
+
+kinds := codes:on(kindTable, 'code, 'name).
+kinds:size:print.                        ; #3
+kinds:keys:print.                        ; ["f", "w", "a"]
+kinds:texts:print.                       ; ["friend", "work", "acquaintance"]
+kinds:textFor("w"):display.              ; work
+kinds:keyFor("friend"):display.          ; f
+kinds:indexOf("a"):print.                ; #3
+kinds:keyAt(#1):display.                 ; f
+kinds:textAt(#2):display.                ; work
+
+; A key no code answers, which is what a record holding a code somebody
+; deleted looks like. Nil rather than a refusal: an index out of range is the
+; caller's mistake and a missing key is not.
+kinds:indexOf("zz"):print.               ; nil
+kinds:textFor("zz"):print.               ; nil
+kinds:includes("zz"):print.              ; false
+{ kinds:at(#9) }:onError({ e | e:message:display }).
+                                         ; no code 9 among 3
+
+; A query rather than a table, which is how an order of its own is asked for.
+codes:on(kindTable:orderBy('name), 'code, 'name):texts:print.
+                                         ; ["acquaintance", "friend", "work"]
+
+; Written in the program instead: an array of pairs, or of plain values where
+; each is its own key. The two may be mixed.
+codes:of([[#1, "one"], [#2, "two"]]):textFor(#2):display.      ; two
+codes:of(["red", "green"]):keys:print.   ; ["red", "green"]
+
+; One more on the end. A form does this with a key it met in a record and did
+; not find here, so that the record can say what it holds.
+kinds:add("x", "x (not in the table)").
+kinds:size:print.                        ; #4
+kinds:textFor("x"):display.              ; x (not in the table)
 
 ; Every `save` and `delete` flushed the file, so `sqlite3` reading it now
 ; would agree with each step; `close` is for the pages and the cache.

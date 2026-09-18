@@ -1302,6 +1302,47 @@ The library is [lib/recordset.sol](../lib/recordset.sol); it includes
 the [GTK binding](https://github.com/hansolovkarlsson/solveig-gtk). See
 [examples/records.sol](../examples/records.sol).
 
+#### codes.sol
+
+A code table read once: the key a column stores, and the text a person reads.
+It is the lookup half of a dropdown, and it is here for the reason the
+recordset is, that it can be run and checked where a window cannot.
+
+```
+@include "codes.sol".
+
+kinds := codes:on(db:table("kinds"), 'code, 'name).
+kinds:texts:display.
+kinds:textFor("f"):display.
+kinds:indexOf("w"):print.
+
+colours := codes:of(["red", "green"]).
+```
+
+| Message | Answers |
+| --- | --- |
+| `codes:on(table, key, text)` | the codes in the order the rows are stored; a query in place of the table is how another order is asked for, `table:orderBy('name)`; a column that is not there is refused, naming the table |
+| `codes:of(array)` | the codes from two-element arrays of key and text, or from plain values where each is its own key and its text is how it displays; the two may be mixed |
+| `c:size` `c:keys` `c:texts` | how many, and each side in order |
+| `c:at(#n)` `c:keyAt(#n)` `c:textAt(#n)` | the pair, the key or the text there, counted from `#1`; past either end is refused by name |
+| `c:indexOf(key)` `c:textFor(key)` | where that key sits and what it reads as, or **nil** where no code answers |
+| `c:keyFor(text)` `c:includes(key)` | the other way round, and whether there is one; two codes with one text answers the first |
+| `c:add(key, text)` | one more on the end, answering the codes |
+
+**A missing key is nil and an index out of range is refused**, which is the
+line between a caller's mistake and a fact about the data: a record holding a
+code somebody has since deleted is not a bug in the program that reads it. A
+form is the customer, and what it does with that nil is the form's business.
+
+**It knows nothing about a dropdown.** A GTK dropdown always shows a choice,
+so a form that wants *no value* shows an empty text first; that blank belongs
+to the form and never appears here, and every index this file answers counts
+the codes alone.
+
+The library is [lib/codes.sol](../lib/codes.sol); it includes `sqlite.sol` for
+one line, the `isKindOf` that tells a table from a query. See
+[examples/records.sol](../examples/records.sol), which ends with it.
+
 **A file is compiled once** per compilation, however many ways it is reached,
 keyed by where it turns out to be on disk so that two spellings of one file are
 one file. C compiles it every time and leaves each file to guard itself, which
