@@ -113,6 +113,46 @@ new array. Neither is a defect. Both are the same lesson as yesterday's from
 the other side: the entry reasons about the machine it is building on and not
 about the one it is building in.
 
+**The evening, after the close-out, went on two things the close-out itself
+found.** The first was a sentence in this entry and in the ideas one, both
+saying `form.sol` had hit the loop half of 3.2, the half `json.sol` and
+`html.sol` cite. It had not: a field asked what kind it is wants to answer and
+leave its own body, which is the local case `edit.sol` found in August and
+`awk.sol` found three times over in September. 3.2 has the customer now, and
+what is new about it is only where it came from, a library in another
+repository written against the language rather than inside it.
+
+**The second was a red Windows job for a commit of three markdown files.**
+`test_sleep_spends_the_time` asserted `{ system:sleep(0.05) }:timeToRun >=
+0.05`, and said in its comment that the lower bound is the contract since
+`nanosleep` promises *at least*. But the sleep is `nanosleep` and the
+measurement is `clock_gettime(CLOCK_MONOTONIC)`, so what it asserted was that
+two clocks agree; under MSYS2 they are separate Windows facilities and may
+differ by the 15.625 ms timer tick. Five green runs before it were luck rather
+than evidence.
+
+**The fix that was chosen first was measured and thrown away, which is the
+part worth keeping.** Loosening the floor and lengthening the ask looked
+strictly better and was argued for on the reading that macOS overshoots
+proportionally. It does not: it adds a roughly constant 95 ms to every sleep,
+0.05 measuring 0.149 and 0.5 measuring 0.600. So a floor near the ask passes a
+`system:sleep` patched to halve its argument, which it was, and did. **A
+deliberate defect walked through the fix**, and it would have shipped as one if
+the proof had not been run. What landed instead compares two non-zero sleeps,
+where the constant is in both terms and cancels: five runs of 0.5 against 0.1
+gave 0.3973 to 0.4169 against a true 0.4, and the same cancellation covers the
+tick. Four defects were built and run against it; halving, zeroing and taking
+20% off are caught, and adding a constant is not, which is the trade the shape
+makes and is written down as one.
+
+**And the proof itself was wrong the first time**, which is the smaller lesson
+and the more embarrassing one. The first run reported every defect passing,
+including a sleep of zero, because plain `make` builds no test binary: only
+`make test` does, and the stale one from the last run is what was being run.
+`make build/tests/test_system` is what makes that proof real, and the rule in
+[method.md](method.md) about running a new check against the unfixed code
+needs that target named, or it proves nothing twice as fast.
+
 ## 2026-09-17 (evening): forms over a database, scoped and built in three steps, and the prediction that was wrong
 
 **Hans brought a project after the standup, and it was the customer an
