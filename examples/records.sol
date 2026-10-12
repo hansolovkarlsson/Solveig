@@ -159,6 +159,57 @@ kinds:add("x", "x (not in the table)").
 kinds:size:print.                        ; #4
 kinds:textFor("x"):display.              ; x (not in the table)
 
+; ---------------------------------------------------------------------------
+; Master and child: orders under a contact
+;
+; `follow` narrows a recordset to the rows whose column holds the rowid of
+; the record another stands on, and keeps it there through every move that
+; one makes. The index is the program's to make: without it each move reads
+; the whole of the orders table, and with it only the rows that follow.
+orderTable := db:create("orders", ["contact INTEGER", "item TEXT"]).
+orderTable:index("orders_contact", ['contact]).
+people:addNew. people:current:name := "Dee". people:save.
+people:addNew. people:current:name := "Eve". people:save.
+orders := recordset:on(orderTable):follow(people, 'contact).
+orders:count:print.                      ; #0   -- Eve has none yet
+
+; A new order is given the rowid of the contact it is under.
+orders:addNew:contact:print.             ; #2
+orders:current:item := "tea". orders:save.
+orders:addNew. orders:current:item := "jam". orders:save.
+orders:count:print.                      ; #2
+people:first:name:display.               ; Dee
+orders:count:print.                      ; #0
+orders:addNew. orders:current:item := "ink". orders:save.
+people:next:name:display.                ; Eve
+orders:first:item:display.               ; tea
+
+; Inside the contact's orders, `find` looks among them and `all` comes back
+; to them rather than to the whole table.
+orders:find(#['item = "jam"]):item:display.                    ; jam
+orders:find(#['item = "ink"]):print.     ; nil   -- Dee's, not Eve's
+orders:all. orders:count:print.          ; #2
+orderTable:count:print.                  ; #3
+
+; A contact not yet saved has nothing under it, and nothing can be added.
+people:addNew.
+orders:count:print.                      ; #0
+{ orders:addNew }:onError({ e | e:message:display }).
+                                         ; no record to add under: the contacts record is not saved
+people:revert:name:display.              ; Eve
+orders:count:print.                      ; #2
+
+; A contact with orders is not deleted. The next contact inserted could be
+; given its rowid, and its orders would be under somebody else. One with
+; none is.
+{ people:delete }:onError({ e | e:message:display }).
+                                         ; not deleted: 2 rows in orders follow it
+people:count:print.                      ; #2
+people:addNew. people:current:name := "Fay". people:save.
+people:delete:print.                     ; true
+{ recordset:on(orderTable):follow(people, 'customer) }:onError({ e | e:message:display }).
+                                         ; no such column: customer in orders
+
 ; Every `save` and `delete` flushed the file, so `sqlite3` reading it now
 ; would agree with each step; `close` is for the pages and the cache.
 db:close.

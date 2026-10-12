@@ -33,6 +33,13 @@
 ; columns are slots as any row's are; `save` inserts it and stands on it.
 ; Every `save` and `delete` flushes the file, since a record is the unit a
 ; person expects to be on disk when they were told it was saved.
+;
+; A recordset can follow another, which is master and child: orders under a
+; contact. `orders:follow(people, 'contact)` narrows the orders to the rows
+; whose `contact` holds the rowid of the person `people` stands on, and they
+; follow every move `people` makes, since every move goes through `goTo`. A
+; new order is given the person's rowid, and a person with orders following
+; is not deleted. Scoped in docs/ideas.md on 2026-10-12.
 
 @include "sqlite.sol".
 
@@ -44,6 +51,9 @@ recordset:rowids := nil.        ; the rowids the query answers, in order
 recordset:position := #0.       ; among them, from #1; #0 when there are none
 recordset:current := nil.       ; the row standing there, a new record, or nil
 recordset:isNew := false.       ; whether `current` is a record not yet saved
+recordset:parent := nil.        ; the recordset this one follows, or nil
+recordset:link := nil.          ; the column holding the parent's rowid, as a symbol
+recordset:followers := nil.     ; the recordsets following this one
 
 ; ---------------------------------------------------------------------------
 ; Making one, and the query under it
@@ -54,6 +64,7 @@ recordset:on := { t | | r |
     r:table := t.
     r:base := t:all.
     r:order := nil.
+    r:followers := [].
     r:refresh.
     r:first.
     r }.
@@ -88,6 +99,7 @@ recordset:goTo := { i |
         { self:position := #0. self:current := nil },
         { self:position := i. self:current := self:table:find(self:rowids:at(i)) }).
     self:isNew := false.
+    self:followers:do({ c | c:track }).
     self:current }.
 
 recordset:count := { self:rowids:size }.
@@ -125,8 +137,13 @@ recordset:addNew := { | slots |
     slots := dictionary:new.
     slots:atPut('rowid, nil).
     self:table:columnNames:do({ c | slots:atPut(c:asSymbol, nil) }).
+    self:parent:isNil:ifFalse({
+        self:parentKey:isNil:ifTrue({
+            error:raise("no record to add under: the ":concat(self:parent:table:name):concat(" record is not saved")) }).
+        slots:atPut(self:link, self:parentKey) }).
     self:current := self:table:rowProto:new(slots).
     self:isNew := true.
+    self:followers:do({ c | c:track }).
     self:current }.
 
 ; Columns of the current record given values by name, from a dictionary of
@@ -171,6 +188,7 @@ recordset:revert := {
 recordset:delete := { | had |
     self:current:isNil:ifElse({ false }, {
         self:isNew:ifElse({ self:revert. false }, {
+            self:refuseIfFollowed.
             had := self:table:delete(self:current).
             self:table:db:flush.
             self:current := nil.
@@ -186,7 +204,7 @@ recordset:delete := { | had |
 ; order, and keeps the position on the same record.
 
 recordset:find := { pairs |
-    self:base := self:table:where(pairs).
+    self:base := self:narrowed(self:table:where(pairs)).
     self:isNew := false.
     self:current := nil.
     self:position := #1.
@@ -194,7 +212,7 @@ recordset:find := { pairs |
     self:current }.
 
 recordset:all := {
-    self:base := self:table:all.
+    self:base := self:narrowed(self:table:all).
     self:isNew := false.
     self:refresh.
     self:current }.
@@ -203,3 +221,60 @@ recordset:orderBy := { columns |
     self:order := columns.
     self:refresh.
     self:current }.
+
+; ---------------------------------------------------------------------------
+; Following
+;
+; A follower's narrowing is its parent's rowid in one column, and every query
+; it makes is made inside that: `all` is every row under the parent and not
+; every row in the table, and `find` looks among them. A parent with no
+; record, or a new one with no rowid yet, is followed by no rows at all,
+; since an `=` with nil on either side holds for nothing.
+
+; This recordset narrowed to the rows under the parent's current record, in
+; that column, and kept there. A column the table does not have is refused
+; here, naming the table, rather than as an empty result. Answers the
+; recordset, so that it chains off `on`.
+recordset:follow := { parent, column | | c |
+    c := column:isKindOf(symbol):ifElse({ column }, { column:asSymbol }).
+    self:table:columnNames:indexOf(c:asString):isNil:ifTrue({
+        error:raise("no such column: ":concat(c:asString):concat(" in "):concat(self:table:name)) }).
+    self:parent := parent.
+    self:link := c.
+    parent:followers:add(self).
+    self:track.
+    self }.
+
+; The parent's rowid, or nil when it has no saved record to stand on.
+recordset:parentKey := { | p |
+    p := self:parent.
+    (p:current:isNil:or({ p:isNew })):ifElse({ nil }, { p:current:rowid }) }.
+
+; A query kept inside the parent's record, or left as it is when there is no
+; parent.
+recordset:narrowed := { q |
+    self:parent:isNil:ifElse({ q }, { q:filter(self:link, "=", self:parentKey) }) }.
+
+; The parent moved: every row under its record again, standing on the first.
+; What was found among the previous record's rows is dropped with it.
+recordset:track := {
+    self:base := self:narrowed(self:table:all).
+    self:isNew := false.
+    self:current := nil.
+    self:position := #1.
+    self:refresh }.
+
+; A record with rows following it is not deleted. The rows are counted in
+; full, not as a follower narrowed by a `find` sees them, and the refusal
+; names the table and how many. An orphaned row is worse than untidy here:
+; the next record inserted can be given the deleted one's rowid, and the
+; orphans would be under it.
+recordset:refuseIfFollowed := {
+    self:followers:do({ c | | n |
+        n := c:table:all:filter(c:link, "=", self:current:rowid):count.
+        n:greaterThan(#0):ifTrue({
+            error:raise("not deleted: ":concat(n:asString)
+                :concat(n:equals(#1):ifElse({ " row in " }, { " rows in " }))
+                :concat(c:table:name)
+                :concat(n:equals(#1):ifElse({ " follows it" }, { " follow it" }))) }) }).
+    self }.

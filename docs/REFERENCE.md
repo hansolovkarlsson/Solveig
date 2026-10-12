@@ -1288,6 +1288,7 @@ people:all.
 | `r:find(dictionary)` | narrowed to the rows equal on every pair, as the library's `where`, standing on the first |
 | `r:all` | the narrowing dropped, the position kept on the same row where it can be |
 | `r:orderBy(columns)` | a column, an array of them, or nil for rowid order; the position kept on the same row |
+| `r:follow(parent, column)` | the recordset, narrowed to the rows whose column holds the rowid of `parent`'s current record and kept there through every move `parent` makes; a column the table does not have is refused, naming the table |
 
 **The current row is re-read from the pages on every move**, so a change
 made to it and not saved is gone once the position moves. That is the
@@ -1296,6 +1297,31 @@ lets the position move, and refuses or saves; the recordset does not decide.
 Every `save` and `delete` flushes the file, since a record is the unit a
 person expects to be on disk when they were told it was saved; `close` on
 the database is still what ends it.
+
+**A recordset can follow another**, which is master and child, orders under
+a contact:
+
+```
+orders := recordset:on(db:table("orders")):follow(people, 'contact).
+```
+
+Every move the parent makes, a save, a delete and a find among them, puts
+the follower back on the first row under the parent's record. Inside it,
+`find` looks among those rows and `all` comes back to them rather than to the
+whole table. `addNew` gives the new row the parent's rowid, and is refused
+while the parent's record is new and has none; a parent with no record, or a
+new one, has no rows following it. **A parent with rows following is not
+deleted**: `delete` is refused, saying how many and in which table, because
+the next row inserted into the parent's table can be given the deleted one's
+rowid, as SQLite gives it, and the orphans would then be under somebody else.
+The count is of every row in that column, not of what a follower's `find`
+has narrowed it to. Only the recordsets that follow it are counted, so a
+table nothing follows is not protected, and neither is a row deleted with
+`table:delete`.
+
+**The index is the program's to make**, `t:index("orders_contact",
+['contact])`, since a recordset writes no schema. Without it each move reads
+the whole child table; with it, only the rows under the parent.
 
 The library is [lib/recordset.sol](../lib/recordset.sol); it includes
 `sqlite.sol` and nothing else, and the form it was written for is Solveig in
