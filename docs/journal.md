@@ -50,6 +50,14 @@ to within a few milliseconds. The fill that costs nothing is from rows the
 recordset has already read, which is a change to what it holds and is left
 for the list that would ask. The widget waits for the form to be used.
 
+**All four commits were pushed and CI went green at `b829c40`**, `site` and
+all six `build` jobs, watched to the end. The day closed with how to drive the
+form by hand written out for Hans, since that use is now the only thing steps 0
+and 2 wait on: `make contacts` in the binding, the stale-code path reached by
+deleting a code with `sqlite3` between two runs, and one warning worth keeping,
+that **`make clean` in the binding removes `build/`, and the contacts file a
+person has been keeping with it.**
+
 ## 2026-09-18: the dropdown, the size question, and two answers that could not both be true
 
 **The standup named the `'choice` kind as the next scoping, and Hans added a
