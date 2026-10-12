@@ -65,7 +65,7 @@ marked as a sketch.
 | The database as objects, and `object:new(dictionary)` | **Scoped on 2026-09-15, the evening the SQL front was done, and built the same night**: [the entry](#the-database-as-objects-and-the-first-slot-made-from-a-run-time-name-scoped-2026-09-15) moved the engine into `lib/sqlite.sol`, put a table, a query and a row over it, and asked for one slot-creating message at construction, `object:new(dictionary)`, built after a version with rows as dictionaries had run through the sweep, so that the program asked and not the page. The shell became a client of the objects and `sqlite3` judged both fronts at once, 632 of 632; UPDATE, added so that `update` could be judged, [found a defect the writer had carried since step 5](#step-1-the-same-evening-and-update-found-a-defect-in-the-writer). Two predictions wrong in a detail: the primitive needs no GC root, and a slot walk past twenty columns loses nothing, since an object has a hash index past twelve |
 | Forms over a database, the way VB3 did it | **Scoped 2026-09-17, and all three steps built the same day**: [the entry](#forms-over-a-database-the-way-vb3-did-it-scoped-2026-09-17) is the customer the objects entry above was waiting for. The controls are C in the GTK binding, eighteen messages; `lib/recordset.sol` is Solveig here and knows no widget, so the suite runs it; `form.sol` binding the two is Solveig in the binding's new `lib/`. **The prediction it was most sure of was wrong**: `self` is bound into a block and not captured, so [3.1](ROADMAP.md#31-capturing-blocks-cannot-escape-their-frame) never fired; what pressed was a column written by a name held in a value, answered by `recordset:set` |
 | A dropdown over a code table, and a form that says where and how big | **Scoped 2026-09-18, seven calls answered the same morning and all three steps built the same day**: [the entry](#a-dropdown-over-a-code-table-and-a-form-that-says-where-and-how-big-scoped-2026-09-18) takes the `'choice` kind the forms above named and the size and position a form cannot say at all, and makes them one signature, since both are what `field` answers. Three layers again: `setSize` and `setExpand` in the binding, which travel together because a size request under a control that expands is invisible; a `codes` read of a code table here, where the suite can run it; and in the binding the kind, `field:size`, `field:at` and the attach moved into `show`, which is what lets a placement be a slot write rather than a detach. **The prediction it is most sure of is a silent one**, read off `form:store` rather than reasoned from a sentence: a record holding a code the table no longer has loads as the blank and saves as nil. **Two of the seven answers collided**, and that is the finding: a key appended at load time *is* a dropdown's list changing, so call 3 could not be carried out while call 6 held `setChoices` back, and the trigger call 6 named was the wrong one. Three predictions held exactly, and what actually got in the way was the spelling: no non-local return, and no `concat` on an array |
-| A child table on a form, and what a grid would be | **On the list 2026-09-18, with a trigger**: [the note](#a-child-table-on-the-form-and-what-a-grid-would-be) is the master-child form with the shape Hans gave it, orders under a contact. Half is built, since a child recordset is `find` narrowed by the parent's rowid; what is missing is a hook after `load` and a widget. **`gtk:grid` is not the widget**: it is GTK's layout mesh, and what VB3 called a grid is a `GtkColumnView`, a family the binding has never touched. The forms entry's 3.1 prediction about master-child is void rather than pending, and what it does press on is a cost, a child refreshed on every parent move scanning an unindexed column. Trigger: the contacts form growing orders, after the single-record form has been used |
+| A child table on a form, and what a grid would be | **On the list 2026-09-18, with a trigger, and scoped 2026-10-12 before it fired**: [the entry](#a-child-table-on-the-form-and-what-a-grid-would-be-scoped-2026-10-12) puts following in the recordset as `follow`, shows the rows in the existing `gtk:list` with no new C, and found while scoping that a deleted contact's rowid goes to the next one added, orders and all. Seven calls are open. The note it grew from is the master-child form with the shape Hans gave it, orders under a contact. Half is built, since a child recordset is `find` narrowed by the parent's rowid; what is missing is a hook after `load` and a widget. **`gtk:grid` is not the widget**: it is GTK's layout mesh, and what VB3 called a grid is a `GtkColumnView`, a family the binding has never touched. The forms entry's 3.1 prediction about master-child is void rather than pending, and what it does press on is a cost, a child refreshed on every parent move scanning an unindexed column. Trigger: the contacts form growing orders, after the single-record form has been used |
 | Networking, and sending code to a running machine | **The first half is built**, on 2026-08-29 — [extensions/net](../extensions/net/README.md), five messages, and the waiting question answered with a timeout rather than a block; [the second half](#networking-and-sending-code-to-a-machine-that-is-already-running) is untouched and still needs 3.4, 6.32 and a proxy |
 | SQLite, SDL2, GTK | **One project, not three** — [extensions](#extensions-a-capability-from-a-binary-rather-than-from-the-vm); GTK and SDL2 fire that trigger and SQLite does not, and wanting *both* toolkits is what settles the mechanism |
 | A game controller, and more of the sound, in [solveig-sdl](https://github.com/hansolovkarlsson/solveig-sdl) | **Held, with a trigger**, said by Hans on 2026-09-14 after the eleventh game and written where that binding's rule for growing lives: every cabinet had a stick and the arrows stand in for it, and one `beep` has carried twelve games and a tune and would not carry a console's music. Neither is a trigger yet. The famous console games come first, and they are what will ask; the binding grows only when a program wants what it cannot have |
@@ -8046,7 +8046,7 @@ is a defect and neither was predicted, which is the usual ratio: the entry's
 eight predictions were about the widgets and the data, and what actually got in
 the way was the spelling.
 
-### A child table on the form, and what a grid would be
+### A child table on the form, and what a grid would be: scoped 2026-10-12
 
 **Put on the list on 2026-09-18.** It is the master-child form the
 [forms entry](#forms-over-a-database-the-way-vb3-did-it-scoped-2026-09-17)
@@ -8095,6 +8095,202 @@ argue it.
 single-record form being used with typing, and the dropdown entry above going
 first, since both want `field` to have settled what it answers and how a field
 is placed.
+
+##### Scoped on 2026-10-12, before its trigger
+
+**Asked for by Hans on 2026-10-12, and the trigger above has not fired.** Its
+second half has: the dropdown entry went first and `field` has settled what it
+answers and how it is placed. Its first half has not. The single-record form
+has still not been used with typing, and nobody keeps orders in the contacts
+file. This scoping is written on request and not because a program asked,
+which [method.md](method.md#a-program-asks-not-a-document) says the entry has
+to say. Whether the build waits for the trigger is call 7.
+
+**Two things the note argued were asked of the machine first.** Both came out
+of a throwaway against Solveig's `lib/` before a line of this was written.
+
+**A deleted parent's rowid is handed to the next parent, and its children go
+with it.** Two contacts, an order under the second, the second deleted, a
+third contact inserted: the third was given rowid `#2`, and
+`where(#['contact = #2])` answered the deleted contact's order. That is
+`sqlite:deleteRow` doing what its comment says, putting `maxRowid` back to nil
+so that the next rowid is one past the largest that remains, as SQLite assigns
+it. It happens only when the deleted row held the largest rowid, which in a
+contacts file is the one most recently added and the one most likely to be
+deleted by mistake. **So an orphaned order is not untidy, it is wrong**: it
+belongs to somebody else the moment a contact is added. SQLite's own answer is
+`AUTOINCREMENT` and its `sqlite_sequence` table, which this reader does not
+have. That decides call 4.
+
+**The cost the note asked to have measured rather than argued.** One hundred
+contacts, orders spread evenly over them, and a recordset over `orders`
+narrowed ten times to one contact's rows with `recordset:find`, which is what a
+child following its parent would do on every move. Timed with `timeToRun` on
+the `-g` build `make` leaves, which is slower than a release build, so these
+are an upper bound:
+
+| orders in the table | each contact's | no index | `orders:index("orders_contact", ['contact])` |
+| --- | --- | --- | --- |
+| 500 | 5 | 10.3 ms | 2.3 ms |
+| 3000 | 30 | 62.9 ms | 13.4 ms |
+| 10000 | 100 | 217 ms | 47.6 ms |
+
+**Without an index the cost is the table, about 21 µs a row; with one it is the
+children, about 0.47 ms each, whatever the table holds.** A move starts to be
+felt at about a tenth of a second, which is near 5,000 orders unindexed, and
+near 200 orders under one contact indexed. The note's *a hundred contacts with
+a few orders each will not notice* holds, with a factor of a hundred to spare.
+The index is already built and `where` already uses it on `=`, so the remedy is
+one line in the program, which is call 5.
+
+**What it should look like.** A sketch, not run, over the contacts file the
+first form already has:
+
+```
+db:table("orders"):isNil:ifTrue({ | t |
+    t := db:create("orders", ["contact INTEGER", "item TEXT", "amount REAL"]).
+    t:index("orders_contact", ['contact]) }).
+
+people := recordset:on(db:table("contacts")).
+orders := recordset:on(db:table("orders")):follow(people, 'contact).
+
+f := form:on(people, gtk:window("Contacts", #520, #640)).
+f:field('name, 'text).
+...
+f:rows(orders, [['item, #240], ['amount, #80]]):size(#360, #160):at(#1, #9, #2).
+f:navigation.
+f:show.
+```
+
+Three layers again, and the line between them is where it was:
+
+1. **Following is the recordset's, in Solveig's `lib/`, and knows no widget.**
+   `recordset:follow(parent, column)` narrows a recordset to the rows whose
+   `column` holds the parent's current rowid, and the parent keeps a list of
+   the recordsets that follow it. Every move the parent makes goes through
+   `goTo`, which `refresh` calls too, so one line there and one in `addNew`
+   keeps every follower on the parent's record after a move, a save, a delete
+   and a find alike. A parent with no record, or a new one with no rowid yet,
+   is followed by nothing, which `where` already answers since `sqlite:holds`
+   is false for nil on either side. A follower's `addNew` fills the column
+   with the parent's rowid, and is refused by name while the parent is new.
+   Its `all` goes back to following rather than to the whole table, and its
+   `find` adds the column to the pairs. A child that is followed in turn is
+   followed for nothing extra, since its own moves go through its own `goTo`.
+   **This is the half the suite can run**, which is why it is here and not a
+   hook on the form as the note had it: a block the form runs after `load`
+   would be the first piece of master-child that no claim can reach, and a
+   program moving the recordset without a form would have no children.
+2. **The rows are shown in the binding's existing `gtk:list`, a row of labels
+   each, and no new C.** A list row is any widget, so a row can be a
+   horizontal `gtk:box` of one label a column, each label given its column's
+   width by `setSize` and `setExpand(label, false, false)`. The columns line up
+   because every row's labels are the same widths, not because the list knows
+   about columns. A header is one more such box above the list, and the two go
+   in a `gtk:scrolled` so a long list scrolls rather than growing the window.
+   This is a list of formatted rows, and it is what the note called enough for
+   a first master-child form. **`GtkColumnView` stays where the note left it**,
+   behind a trigger of its own, since a header that sorts, a cell that edits
+   and a list that recycles its rows are the three things it would buy and
+   this scoping asks for none of them.
+3. **The rows field is the binding's `form.sol`.** `form:rows(recordset,
+   columns)` makes an object beside the fields, placed and sized by the same
+   `at` and `size` chain and attached in `show` like them. `form:load` already
+   runs after every move, so it refills each rows object there. The program
+   hangs nothing: the follow keeps the recordset right, and the form's own
+   load repaints it.
+
+##### What it would press on, predicted before writing
+
+| | |
+| --- | --- |
+| **Nothing in the language** | No roadmap entry is predicted to fire. The follower is an object holding its parent and its column as slots, so no block outlives the method that made it and [3.1](ROADMAP.md#31-capturing-blocks-cannot-escape-their-frame) is not met, the same reasoning that made a field an object. **[3.2](ROADMAP.md#32-no-non-local-return)'s local case is predicted once more**, in the follower deciding between no parent, a new parent and a saved one, which is three branches in nested `ifElse`. |
+| **The list filled by moving the recordset reads every row twice** | `refresh` already reads every child row to collect the rowids, and filling the list by `goTo` on each position reads each again through `findRow`. At 0.47 ms a child that doubles the cost of a move for nothing. **Predicted the first thing step 1 measures**, and the way through is that the list is filled from one read of the query's rows rather than by walking the position. |
+| **Deleting a parent that has children is refused, and the form does not catch it** | The refusal is raised in `recordset:delete`, and `form:delete` has no `onError`, unlike `form:store`. What an error does inside a GTK handler is not written down in the binding's README. Predicted one line in `form:delete` that says the refusal in the status, and predicted found by the probe. |
+| **A label is centred in the width it was given** | A GTK label's text sits at the middle of its allocation by default, and nothing in the binding sets it otherwise. A column of amounts given 80 pixels would be centred, which is neither how numbers nor words are set in a table. **Settled by eyes and nothing else.** If it looks wrong, the fix is a message the binding does not have, an alignment, and that is a customer for it rather than a reason to build it now. |
+| **A list makes every row's widgets** | `GtkListBox` builds all its rows, where a column view builds only the ones on screen. Tens of rows are nothing; predicted to be felt somewhere in the hundreds, which is past what one contact's orders will be, and is the column view's trigger rather than a defect here. Not measured, since it is a picture's cost and the binding publishes no timing of one. |
+| **Find by example on the parent** | The children follow to the first record found, through `goTo`, with nothing to build. Find on the child list is not offered, since the rows field is not a field and has no control to type into. |
+| **A selected row emptied by `clear`** | `gtk_list_box_remove_all` on a list with a selection fires `row-selected` with nothing, which `onSelect` would hear as nil. Nothing is hung on `onSelect`, since a read-only list has no use for a selection yet, so predicted nothing. |
+
+##### What it would not find
+
+**A child table that nothing follows.** The refusal to delete a parent is the
+recordset's, and it knows only the recordsets that follow it. A table that
+names contacts and is not followed in that run of the program is not
+protected, and neither is a program that deletes through `table:delete` rather
+than the recordset. This reader has no foreign keys, so nothing below the
+recordset could check it.
+
+**The rowid reuse itself.** Refusing the delete keeps the form from orphaning
+an order; it does not stop the reader handing a deleted parent's rowid on. A
+key that is never reused is `AUTOINCREMENT`, a change to `sqlite.sol` and its
+oracle and a scoping of its own.
+
+**Editing, adding or deleting an order from the contact's form.** The list is
+read-only. An order is still added by a second form over `orders`, in a window
+of its own, whose `addNew` fills the contact because the recordset follows.
+
+**Sorting by a header, a cell that edits, and many-to-many**, which is the
+column view and then something beyond it.
+
+##### The steps, and what each is held against
+
+| step | builds | held against |
+| --- | --- | --- |
+| **0. A throwaway list of rows** | fifty lines in the binding, not kept: a header and a dozen rows of fixed-width labels in a scrolled list | eyes, since the alignment prediction and the whole of call 2 are a picture |
+| **1. The follow** | `recordset:follow` and what it changes in `goTo`, `addNew`, `all`, `find` and `delete`, in Solveig's `lib/`; claims for orders under contacts in `examples/records.sol`, a move, a new parent, a new child, a refused delete; the fill cost of the prediction above measured both ways; reference and cheatsheet | `make test` here, the claims under `expect`, and `sqlite3` reading the file the example wrote |
+| **2. The rows field** | `form:rows` in the binding's `lib/form.sol`, refilled by `load`, placed by `at` and `size`; `form:delete` catching the refusal; `examples/contacts.sol` given an `orders` table with its index and a second small form to add an order | a probe that moves through contacts with and without orders and deletes one of each, `sqlite3` reading the file after, and eyes once |
+| **3. The records** | this entry's outcome under its prediction, the changelog, the journal | `make test` |
+
+##### The calls only you can make
+
+1. **Where following lives.** Recommended in the recordset, as
+   `recordset:follow(parent, column)`, because the suite can run it and a
+   program without a form still gets children that follow. The note's
+   alternative, a block the form runs after each `load`, would leave the half
+   that holds the logic where no claim can reach it.
+2. **The widget.** Recommended the existing `gtk:list` with a row of
+   fixed-width labels a record, and no new C. Weighed against `GtkColumnView`,
+   which buys sorting, editing in place and recycled rows, costs a widget
+   family with a callback per cell, and has no customer yet.
+3. **Whether the list is read-only.** Recommended yes for the first build. An
+   order is added from a second form whose recordset follows, so `addNew`
+   still fills the contact without the program saying so.
+4. **A parent deleted while it has children.** Recommended refusing, by name,
+   saying how many rows follow it. Weighed against: cascading, which deletes a
+   person's orders on one press of a button that asks nothing first; and
+   orphaning, which the rowid reuse above turns from untidy into wrong.
+5. **Who makes the index.** Recommended the program, in the line that makes the
+   table, as the sketch does, with the reference saying why. Weighed against
+   `follow` making one when there is none, which is a recordset writing schema
+   into a file it was asked only to read, and against nothing at all, which is
+   fine until about 5,000 orders.
+6. **Which session builds steps 0 and 2.** They are in `solveig-gtk`. That
+   repository keeps no records of its own and its `CLAUDE.md` sends everything
+   here, and the three binding commits of 2026-09-18 were made from
+   Solveig's session. Since 2026-10-01 the
+   workspace rule is that a project changes only its own tree and that only
+   you can make an exception. Recommended that you say once whether
+   `solveig-gtk` counts as this project's tree; otherwise steps 0 and 2 go
+   across as a handoff note and step 1 is built here alone.
+7. **Whether the build waits for the trigger.** Recommended that step 1 goes
+   ahead and steps 0 and 2 wait for the contacts form to have been used with
+   typing. Step 1 is testable without eyes and has the example as its customer.
+   The form being used is the evidence the note asked for before a widget was
+   chosen, and it has been outstanding since 2026-09-17.
+
+**The calls read against each other before they were put**, which is the
+lesson of the dropdown entry. **Calls 3 and 4 collide.** With a read-only list
+and a refused delete, a contact who has orders cannot be deleted from the
+contacts form at all, since nothing on it can take the orders away first. The
+second form over `orders` can, one order at a time. That is accepted here
+rather than resolved: it is the trigger for the list growing a Delete, and it
+is written down so that it is met as a known limit and not as a defect. **Call
+4 depends on call 1**: a refusal can only be raised by something that knows the
+children, so if following goes to the form, the refusal goes with it and a
+program deleting through the recordset gets none. **Call 7 depends on call 6**
+only in where the waiting steps are built, not in whether they wait. Calls 2
+and 5 touch nothing else.
 
 
 ## Recommended against
