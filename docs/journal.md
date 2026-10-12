@@ -11,6 +11,45 @@ that a document was still true. That is what this is for.
 
 ---
 
+## 2026-10-12: the child table scoped before its trigger, and a rowid that changes owners
+
+**The first day back after twenty-four days, and the standup still matched
+the tree**: `main` level with origin at `26d5601`, nothing landed since, and
+`make test` green at the numbers the close-out left. Hans asked for the
+child table to be scoped, the next thing the standup named, and **the trigger
+had not fired**. The dropdown had gone first, which was half of it; the
+contacts form had still not been used with typing, which was the other half.
+The entry says it was written on request and not because a program asked.
+
+**Two of the note's claims were asked of the machine before a word of the
+entry**, and one of them changed a call. Delete the newest contact, insert
+another, and the new one is given the deleted one's rowid, and with it the
+deleted one's orders. `sqlite.sol` does that on purpose, as SQLite does
+without `AUTOINCREMENT`. It turned *orphaned orders* from untidy into wrong,
+and settled call 4 before it was put: a contact with orders is refused
+deletion. The other claim was the cost, which the note had said to measure
+rather than argue: about 21 µs a row of the child table on every parent move
+without an index, felt near 5,000 orders, and about 0.47 ms a child with one.
+
+**The calls were read against each other before they went to Hans**, which
+was the lesson the dropdown's close-out wrote down, **and two of them
+collided again.** A read-only list and a refused delete mean a contact with
+orders cannot be deleted from the contacts form at all. This time it was
+found before the answers rather than after, and the entry accepts it as a
+known limit instead of resolving it. Six of the seven went as recommended.
+The seventh was a ruling only Hans could make: under the workspace rule of
+2026-10-01, `solveig-gtk` counts as this project's tree, so the binding is
+built from here and no handoff note goes across.
+
+**Step 1 went in the same afternoon**, `recordset:follow` with sixteen
+claims all as written, and it is the step call 7 let go ahead of the trigger
+because the suite can run it. **One prediction was half right**: filling a
+list by walking the position does read every child twice, but the cure the
+entry named, one read of the query, is a second read too, and timed the same
+to within a few milliseconds. The fill that costs nothing is from rows the
+recordset has already read, which is a change to what it holds and is left
+for the list that would ask. The widget waits for the form to be used.
+
 ## 2026-09-18: the dropdown, the size question, and two answers that could not both be true
 
 **The standup named the `'choice` kind as the next scoping, and Hans added a

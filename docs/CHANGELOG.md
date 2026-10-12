@@ -5,6 +5,28 @@ Notable changes to Solveig, newest first.
 Each entry names the commit it landed in. Dates are the day the work was done.
 What is still outstanding is in [ROADMAP.md](ROADMAP.md).
 
+### `recordset:follow`, a child recordset that follows its parent: `9cd2158`, 2026-10-12
+
+Master and child in [lib/recordset.sol](../lib/recordset.sol):
+`recordset:on(orders):follow(people, 'contact)` narrows the orders to the
+rows whose `contact` holds the rowid of the record `people` stands on, and
+keeps them there through every move, save, delete and find the parent makes.
+Inside it `find` looks among those rows and `all` comes back to them;
+`addNew` fills the column with the parent's rowid and is refused while the
+parent is new. **A parent with rows following it is not deleted**, and the
+refusal says how many and where, because a deleted parent's rowid is given
+to the next row inserted, as SQLite gives it, and the orphans would be under
+somebody else. That was found while scoping, by a throwaway, before any of
+this was written. The index is the program's to make, and the reference says
+why: about 21 µs a row of the child table on each move without one, about
+0.47 ms a child with one. Sixteen claims in
+[examples/records.sol](../examples/records.sol), the reference and the
+cheatsheet grown, and the counts moved to 1,196 claims, 699 in the examples.
+The scoping, its seven calls and what step 1 found are under
+[A child table on the form](ideas.md#a-child-table-on-the-form-and-what-a-grid-would-be-scoped-2026-10-12)
+in ideas.md, `6d5556d` and `3117600`; the list that shows the rows in the
+GTK binding waits for the contacts form to be used.
+
 ### `lib/codes.sol`, a code table read once, and the dropdown it is the lookup for — `7ffb27c` and `f645453`, 2026-09-18
 
 The key a column stores and the text a person reads: `codes:on(table, key,
